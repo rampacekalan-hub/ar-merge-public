@@ -2,7 +2,14 @@ services:
   - type: web
     name: ar-merge-public
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: python3 server.py
     autoDeploy: true
+    disk:
+      name: app-disk
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DB_PATH
+        value: /var/data/app.db
