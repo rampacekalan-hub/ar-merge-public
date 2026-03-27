@@ -32,6 +32,15 @@
       </div>
     </header>
 
+    <section class="trust-bar" aria-label="Hlavné výhody">
+      <span class="trust-pill">GDPR ready</span>
+      <span class="trust-pill">Stripe secure payment</span>
+      <span class="trust-pill">CSV / XLSX / XLS</span>
+      <span class="trust-pill">Mailchimp / Ecomail ready</span>
+      <span class="trust-pill">Pripravené pre vlastnú doménu</span>
+      <span class="trust-pill">GA4 ready</span>
+    </section>
+
     <main class="layout">
       <section class="card">
         <div class="section-head">
@@ -77,10 +86,47 @@
           </ul>
       </section>
 
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">3. Ukážka výstupu</p>
+            <h2>Ako vyzerá finálny export</h2>
+          </div>
+        </div>
+
+        <div class="table-wrap table-wrap--preview">
+          <table>
+            <thead>
+              <tr>
+                <th>Meno</th>
+                <th>Priezvisko</th>
+                <th>Email</th>
+                <th>Telefón</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Jana</td>
+                <td>Nováková</td>
+                <td class="mono">jana.novakova@example.com</td>
+                <td class="mono">+421 905 123 456</td>
+              </tr>
+              <tr>
+                <td>Peter</td>
+                <td>Mravec</td>
+                <td class="mono">peter.mravec@example.com</td>
+                <td class="mono">+421 907 555 210</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-subnote">Presne tento formát je vhodný pre CRM, mailing databázy a newsletter importy.</p>
+      </section>
+
       <section class="card card--wide">
         <div class="section-head">
           <div>
-            <p class="section-kicker">3. Výsledok</p>
+            <p class="section-kicker">4. Výsledok</p>
             <h2>Finálny zoznam kontaktov</h2>
           </div>
           <div class="toolbar toolbar--compact">
@@ -116,7 +162,7 @@
 
         <div class="section-head section-head--audit">
           <div>
-            <p class="section-kicker">4. Audit</p>
+            <p class="section-kicker">5. Audit</p>
             <h2>Odstránené duplicity</h2>
           </div>
         </div>
@@ -127,7 +173,7 @@
       <section class="card card--wide card--info">
         <div class="section-head">
           <div>
-            <p class="section-kicker">4. Pre verejnosť</p>
+            <p class="section-kicker">6. Pre verejnosť</p>
             <h2>Ako to funguje</h2>
           </div>
         </div>
@@ -152,10 +198,34 @@
         </div>
       </section>
 
+      <section class="card card--wide">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">7. Pre koho je to</p>
+            <h2>Najčastejšie použitie</h2>
+          </div>
+        </div>
+
+        <div class="audience-grid">
+          <article class="audience-card">
+            <strong>Firmy a obchodné tímy</strong>
+            <p>Vyčistenie databázy kontaktov pred CRM importom, obchodnou kampaňou alebo odovzdaním databázy tímu.</p>
+          </article>
+          <article class="audience-card">
+            <strong>Marketéri a newslettery</strong>
+            <p>Príprava databázy pre Mailchimp, Ecomail a ďalšie mailing nástroje bez chaosu a duplicitných kontaktov.</p>
+          </article>
+          <article class="audience-card">
+            <strong>Administratíva a backoffice</strong>
+            <p>Spájanie viacerých exportov od klientov, partnerov alebo kolegov do jedného čistého a použiteľného zoznamu.</p>
+          </article>
+        </div>
+      </section>
+
       <section class="card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">5. Súkromie</p>
+            <p class="section-kicker">8. Súkromie</p>
             <h2>Bezpečné spracovanie</h2>
           </div>
         </div>
@@ -169,7 +239,7 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">6. FAQ</p>
+            <p class="section-kicker">9. FAQ</p>
             <h2>Časté otázky</h2>
           </div>
         </div>
@@ -197,7 +267,7 @@
       <section class="card card--wide">
         <div class="section-head">
           <div>
-            <p class="section-kicker">7. Cenník</p>
+            <p class="section-kicker">10. Cenník</p>
             <h2>Pro verzia</h2>
           </div>
         </div>
@@ -206,11 +276,12 @@
           <article class="pricing-card pricing-card--pro">
             <span class="pricing-card__label">Pro</span>
             <strong class="pricing-card__price">Jednorazová platba pred importom</strong>
-            <p class="pricing-card__copy">Plná verzia pre reálne použitie vo firme alebo pri pravidelnej práci s databázami. Platba prebieha bezpečne cez Stripe.</p>
+            <p class="pricing-card__copy">Plná verzia pre reálne firemné použitie. Odomkneš import viacerých databáz, deduplikáciu, audit odstránených záznamov a export pripravený pre CRM alebo newsletter systémy. Platba prebieha bezpečne cez Stripe.</p>
             <ul class="rule-list">
               <li>plný import a deduplikácia</li>
               <li>CSV a XLSX export</li>
               <li>audit odstránených duplicit</li>
+              <li>výstup pre Mailchimp, Ecomail a CRM</li>
               <li>prioritná podpora</li>
             </ul>
             <button id="buyProBtn" class="button button--primary pricing-card__link" type="button">Kúpiť Pro cez Stripe</button>

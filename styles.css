@@ -225,6 +225,27 @@ h3 {
   color: var(--surface-dark);
 }
 
+.trust-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 20px;
+}
+
+.trust-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(37, 99, 235, 0.08);
+  box-shadow: var(--shadow);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .summary-card span,
 .section-copy,
 .result-card__head p,
@@ -235,6 +256,7 @@ h3 {
 }
 
 .info-grid,
+.audience-grid,
 .faq-list,
 .pricing-grid {
   display: grid;
@@ -249,7 +271,12 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.audience-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .info-card,
+.audience-card,
 .faq-item,
 .privacy-note {
   border-radius: 22px;
@@ -259,6 +286,7 @@ h3 {
 }
 
 .info-card strong,
+.audience-card strong,
 .faq-item strong,
 .privacy-note strong {
   display: block;
@@ -267,6 +295,7 @@ h3 {
 }
 
 .info-card p,
+.audience-card p,
 .faq-item p,
 .privacy-note p {
   margin: 0;
@@ -318,6 +347,10 @@ h3 {
 .pricing-card__link {
   display: inline-flex;
   text-decoration: none;
+}
+
+.table-wrap--preview {
+  margin-top: 2px;
 }
 
 .legal-layout {
@@ -897,6 +930,7 @@ th {
   .layout,
   .legal-layout,
   .info-grid,
+  .audience-grid,
   .pricing-grid,
   .summary-grid,
   .results-grid,
