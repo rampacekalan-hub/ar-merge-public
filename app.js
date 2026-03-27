@@ -418,6 +418,12 @@ async function handleResetRequestSubmit(event) {
   event.preventDefault();
   elements.resetRequestMessage.hidden = true;
   elements.resetRequestMessage.classList.remove("auth-message--error");
+  const submitButton = elements.resetRequestForm.querySelector('button[type="submit"]');
+  const originalLabel = submitButton ? submitButton.textContent : "";
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "Odosielam...";
+  }
 
   try {
     const response = await fetch("/api/request-password-reset", {
@@ -431,10 +437,17 @@ async function handleResetRequestSubmit(event) {
     }
     elements.resetRequestMessage.hidden = false;
     elements.resetRequestMessage.textContent = "Ak účet existuje, poslali sme ti link na obnovu hesla.";
+    window.alert("Ak účet existuje, poslali sme ti link na obnovu hesla.");
   } catch (error) {
     elements.resetRequestMessage.hidden = false;
     elements.resetRequestMessage.textContent = error.message;
     elements.resetRequestMessage.classList.add("auth-message--error");
+    window.alert(error.message);
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
   }
 }
 
