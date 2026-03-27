@@ -192,6 +192,12 @@ Ak ste o obnovu hesla nežiadali, tento e-mail môžete ignorovať.
 """
     )
 
+    if SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+            smtp.send_message(message)
+        return
+
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
         smtp.ehlo()
         smtp.starttls()
