@@ -17,6 +17,7 @@ const PRO_ACCESS_KEY = "ar_merge_pro_access";
 const elements = {
   fileInput: document.getElementById("fileInput"),
   buyHeroBtn: document.getElementById("buyHeroBtn"),
+  demoHeroBtn: document.getElementById("demoHeroBtn"),
   unlockUploadBtn: document.getElementById("unlockUploadBtn"),
   buyToolbarBtn: document.getElementById("buyToolbarBtn"),
   buyProBtn: document.getElementById("buyProBtn"),
@@ -36,6 +37,7 @@ const elements = {
   promoModal: document.getElementById("promoModal"),
   promoModalBackdrop: document.getElementById("promoModalBackdrop"),
   promoModalClose: document.getElementById("promoModalClose"),
+  promoModalDemo: document.getElementById("promoModalDemo"),
   promoModalStart: document.getElementById("promoModalStart"),
 };
 
@@ -46,6 +48,7 @@ function bootstrap() {
   hydrateProAccess();
   elements.fileInput.addEventListener("change", handleFileSelection);
   elements.buyHeroBtn.addEventListener("click", startProCheckout);
+  elements.demoHeroBtn.addEventListener("click", runDemoFlow);
   elements.unlockUploadBtn.addEventListener("click", startProCheckout);
   elements.buyToolbarBtn.addEventListener("click", startProCheckout);
   elements.buyProBtn.addEventListener("click", startProCheckout);
@@ -53,6 +56,10 @@ function bootstrap() {
   elements.resetBtn.addEventListener("click", resetApp);
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
+  elements.promoModalDemo.addEventListener("click", async () => {
+    closePromoModal();
+    await runDemoFlow();
+  });
   elements.promoModalStart.addEventListener("click", () => {
     closePromoModal();
     startProCheckout();
@@ -152,6 +159,37 @@ function startProCheckout() {
     return;
   }
   window.location.href = paymentLink;
+}
+
+async function runDemoFlow() {
+  resetApp();
+  elements.datasetList.className = "dataset-list empty-state";
+  elements.datasetList.textContent = "Načítavam ukážkové dáta...";
+
+  try {
+    const response = await fetch("/api/demo", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Demo sa nepodarilo načítať.");
+    }
+
+    state.datasets = payload.datasets || [];
+    state.mergedContacts = payload.rows || [];
+    state.removedDuplicates = payload.removed_duplicates || [];
+    state.report = payload.report || state.report;
+
+    renderDatasetResults();
+    renderSummary();
+    renderResultTable();
+    renderDuplicatesAudit();
+    window.scrollTo({ top: document.querySelector(".layout")?.offsetTop || 0, behavior: "smooth" });
+  } catch (error) {
+    elements.datasetList.className = "dataset-list empty-state";
+    elements.datasetList.textContent = "Ukážkové dáta sa nepodarilo načítať.";
+    window.alert(`Nepodarilo sa spustiť demo: ${error.message}`);
+  } finally {
+    renderAccessState();
+  }
 }
 
 async function disableServiceWorkers() {

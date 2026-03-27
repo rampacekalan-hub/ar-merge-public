@@ -178,6 +178,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/process":
             self.handle_process()
             return
+        if self.path == "/api/demo":
+            self.handle_demo()
+            return
         if self.path == "/api/parse":
             self.handle_parse()
             return
@@ -248,6 +251,27 @@ class AppHandler(SimpleHTTPRequestHandler):
         if not uploads:
             self.write_json({"error": "Neboli prijaté žiadne súbory."}, status=HTTPStatus.BAD_REQUEST)
             return
+
+        try:
+            payload = process_uploads(uploads)
+        except Exception as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        self.write_json(payload)
+
+    def handle_demo(self):
+        examples_dir = os.path.join(BASE_DIR, "examples")
+        demo_files = ["contacts_a.csv", "contacts_b.csv"]
+        uploads = []
+
+        for filename in demo_files:
+            path = os.path.join(examples_dir, filename)
+            if not os.path.exists(path):
+                self.write_json({"error": f"Ukážkový súbor {filename} neexistuje."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+            with open(path, "rb") as handle:
+                uploads.append((filename, handle.read()))
 
         try:
             payload = process_uploads(uploads)
