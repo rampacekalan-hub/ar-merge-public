@@ -42,6 +42,7 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip()
+ADMIN_EMAILS = {item.strip().lower() for item in os.environ.get("ADMIN_EMAILS", "").split(",") if item.strip()}
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -84,6 +85,7 @@ def init_db():
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 password_salt TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
                 stripe_customer_id TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -126,11 +128,23 @@ def init_db():
                 used_at TEXT,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                event_type TEXT NOT NULL,
+                event_label TEXT NOT NULL,
+                event_meta TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
             """
         )
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()}
         if "name" not in columns:
             connection.execute("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+        if "role" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
         connection.commit()
     finally:
         connection.close()
@@ -138,6 +152,10 @@ def init_db():
 
 def normalize_email(email):
     return str(email or "").strip().lower()
+
+
+def is_admin_email(email):
+    return normalize_email(email) in ADMIN_EMAILS
 
 
 def hash_password(password, salt):
@@ -240,6 +258,23 @@ def create_session(connection, user_id):
     return token, expires_at
 
 
+def log_activity(connection, event_type, event_label, user_id=None, **meta):
+    connection.execute(
+        """
+        INSERT INTO activity_logs (user_id, event_type, event_label, event_meta, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            event_type,
+            event_label,
+            json.dumps(meta, ensure_ascii=False),
+            format_timestamp(utc_now()),
+        ),
+    )
+    connection.commit()
+
+
 def clear_session(connection, token):
     if not token:
         return
@@ -288,6 +323,55 @@ def get_membership(connection, user_id):
     return membership
 
 
+def ensure_admin_role(connection, user_row):
+    if not user_row:
+        return user_row
+    if user_row["role"] == "admin":
+        return user_row
+    if not is_admin_email(user_row["email"]):
+        return user_row
+    connection.execute(
+        "UPDATE users SET role = 'admin', updated_at = ? WHERE id = ?",
+        (format_timestamp(utc_now()), user_row["id"]),
+    )
+    connection.commit()
+    return connection.execute("SELECT * FROM users WHERE id = ?", (user_row["id"],)).fetchone()
+
+
+def get_recent_activity(connection, user_id=None, limit=20):
+    params = []
+    query = """
+        SELECT activity_logs.*, users.email AS user_email, users.name AS user_name
+        FROM activity_logs
+        LEFT JOIN users ON users.id = activity_logs.user_id
+    """
+    if user_id is not None:
+        query += " WHERE activity_logs.user_id = ?"
+        params.append(user_id)
+    query += " ORDER BY activity_logs.created_at DESC LIMIT ?"
+    params.append(limit)
+    rows = connection.execute(query, tuple(params)).fetchall()
+    activity = []
+    for row in rows:
+        try:
+            meta = json.loads(row["event_meta"] or "{}")
+        except Exception:
+            meta = {}
+        activity.append(
+            {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "user_email": row["user_email"] or "",
+                "user_name": row["user_name"] or "",
+                "event_type": row["event_type"],
+                "event_label": row["event_label"],
+                "created_at": row["created_at"],
+                "meta": meta,
+            }
+        )
+    return activity
+
+
 def is_membership_active(membership):
     if not membership:
         return False
@@ -309,6 +393,8 @@ def user_payload(connection, user_row):
             "id": user_row["id"],
             "name": user_row["name"],
             "email": user_row["email"],
+            "role": user_row["role"],
+            "is_admin": user_row["role"] == "admin",
             "created_at": user_row["created_at"],
             "membership_active": is_membership_active(membership),
             "membership_status": membership.get("status") if membership else "inactive",
@@ -395,6 +481,14 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
             now,
             now,
         ),
+    )
+    log_activity(
+        connection,
+        "membership_updated",
+        "Členstvo bolo synchronizované zo Stripe.",
+        user_row["id"],
+        status=status,
+        current_period_end=format_timestamp(period_end) if period_end else "",
     )
     connection.commit()
 
@@ -586,6 +680,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/me"):
             self.handle_me()
             return
+        if self.path.startswith("/api/account"):
+            self.handle_account()
+            return
+        if self.path.startswith("/api/admin/overview"):
+            self.handle_admin_overview()
+            return
         if self.path.startswith("/api/refresh-membership"):
             self.handle_refresh_membership()
             return
@@ -609,6 +709,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/create-checkout-session":
             self.handle_create_checkout_session()
+            return
+        if self.path == "/api/admin/membership":
+            self.handle_admin_membership_update()
             return
         if self.path == "/api/stripe-webhook":
             self.handle_stripe_webhook()
@@ -669,12 +772,83 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not user:
                 self.write_json({"authenticated": False, "user": None})
                 return
+            user = ensure_admin_role(connection, user)
             try:
                 sync_membership_for_user(connection, user)
                 user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
             except Exception:
                 pass
             self.write_json(user_payload(connection, user))
+        finally:
+            connection.close()
+
+    def require_authenticated_user(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return None
+            return dict(user)
+        finally:
+            connection.close()
+
+    def handle_account(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            user = ensure_admin_role(connection, user)
+            try:
+                sync_membership_for_user(connection, user)
+                user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            except Exception:
+                pass
+            self.write_json(
+                {
+                    **user_payload(connection, user),
+                    "activity": get_recent_activity(connection, user["id"], limit=25),
+                }
+            )
+        finally:
+            connection.close()
+
+    def handle_admin_overview(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            user = ensure_admin_role(connection, user)
+            if user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            rows = connection.execute(
+                """
+                SELECT users.*, memberships.status AS membership_status, memberships.current_period_end AS membership_valid_until
+                FROM users
+                LEFT JOIN memberships ON memberships.user_id = users.id
+                ORDER BY users.created_at DESC
+                """
+            ).fetchall()
+            users = []
+            for row in rows:
+                users.append(
+                    {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "email": row["email"],
+                        "role": row["role"],
+                        "created_at": row["created_at"],
+                        "membership_status": row["membership_status"] or "inactive",
+                        "membership_valid_until": row["membership_valid_until"] or "",
+                    }
+                )
+            self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50)})
         finally:
             connection.close()
 
@@ -722,15 +896,18 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             salt, password_hash = create_password_hash(password)
             now = format_timestamp(utc_now())
+            user_count = connection.execute("SELECT COUNT(*) AS total FROM users").fetchone()["total"]
+            role = "admin" if is_admin_email(email) or user_count == 0 else "user"
             cursor = connection.execute(
                 """
-                INSERT INTO users (name, email, password_hash, password_salt, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO users (name, email, password_hash, password_salt, role, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (name, email, password_hash, salt, now, now),
+                (name, email, password_hash, salt, role, now, now),
             )
             user_id = cursor.lastrowid
             token, expires_at = create_session(connection, user_id)
+            log_activity(connection, "register", "Používateľ si vytvoril účet.", user_id, email=email, role=role)
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             self.write_json(
                 user_payload(connection, user),
@@ -755,10 +932,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not user or not verify_password(password, user["password_salt"], user["password_hash"]):
                 self.write_json({"error": "Neplatný e-mail alebo heslo."}, status=HTTPStatus.UNAUTHORIZED)
                 return
+            user = ensure_admin_role(connection, user)
 
             old_token = get_cookie_token(self.headers)
             clear_session(connection, old_token)
             token, expires_at = create_session(connection, user["id"])
+            log_activity(connection, "login", "Používateľ sa prihlásil.", user["id"], email=email)
             self.write_json(
                 user_payload(connection, user),
                 cookie_headers=[self.session_cookie_header(token, expires_at)],
@@ -799,6 +978,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             connection.commit()
             send_reset_email(user["email"], user["name"], raw_token)
+            log_activity(connection, "password_reset_requested", "Používateľ si vyžiadal obnovu hesla.", user["id"])
             self.write_json({"ok": True})
         except RuntimeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -866,6 +1046,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             connection.execute("DELETE FROM sessions WHERE user_id = ?", (token_row["user_id"],))
             connection.commit()
+            log_activity(connection, "password_reset_completed", "Používateľ si obnovil heslo.", token_row["user_id"])
             self.write_json({"ok": True})
         finally:
             connection.close()
@@ -873,6 +1054,9 @@ class AppHandler(SimpleHTTPRequestHandler):
     def handle_logout(self):
         connection = get_db()
         try:
+            user = get_session_user(connection, self.headers)
+            if user:
+                log_activity(connection, "logout", "Používateľ sa odhlásil.", user["id"])
             clear_session(connection, get_cookie_token(self.headers))
             self.write_json(
                 {"ok": True},
@@ -921,9 +1105,69 @@ class AppHandler(SimpleHTTPRequestHandler):
                 (user["id"], session["id"], format_timestamp(utc_now())),
             )
             connection.commit()
+            log_activity(connection, "checkout_created", "Používateľ otvoril Stripe checkout pre členstvo.", user["id"])
             self.write_json({"url": session["url"]})
         except stripe.error.StripeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+        finally:
+            connection.close()
+
+    def handle_admin_membership_update(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            user_id = int(payload.get("user_id") or 0)
+            action = str(payload.get("action") or "").strip()
+            if not user_id or action not in {"activate_30d", "deactivate"}:
+                self.write_json({"error": "Neplatná admin akcia."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            target_user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not target_user:
+                self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            now = utc_now()
+            now_value = format_timestamp(now)
+            if action == "activate_30d":
+                end_value = format_timestamp(now + timedelta(days=30))
+                connection.execute(
+                    """
+                    INSERT INTO memberships (user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at)
+                    VALUES (?, 'active', ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        status = 'active',
+                        current_period_end = excluded.current_period_end,
+                        updated_at = excluded.updated_at
+                    """,
+                    (user_id, target_user["stripe_customer_id"], "", end_value, now_value, now_value),
+                )
+                log_activity(connection, "admin_membership_update", "Admin aktivoval členstvo na 30 dní.", admin_user["id"], target_user_id=user_id)
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO memberships (user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at)
+                    VALUES (?, 'inactive', ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        status = 'inactive',
+                        current_period_end = '',
+                        updated_at = excluded.updated_at
+                    """,
+                    (user_id, target_user["stripe_customer_id"], "", "", now_value, now_value),
+                )
+                log_activity(connection, "admin_membership_update", "Admin deaktivoval členstvo.", admin_user["id"], target_user_id=user_id)
+            connection.commit()
+            self.write_json({"ok": True})
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:
             connection.close()
 
@@ -1014,7 +1258,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.write_json(table)
 
     def handle_process(self):
-        if not self.require_active_membership():
+        user = self.require_active_membership()
+        if not user:
             return
 
         try:
@@ -1044,10 +1289,16 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
 
+        connection = get_db()
+        try:
+            log_activity(connection, "upload_processed", "Používateľ spracoval databázu kontaktov.", user["id"], files=len(uploads))
+        finally:
+            connection.close()
         self.write_json(payload)
 
     def handle_export_xlsx(self):
-        if not self.require_active_membership():
+        user = self.require_active_membership()
+        if not user:
             return
 
         try:
@@ -1095,6 +1346,11 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+        connection = get_db()
+        try:
+            log_activity(connection, "xlsx_export", "Používateľ exportoval XLSX.", user["id"], filename=filename)
+        finally:
+            connection.close()
 
 
 def main():

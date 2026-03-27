@@ -159,6 +159,15 @@ code {
   transition: background 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
+.sidebar__link--button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .sidebar__link:hover {
   background: rgba(37, 99, 235, 0.08);
   color: var(--accent-strong);
@@ -482,6 +491,62 @@ h3 {
   text-align: right;
 }
 
+.activity-list {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-card {
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(37, 99, 235, 0.08);
+}
+
+.activity-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.activity-card__head strong {
+  margin: 0;
+  color: var(--surface-dark);
+}
+
+.activity-card__head span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.activity-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.activity-card__meta span {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-actions .button {
+  padding: 8px 12px;
+}
+
 .privacy-note {
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(255, 255, 255, 0.92));
 }
@@ -770,6 +835,14 @@ h3 {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(244, 249, 255, 0.97)),
     linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08));
+}
+
+.modal__dialog--wide {
+  width: min(980px, 100%);
+}
+
+.modal__dialog--admin {
+  width: min(1120px, 100%);
 }
 
 .modal__close {
@@ -1379,6 +1452,10 @@ th {
 
   .modal__dialog {
     padding: 24px 20px;
+  }
+
+  .activity-card__head {
+    flex-direction: column;
   }
 
   .cookie-banner {

@@ -1,5 +1,7 @@
 const state = {
   user: null,
+  account: null,
+  admin: null,
   authMode: "register",
   files: [],
   datasets: [],
@@ -21,6 +23,8 @@ const elements = {
   logoutBtn: document.getElementById("logoutBtn"),
   accountStatus: document.getElementById("accountStatus"),
   accountSummary: document.getElementById("accountSummary"),
+  accountMenuBtn: document.getElementById("accountMenuBtn"),
+  adminMenuBtn: document.getElementById("adminMenuBtn"),
   uploadTitle: document.getElementById("uploadTitle"),
   uploadSubtitle: document.getElementById("uploadSubtitle"),
   unlockUploadBtn: document.getElementById("unlockUploadBtn"),
@@ -69,6 +73,16 @@ const elements = {
   resetPasswordForm: document.getElementById("resetPasswordForm"),
   resetPasswordInput: document.getElementById("resetPasswordInput"),
   resetPasswordMessage: document.getElementById("resetPasswordMessage"),
+  accountPanel: document.getElementById("accountPanel"),
+  accountPanelBackdrop: document.getElementById("accountPanelBackdrop"),
+  accountPanelClose: document.getElementById("accountPanelClose"),
+  accountPanelSummary: document.getElementById("accountPanelSummary"),
+  accountActivityList: document.getElementById("accountActivityList"),
+  adminPanel: document.getElementById("adminPanel"),
+  adminPanelBackdrop: document.getElementById("adminPanelBackdrop"),
+  adminPanelClose: document.getElementById("adminPanelClose"),
+  adminUsersTable: document.getElementById("adminUsersTable"),
+  adminActivityList: document.getElementById("adminActivityList"),
   sidebar: document.getElementById("sidebar"),
   sidebarToggle: document.getElementById("sidebarToggle"),
   sidebarBackdrop: document.getElementById("sidebarBackdrop"),
@@ -83,9 +97,27 @@ async function bootstrap() {
   elements.fileInput.addEventListener("change", handleFileSelection);
   elements.uploadBox.addEventListener("click", handleUploadBoxClick);
   elements.buyHeroBtn.addEventListener("click", startCheckoutFlow);
-  elements.accountBtn.addEventListener("click", () => openAuthModal(state.user ? "login" : "register"));
+  elements.accountBtn.addEventListener("click", () => {
+    if (state.user) {
+      openAccountPanel();
+      return;
+    }
+    openAuthModal("register");
+  });
+  elements.accountMenuBtn?.addEventListener("click", () => {
+    closeSidebar();
+    if (state.user) {
+      openAccountPanel();
+      return;
+    }
+    openAuthModal("register");
+  });
+  elements.adminMenuBtn?.addEventListener("click", () => {
+    closeSidebar();
+    openAdminPanel();
+  });
   elements.logoutBtn.addEventListener("click", logout);
-  elements.unlockUploadBtn.addEventListener("click", startProCheckout);
+  elements.unlockUploadBtn.addEventListener("click", handleUnlockUploadAction);
   elements.buyToolbarBtn.addEventListener("click", startCheckoutFlow);
   elements.buyProBtn.addEventListener("click", startCheckoutFlow);
   elements.mergeBtn.addEventListener("click", processFiles);
@@ -112,6 +144,10 @@ async function bootstrap() {
   elements.resetPasswordBackdrop.addEventListener("click", closeResetPasswordModal);
   elements.resetPasswordClose.addEventListener("click", closeResetPasswordModal);
   elements.resetPasswordForm.addEventListener("submit", handleResetPasswordSubmit);
+  elements.accountPanelBackdrop?.addEventListener("click", closeAccountPanel);
+  elements.accountPanelClose?.addEventListener("click", closeAccountPanel);
+  elements.adminPanelBackdrop?.addEventListener("click", closeAdminPanel);
+  elements.adminPanelClose?.addEventListener("click", closeAdminPanel);
   elements.sidebarToggle?.addEventListener("click", toggleSidebar);
   elements.sidebarBackdrop?.addEventListener("click", closeSidebar);
   elements.sidebarLinks.forEach((link) => link.addEventListener("click", closeSidebar));
@@ -167,6 +203,12 @@ function renderAccessState() {
   if (elements.accountBtn) {
     elements.accountBtn.textContent = isLoggedIn ? accountLabel : "Prihlásiť sa";
   }
+  if (elements.accountMenuBtn) {
+    elements.accountMenuBtn.textContent = isLoggedIn ? "Účet a nastavenia" : "Prihlásiť sa / Registrovať";
+  }
+  if (elements.adminMenuBtn) {
+    elements.adminMenuBtn.classList.toggle("is-hidden", !state.user?.is_admin);
+  }
   if (elements.logoutBtn) {
     elements.logoutBtn.classList.toggle("is-hidden", !isLoggedIn);
   }
@@ -210,6 +252,12 @@ function handleModalEscape(event) {
   if (!elements.resetPasswordModal.hidden) {
     closeResetPasswordModal();
   }
+  if (!elements.accountPanel.hidden) {
+    closeAccountPanel();
+  }
+  if (!elements.adminPanel.hidden) {
+    closeAdminPanel();
+  }
   closeSidebar();
 }
 
@@ -243,7 +291,9 @@ function syncModalState() {
     !elements.promoModal.hidden ||
     !elements.authModal.hidden ||
     !elements.resetRequestModal.hidden ||
-    !elements.resetPasswordModal.hidden;
+    !elements.resetPasswordModal.hidden ||
+    !elements.accountPanel.hidden ||
+    !elements.adminPanel.hidden;
   document.body.classList.toggle("modal-open", hasOpenModal);
 }
 
@@ -259,6 +309,28 @@ function openAuthModal(mode = "register") {
 
 function closeAuthModal() {
   elements.authModal.hidden = true;
+  syncModalState();
+}
+
+async function openAccountPanel() {
+  elements.accountPanel.hidden = false;
+  syncModalState();
+  await fetchAccountPanel();
+}
+
+function closeAccountPanel() {
+  elements.accountPanel.hidden = true;
+  syncModalState();
+}
+
+async function openAdminPanel() {
+  elements.adminPanel.hidden = false;
+  syncModalState();
+  await fetchAdminPanel();
+}
+
+function closeAdminPanel() {
+  elements.adminPanel.hidden = true;
   syncModalState();
 }
 
@@ -324,6 +396,51 @@ async function refreshCurrentUser() {
   }
 }
 
+async function fetchAccountPanel() {
+  if (!state.user) {
+    return;
+  }
+  elements.accountPanelSummary.className = "account-summary empty-state";
+  elements.accountPanelSummary.textContent = "Načítavam údaje o účte...";
+  elements.accountActivityList.className = "empty-state";
+  elements.accountActivityList.textContent = "Načítavam aktivitu...";
+  try {
+    const response = await fetch("/api/account");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Údaje o účte sa nepodarilo načítať.");
+    }
+    state.account = payload;
+    renderAccountPanel();
+  } catch (error) {
+    elements.accountPanelSummary.className = "account-summary empty-state";
+    elements.accountPanelSummary.textContent = error.message;
+    elements.accountActivityList.className = "empty-state";
+    elements.accountActivityList.textContent = error.message;
+  }
+}
+
+async function fetchAdminPanel() {
+  elements.adminUsersTable.className = "table-wrap empty-state";
+  elements.adminUsersTable.textContent = "Načítavam používateľov...";
+  elements.adminActivityList.className = "empty-state";
+  elements.adminActivityList.textContent = "Načítavam admin log...";
+  try {
+    const response = await fetch("/api/admin/overview");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Admin dáta sa nepodarilo načítať.");
+    }
+    state.admin = payload;
+    renderAdminPanel();
+  } catch (error) {
+    elements.adminUsersTable.className = "table-wrap empty-state";
+    elements.adminUsersTable.textContent = error.message;
+    elements.adminActivityList.className = "empty-state";
+    elements.adminActivityList.textContent = error.message;
+  }
+}
+
 function formatDate(value) {
   if (!value) {
     return "—";
@@ -362,6 +479,122 @@ function renderAccountSummary() {
   `;
 }
 
+function renderAccountPanel() {
+  const user = state.account?.user || state.user;
+  if (!user) {
+    elements.accountPanelSummary.className = "account-summary empty-state";
+    elements.accountPanelSummary.textContent = "Zatiaľ nie si prihlásený.";
+    return;
+  }
+  elements.accountPanelSummary.className = "account-summary";
+  elements.accountPanelSummary.innerHTML = `
+    <article class="account-card">
+      <div class="account-card__row"><strong>Meno</strong><span>${escapeHtml(user.name || "—")}</span></div>
+      <div class="account-card__row"><strong>E-mail</strong><span>${escapeHtml(user.email || "")}</span></div>
+      <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
+      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_active ? "Aktívne" : "Neaktívne")}</span></div>
+      <div class="account-card__row"><strong>Členstvo od</strong><span>${escapeHtml(formatDate(user.membership_started_at))}</span></div>
+      <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>Rola</strong><span>${escapeHtml(user.is_admin ? "Admin" : "Používateľ")}</span></div>
+    </article>
+  `;
+  renderActivityList(elements.accountActivityList, state.account?.activity || []);
+}
+
+function renderActivityList(target, items) {
+  if (!items.length) {
+    target.className = "empty-state";
+    target.textContent = "Zatiaľ bez aktivity.";
+    return;
+  }
+  target.className = "activity-list";
+  target.innerHTML = items.map((item) => `
+    <article class="activity-card">
+      <div class="activity-card__head">
+        <strong>${escapeHtml(item.event_label || item.event_type || "Aktivita")}</strong>
+        <span>${escapeHtml(formatDateTime(item.created_at))}</span>
+      </div>
+      <div class="activity-card__meta">
+        ${item.user_name || item.user_email ? `<span>${escapeHtml(item.user_name || item.user_email)}</span>` : ""}
+        ${item.meta?.files ? `<span>${escapeHtml(String(item.meta.files))} súbory</span>` : ""}
+        ${item.meta?.status ? `<span>${escapeHtml(item.meta.status)}</span>` : ""}
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderAdminPanel() {
+  renderAdminUsers();
+  renderActivityList(elements.adminActivityList, state.admin?.activity || []);
+}
+
+function renderAdminUsers() {
+  const users = state.admin?.users || [];
+  if (!users.length) {
+    elements.adminUsersTable.className = "table-wrap empty-state";
+    elements.adminUsersTable.textContent = "Zatiaľ bez registrovaných používateľov.";
+    return;
+  }
+  elements.adminUsersTable.className = "table-wrap";
+  elements.adminUsersTable.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Meno</th>
+          <th>Email</th>
+          <th>Rola</th>
+          <th>Členstvo</th>
+          <th>Platné do</th>
+          <th>Akcie</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map((user) => `
+          <tr>
+            <td>${escapeHtml(user.name || "—")}</td>
+            <td class="mono">${escapeHtml(user.email || "")}</td>
+            <td>${escapeHtml(user.role || "user")}</td>
+            <td>${escapeHtml(user.membership_status || "inactive")}</td>
+            <td>${escapeHtml(formatDate(user.membership_valid_until))}</td>
+            <td>
+              <div class="admin-actions">
+                <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="activate_30d" type="button">+30 dní</button>
+                <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="deactivate" type="button">Deaktivovať</button>
+              </div>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+  elements.adminUsersTable.querySelectorAll(".admin-action").forEach((button) => {
+    button.addEventListener("click", handleAdminAction);
+  });
+}
+
+async function handleAdminAction(event) {
+  const button = event.currentTarget;
+  const userId = Number(button.dataset.userId);
+  const action = button.dataset.action;
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/admin/membership", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, action }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Admin akcia zlyhala.");
+    }
+    await fetchAdminPanel();
+  } catch (error) {
+    window.alert(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function handleAuthSubmit(event) {
   event.preventDefault();
   clearAuthMessage();
@@ -396,6 +629,8 @@ async function handleAuthSubmit(event) {
 async function logout() {
   await fetch("/api/logout", { method: "POST" });
   state.user = null;
+  state.account = null;
+  state.admin = null;
   resetApp();
   renderAccessState();
 }
@@ -501,10 +736,20 @@ async function startCheckoutFlow() {
     return;
   }
   if (state.user.membership_active) {
-    renderAccessState();
+    if (elements.fileInput) {
+      elements.fileInput.click();
+    }
     return;
   }
   await startProCheckout();
+}
+
+function handleUnlockUploadAction() {
+  if (state.user?.membership_active) {
+    elements.fileInput.click();
+    return;
+  }
+  startCheckoutFlow();
 }
 
 async function startProCheckout() {
@@ -532,6 +777,23 @@ function handleUploadBoxClick(event) {
     return;
   }
   startCheckoutFlow();
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "—";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
 }
 
 async function disableServiceWorkers() {

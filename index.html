@@ -21,7 +21,8 @@
 
       <nav class="sidebar__nav" aria-label="Navigácia">
         <a href="#section-import" class="sidebar__link">Import</a>
-        <a href="#section-account" class="sidebar__link">Účet</a>
+        <button id="accountMenuBtn" class="sidebar__link sidebar__link--button" type="button">Účet a nastavenia</button>
+        <button id="adminMenuBtn" class="sidebar__link sidebar__link--button is-hidden" type="button">Administrácia</button>
         <a href="#section-rules" class="sidebar__link">Pravidlá</a>
         <a href="#section-preview" class="sidebar__link">Ukážka výstupu</a>
         <a href="#section-results" class="sidebar__link">Výsledok</a>
@@ -114,7 +115,7 @@
         <div id="datasetList" class="dataset-list empty-state">Zatiaľ nie sú načítané žiadne súbory.</div>
       </section>
 
-      <section id="section-account" class="card">
+      <section id="section-account" class="card is-hidden">
         <div class="section-head">
           <div>
             <p class="section-kicker">2. Účet</p>
@@ -468,6 +469,48 @@
         <button class="button button--primary" type="submit">Uložiť nové heslo</button>
       </form>
       <p id="resetPasswordMessage" class="auth-message" hidden></p>
+    </div>
+  </div>
+
+  <div id="accountPanel" class="modal" hidden>
+    <div id="accountPanelBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="accountPanelTitle">
+      <button id="accountPanelClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Účet</p>
+      <h2 id="accountPanelTitle">Nastavenia účtu a história</h2>
+      <p class="modal__sublead">Tu nájdeš údaje o účte, stav členstva a posledné prihlásenia a aktivity.</p>
+      <div id="accountPanelSummary" class="account-summary empty-state">Načítavam údaje o účte...</div>
+      <div class="section-head section-head--audit">
+        <div>
+          <p class="section-kicker">Aktivita</p>
+          <h2>Posledné udalosti</h2>
+        </div>
+      </div>
+      <div id="accountActivityList" class="empty-state">Zatiaľ bez aktivity.</div>
+    </div>
+  </div>
+
+  <div id="adminPanel" class="modal" hidden>
+    <div id="adminPanelBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog modal__dialog--wide modal__dialog--admin" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle">
+      <button id="adminPanelClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Admin</p>
+      <h2 id="adminPanelTitle">Prehľad používateľov a správa členstiev</h2>
+      <p class="modal__sublead">Administrátor vidí používateľov, históriu aktivít a vie manuálne aktivovať alebo deaktivovať členstvo.</p>
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Používatelia</p>
+          <h2>Registrované účty</h2>
+        </div>
+      </div>
+      <div id="adminUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
+      <div class="section-head section-head--audit">
+        <div>
+          <p class="section-kicker">Admin log</p>
+          <h2>Posledné udalosti v systéme</h2>
+        </div>
+      </div>
+      <div id="adminActivityList" class="empty-state">Zatiaľ bez záznamov.</div>
     </div>
   </div>
 
