@@ -50,10 +50,25 @@ const elements = {
   authRegisterTab: document.getElementById("authRegisterTab"),
   authLoginTab: document.getElementById("authLoginTab"),
   authForm: document.getElementById("authForm"),
+  authNameField: document.getElementById("authNameField"),
+  authName: document.getElementById("authName"),
   authEmail: document.getElementById("authEmail"),
   authPassword: document.getElementById("authPassword"),
   authSubmitBtn: document.getElementById("authSubmitBtn"),
+  forgotPasswordBtn: document.getElementById("forgotPasswordBtn"),
   authMessage: document.getElementById("authMessage"),
+  resetRequestModal: document.getElementById("resetRequestModal"),
+  resetRequestBackdrop: document.getElementById("resetRequestBackdrop"),
+  resetRequestClose: document.getElementById("resetRequestClose"),
+  resetRequestForm: document.getElementById("resetRequestForm"),
+  resetRequestEmail: document.getElementById("resetRequestEmail"),
+  resetRequestMessage: document.getElementById("resetRequestMessage"),
+  resetPasswordModal: document.getElementById("resetPasswordModal"),
+  resetPasswordBackdrop: document.getElementById("resetPasswordBackdrop"),
+  resetPasswordClose: document.getElementById("resetPasswordClose"),
+  resetPasswordForm: document.getElementById("resetPasswordForm"),
+  resetPasswordInput: document.getElementById("resetPasswordInput"),
+  resetPasswordMessage: document.getElementById("resetPasswordMessage"),
 };
 
 bootstrap();
@@ -86,6 +101,13 @@ async function bootstrap() {
   elements.authRegisterTab.addEventListener("click", () => setAuthMode("register"));
   elements.authLoginTab.addEventListener("click", () => setAuthMode("login"));
   elements.authForm.addEventListener("submit", handleAuthSubmit);
+  elements.forgotPasswordBtn.addEventListener("click", openResetRequestModal);
+  elements.resetRequestBackdrop.addEventListener("click", closeResetRequestModal);
+  elements.resetRequestClose.addEventListener("click", closeResetRequestModal);
+  elements.resetRequestForm.addEventListener("submit", handleResetRequestSubmit);
+  elements.resetPasswordBackdrop.addEventListener("click", closeResetPasswordModal);
+  elements.resetPasswordClose.addEventListener("click", closeResetPasswordModal);
+  elements.resetPasswordForm.addEventListener("submit", handleResetPasswordSubmit);
   document.addEventListener("keydown", handleModalEscape);
   elements.downloadCsvBtn.addEventListener("click", () => {
     if (state.mergedContacts.length) {
@@ -110,6 +132,8 @@ async function bootstrap() {
 function renderAccessState() {
   const hasMembership = Boolean(state.user?.membership_active);
   const isLoggedIn = Boolean(state.user);
+  const accountLabel = state.user?.name?.trim() || state.user?.email || "Prihlásiť sa";
+  const membershipUntil = formatDate(state.user?.membership_valid_until);
   document.body.classList.toggle("is-pro-unlocked", hasMembership);
   if (elements.mergeBtn) {
     elements.mergeBtn.classList.toggle("is-hidden", !hasMembership);
@@ -134,16 +158,16 @@ function renderAccessState() {
     elements.fileInput.disabled = !hasMembership;
   }
   if (elements.accountBtn) {
-    elements.accountBtn.textContent = isLoggedIn ? state.user.email : "Prihlásiť sa";
+    elements.accountBtn.textContent = isLoggedIn ? accountLabel : "Prihlásiť sa";
   }
   if (elements.logoutBtn) {
     elements.logoutBtn.classList.toggle("is-hidden", !isLoggedIn);
   }
   if (elements.accountStatus) {
     if (hasMembership) {
-      elements.accountStatus.textContent = `Prihlásený účet ${state.user.email} má aktívne členstvo.`;
+      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}.`;
     } else if (isLoggedIn) {
-      elements.accountStatus.textContent = `Prihlásený účet ${state.user.email} ešte nemá aktívne členstvo.`;
+      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo.`;
     } else {
       elements.accountStatus.textContent = "Vytvor si účet a aktivuj mesačné členstvo pre vlastný import databáz.";
     }
@@ -173,6 +197,12 @@ function handleModalEscape(event) {
   if (!elements.authModal.hidden) {
     closeAuthModal();
   }
+  if (!elements.resetRequestModal.hidden) {
+    closeResetRequestModal();
+  }
+  if (!elements.resetPasswordModal.hidden) {
+    closeResetPasswordModal();
+  }
 }
 
 function maybeOpenPromoModal() {
@@ -193,13 +223,20 @@ function closePromoModal() {
 }
 
 function syncModalState() {
-  const hasOpenModal = !elements.promoModal.hidden || !elements.authModal.hidden;
+  const hasOpenModal =
+    !elements.promoModal.hidden ||
+    !elements.authModal.hidden ||
+    !elements.resetRequestModal.hidden ||
+    !elements.resetPasswordModal.hidden;
   document.body.classList.toggle("modal-open", hasOpenModal);
 }
 
 function openAuthModal(mode = "register") {
   setAuthMode(mode);
   clearAuthMessage();
+  if (mode === "register") {
+    elements.authPassword.value = "";
+  }
   elements.authModal.hidden = false;
   syncModalState();
 }
@@ -216,6 +253,8 @@ function setAuthMode(mode) {
   elements.authLoginTab.classList.toggle("auth-switch__button--active", !isRegister);
   elements.authSubmitBtn.textContent = isRegister ? "Vytvoriť účet" : "Prihlásiť sa";
   elements.authPassword.autocomplete = isRegister ? "new-password" : "current-password";
+  elements.authNameField.classList.toggle("is-hidden", !isRegister);
+  elements.forgotPasswordBtn.classList.toggle("is-hidden", isRegister);
 }
 
 function setAuthMessage(message, isError = false) {
@@ -237,6 +276,7 @@ async function refreshCurrentUser() {
 
   const url = new URL(window.location.href);
   const checkoutState = url.searchParams.get("checkout");
+  const resetToken = url.searchParams.get("reset_token");
   if (checkoutState === "success") {
     try {
       const refreshResponse = await fetch("/api/refresh-membership");
@@ -259,6 +299,11 @@ async function refreshCurrentUser() {
   }
   if (checkoutState) {
     url.searchParams.delete("checkout");
+    window.history.replaceState({}, "", url.toString());
+  }
+  if (resetToken) {
+    openResetPasswordModal(resetToken);
+    url.searchParams.delete("reset_token");
     window.history.replaceState({}, "", url.toString());
   }
 }
@@ -291,6 +336,7 @@ function renderAccountSummary() {
   elements.accountSummary.className = "account-summary";
   elements.accountSummary.innerHTML = `
     <article class="account-card">
+      <div class="account-card__row"><strong>Meno</strong><span>${escapeHtml(state.user.name || "—")}</span></div>
       <div class="account-card__row"><strong>E-mail</strong><span>${escapeHtml(state.user.email || "")}</span></div>
       <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(state.user.created_at))}</span></div>
       <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(state.user.membership_active ? "Aktívne" : "Neaktívne")}</span></div>
@@ -304,6 +350,7 @@ async function handleAuthSubmit(event) {
   event.preventDefault();
   clearAuthMessage();
 
+  const name = elements.authName.value.trim();
   const email = elements.authEmail.value.trim();
   const password = elements.authPassword.value;
   const endpoint = state.authMode === "register" ? "/api/register" : "/api/login";
@@ -312,7 +359,7 @@ async function handleAuthSubmit(event) {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name, email, password }),
     });
     const payload = await response.json();
     if (!response.ok) {
@@ -335,6 +382,88 @@ async function logout() {
   state.user = null;
   resetApp();
   renderAccessState();
+}
+
+function openResetRequestModal() {
+  closeAuthModal();
+  elements.resetRequestEmail.value = elements.authEmail.value.trim();
+  elements.resetRequestMessage.hidden = true;
+  elements.resetRequestMessage.textContent = "";
+  elements.resetRequestMessage.classList.remove("auth-message--error");
+  elements.resetRequestModal.hidden = false;
+  syncModalState();
+}
+
+function closeResetRequestModal() {
+  elements.resetRequestModal.hidden = true;
+  syncModalState();
+}
+
+function openResetPasswordModal(token) {
+  elements.resetPasswordForm.dataset.token = token;
+  elements.resetPasswordInput.value = "";
+  elements.resetPasswordMessage.hidden = true;
+  elements.resetPasswordMessage.textContent = "";
+  elements.resetPasswordMessage.classList.remove("auth-message--error");
+  elements.resetPasswordModal.hidden = false;
+  syncModalState();
+}
+
+function closeResetPasswordModal() {
+  elements.resetPasswordModal.hidden = true;
+  syncModalState();
+}
+
+async function handleResetRequestSubmit(event) {
+  event.preventDefault();
+  elements.resetRequestMessage.hidden = true;
+  elements.resetRequestMessage.classList.remove("auth-message--error");
+
+  try {
+    const response = await fetch("/api/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: elements.resetRequestEmail.value.trim() }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Obnova hesla zlyhala.");
+    }
+    elements.resetRequestMessage.hidden = false;
+    elements.resetRequestMessage.textContent = "Ak účet existuje, poslali sme ti link na obnovu hesla.";
+  } catch (error) {
+    elements.resetRequestMessage.hidden = false;
+    elements.resetRequestMessage.textContent = error.message;
+    elements.resetRequestMessage.classList.add("auth-message--error");
+  }
+}
+
+async function handleResetPasswordSubmit(event) {
+  event.preventDefault();
+  elements.resetPasswordMessage.hidden = true;
+  elements.resetPasswordMessage.classList.remove("auth-message--error");
+
+  try {
+    const response = await fetch("/api/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: elements.resetPasswordForm.dataset.token || "",
+        password: elements.resetPasswordInput.value,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Nastavenie nového hesla zlyhalo.");
+    }
+    closeResetPasswordModal();
+    openAuthModal("login");
+    setAuthMessage("Nové heslo bolo uložené. Teraz sa môžeš prihlásiť.");
+  } catch (error) {
+    elements.resetPasswordMessage.hidden = false;
+    elements.resetPasswordMessage.textContent = error.message;
+    elements.resetPasswordMessage.classList.add("auth-message--error");
+  }
 }
 
 async function startCheckoutFlow() {

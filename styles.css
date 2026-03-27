@@ -933,6 +933,21 @@ body.is-pro-unlocked .upload--locked {
   color: #b42318;
 }
 
+.auth-link {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
 .dataset-list,
 .mapping-list {
   display: grid;

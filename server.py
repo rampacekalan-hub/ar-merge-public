@@ -7,8 +7,10 @@ import json
 import os
 import secrets
 import sqlite3
+import smtplib
 from datetime import date, datetime, timedelta, timezone
 from email import policy
+from email.message import EmailMessage
 from email.parser import BytesParser
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -26,7 +28,7 @@ from contact_importer import OUTPUT_HEADERS, process_uploads
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "app.db")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "app.db"))
 SESSION_COOKIE_NAME = "cdc_session"
 SESSION_TTL_DAYS = 30
 PASSWORD_ITERATIONS = 200_000
@@ -34,6 +36,11 @@ STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip()
+SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
+SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip()
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -63,12 +70,16 @@ def get_db():
 
 
 def init_db():
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     connection = get_db()
     try:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT '',
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 password_salt TEXT NOT NULL,
@@ -104,8 +115,21 @@ def init_db():
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                used_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
             """
         )
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()}
+        if "name" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''")
         connection.commit()
     finally:
         connection.close()
@@ -136,6 +160,41 @@ def verify_password(password, salt, password_hash):
 
 def hash_session_token(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def build_reset_link(token):
+    base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else ""
+    return f"{base}/?reset_token={token}"
+
+
+def send_reset_email(to_email, name, token):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
+        raise RuntimeError("SMTP nie je nakonfigurované pre obnovu hesla.")
+
+    reset_link = build_reset_link(token)
+    message = EmailMessage()
+    message["Subject"] = "Obnova hesla - Contact Database Cleanup POWERED"
+    message["From"] = SMTP_FROM_EMAIL
+    message["To"] = to_email
+    greeting = name or to_email
+    message.set_content(
+        f"""Dobrý deň {greeting},
+
+prišla nám žiadosť o obnovu hesla pre váš účet v Contact Database Cleanup POWERED.
+
+Pre nastavenie nového hesla otvorte tento odkaz:
+{reset_link}
+
+Platnosť odkazu je 30 minút.
+
+Ak ste o obnovu hesla nežiadali, tento e-mail môžete ignorovať.
+"""
+    )
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
+        smtp.starttls()
+        smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.send_message(message)
 
 
 def require_json(handler):
@@ -239,6 +298,7 @@ def user_payload(connection, user_row):
         "authenticated": True,
         "user": {
             "id": user_row["id"],
+            "name": user_row["name"],
             "email": user_row["email"],
             "created_at": user_row["created_at"],
             "membership_active": is_membership_active(membership),
@@ -529,6 +589,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/login":
             self.handle_login()
             return
+        if self.path == "/api/request-password-reset":
+            self.handle_request_password_reset()
+            return
+        if self.path == "/api/reset-password":
+            self.handle_reset_password()
+            return
         if self.path == "/api/logout":
             self.handle_logout()
             return
@@ -625,8 +691,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
             return
 
+        name = str(payload.get("name") or "").strip()
         email = normalize_email(payload.get("email"))
         password = str(payload.get("password") or "")
+        if len(name) < 2:
+            self.write_json({"error": "Zadajte meno alebo názov používateľa."}, status=HTTPStatus.BAD_REQUEST)
+            return
         if not email or "@" not in email:
             self.write_json({"error": "Zadajte platný e-mail."}, status=HTTPStatus.BAD_REQUEST)
             return
@@ -645,10 +715,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             now = format_timestamp(utc_now())
             cursor = connection.execute(
                 """
-                INSERT INTO users (email, password_hash, password_salt, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (name, email, password_hash, password_salt, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (email, password_hash, salt, now, now),
+                (name, email, password_hash, salt, now, now),
             )
             user_id = cursor.lastrowid
             token, expires_at = create_session(connection, user_id)
@@ -684,6 +754,93 @@ class AppHandler(SimpleHTTPRequestHandler):
                 user_payload(connection, user),
                 cookie_headers=[self.session_cookie_header(token, expires_at)],
             )
+        finally:
+            connection.close()
+
+    def handle_request_password_reset(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        email = normalize_email(payload.get("email"))
+        if not email:
+          self.write_json({"error": "Zadajte e-mail."}, status=HTTPStatus.BAD_REQUEST)
+          return
+
+        connection = get_db()
+        try:
+            user = connection.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+            if not user:
+                self.write_json({"ok": True})
+                return
+
+            raw_token = secrets.token_urlsafe(32)
+            token_hash = hash_session_token(raw_token)
+            now = utc_now()
+            expires_at = now + timedelta(minutes=30)
+            connection.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (user["id"],))
+            connection.execute(
+                """
+                INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_at, used_at)
+                VALUES (?, ?, ?, ?, NULL)
+                """,
+                (user["id"], token_hash, format_timestamp(expires_at), format_timestamp(now)),
+            )
+            connection.commit()
+            send_reset_email(user["email"], user["name"], raw_token)
+            self.write_json({"ok": True})
+        except RuntimeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        finally:
+            connection.close()
+
+    def handle_reset_password(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        token = str(payload.get("token") or "").strip()
+        password = str(payload.get("password") or "")
+        if len(password) < 8:
+            self.write_json({"error": "Nové heslo musí mať aspoň 8 znakov."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if not token:
+            self.write_json({"error": "Chýba token obnovy hesla."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        connection = get_db()
+        try:
+            token_row = connection.execute(
+                "SELECT * FROM password_reset_tokens WHERE token_hash = ?",
+                (hash_session_token(token),),
+            ).fetchone()
+            if not token_row:
+                self.write_json({"error": "Reset link je neplatný."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            if token_row["used_at"]:
+                self.write_json({"error": "Reset link už bol použitý."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            if parse_timestamp(token_row["expires_at"]) <= utc_now():
+                self.write_json({"error": "Reset link už vypršal."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            salt, password_hash = create_password_hash(password)
+            now = format_timestamp(utc_now())
+            connection.execute(
+                "UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?",
+                (password_hash, salt, now, token_row["user_id"]),
+            )
+            connection.execute(
+                "UPDATE password_reset_tokens SET used_at = ? WHERE id = ?",
+                (now, token_row["id"]),
+            )
+            connection.execute("DELETE FROM sessions WHERE user_id = ?", (token_row["user_id"],))
+            connection.commit()
+            self.write_json({"ok": True})
         finally:
             connection.close()
 

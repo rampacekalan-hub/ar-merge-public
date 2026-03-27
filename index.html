@@ -347,7 +347,7 @@
       <button id="promoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
       <p class="section-kicker">Akciová ponuka</p>
       <h2 id="promoModalTitle">Plný import databáz kontaktov za zvýhodnenú cenu.</h2>
-      <p class="modal__sublead">Odblokuj profesionálnu verziu pre import, čistenie a export kontaktov.</p>
+      <p class="modal__sublead">Vytvor si účet cez meno, e-mail a heslo. Po úhrade sa členstvo priradí priamo k tvojmu účtu.</p>
       <div class="promo-price">
         <span class="promo-price__old">4,99 € / mesiac</span>
         <span class="promo-price__deal">Akciová cena</span>
@@ -376,12 +376,16 @@
       <button id="authModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
       <p class="section-kicker">Účet</p>
       <h2 id="authModalTitle">Registrácia a prihlásenie</h2>
-      <p class="modal__sublead">Členstvo sa aktivuje na konkrétny účet, takže po zaplatení sa vieš vrátiť kedykoľvek aj znovu.</p>
+      <p class="modal__sublead">Pri registrácii zadáš meno, e-mail a heslo. Členstvo sa aktivuje na konkrétny účet, takže sa vieš kedykoľvek znova prihlásiť.</p>
       <div class="auth-switch">
         <button id="authRegisterTab" class="button button--ghost auth-switch__button auth-switch__button--active" type="button">Registrácia</button>
         <button id="authLoginTab" class="button button--ghost auth-switch__button" type="button">Prihlásenie</button>
       </div>
       <form id="authForm" class="auth-form">
+        <label id="authNameField" class="auth-field">
+          <span>Meno</span>
+          <input id="authName" type="text" autocomplete="name">
+        </label>
         <label class="auth-field">
           <span>E-mail</span>
           <input id="authEmail" type="email" autocomplete="email" required>
@@ -392,7 +396,43 @@
         </label>
         <button id="authSubmitBtn" class="button button--primary" type="submit">Vytvoriť účet</button>
       </form>
+      <button id="forgotPasswordBtn" class="auth-link" type="button">Zabudli ste heslo?</button>
       <p id="authMessage" class="auth-message" hidden></p>
+    </div>
+  </div>
+
+  <div id="resetRequestModal" class="modal" hidden>
+    <div id="resetRequestBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="resetRequestTitle">
+      <button id="resetRequestClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Obnova hesla</p>
+      <h2 id="resetRequestTitle">Pošli si reset link</h2>
+      <form id="resetRequestForm" class="auth-form">
+        <label class="auth-field">
+          <span>E-mail</span>
+          <input id="resetRequestEmail" type="email" autocomplete="email" required>
+        </label>
+        <button class="button button--primary" type="submit">Poslať link na obnovu</button>
+      </form>
+      <p id="resetRequestMessage" class="auth-message" hidden></p>
+    </div>
+  </div>
+
+  <div id="resetPasswordModal" class="modal" hidden>
+    <div id="resetPasswordBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="resetPasswordTitle">
+      <button id="resetPasswordClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Nové heslo</p>
+      <h2 id="resetPasswordTitle">Nastaviť nové heslo</h2>
+      <p class="modal__sublead">Zadaj nové heslo pre svoj účet. Reset link je jednorazový.</p>
+      <form id="resetPasswordForm" class="auth-form">
+        <label class="auth-field">
+          <span>Nové heslo</span>
+          <input id="resetPasswordInput" type="password" minlength="8" required>
+        </label>
+        <button class="button button--primary" type="submit">Uložiť nové heslo</button>
+      </form>
+      <p id="resetPasswordMessage" class="auth-message" hidden></p>
     </div>
   </div>
 
