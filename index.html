@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Database Cleanup POWERED</title>
+  <title>Unifyo</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,29 +12,41 @@
   <div class="app-shell app-shell--dashboard">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar__brand">
-        <img class="sidebar__logo" src="icons/merge-mark.svg" alt="Merge logo">
+        <img class="sidebar__logo" src="icons/merge-mark.svg" alt="Unifyo logo">
         <div>
-          <strong>Contact Database Cleanup</strong>
-          <span>POWERED</span>
+          <strong>Unifyo</strong>
+          <span>unifyo.online</span>
         </div>
       </div>
 
       <nav class="sidebar__nav" aria-label="Navigácia">
-        <a href="#section-import" class="sidebar__link">Import</a>
-        <button id="accountMenuBtn" class="sidebar__link sidebar__link--button" type="button">Účet a nastavenia</button>
-        <button id="adminMenuBtn" class="sidebar__link sidebar__link--button is-hidden" type="button">Administrácia</button>
-        <a href="#section-rules" class="sidebar__link">Pravidlá</a>
-        <a href="#section-preview" class="sidebar__link">Ukážka výstupu</a>
-        <a href="#section-results" class="sidebar__link">Výsledok</a>
-        <a href="#section-public" class="sidebar__link">Ako to funguje</a>
-        <a href="#section-audience" class="sidebar__link">Pre koho je to</a>
-        <a href="#section-privacy" class="sidebar__link">Súkromie</a>
-        <a href="#section-faq" class="sidebar__link">FAQ</a>
-        <a href="#section-pricing" class="sidebar__link">Cenník</a>
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="main" aria-expanded="true">
+            <span>Hlavné menu</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content" data-sidebar-group-content="main">
+            <a href="/index.html" class="sidebar__link" aria-current="page">Domov</a>
+            <a href="/app.html" class="sidebar__link">Aplikácia</a>
+            <a href="/pricing.html" class="sidebar__link">Cenník</a>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="trust" aria-expanded="false">
+            <span>Dôvera a podmienky</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content is-collapsed" data-sidebar-group-content="trust">
+            <a href="/privacy.html" class="sidebar__link">Ochrana súkromia</a>
+            <a href="/terms.html" class="sidebar__link">Podmienky používania</a>
+            <a href="/cookie-policy.html" class="sidebar__link">Cookies</a>
+          </div>
+        </div>
       </nav>
 
       <div class="sidebar__footer">
-        <span>Secure payment cez Stripe</span>
+        <span>Bezpečné spracovanie</span>
         <span>CSV / XLSX / XLS</span>
       </div>
     </aside>
@@ -42,479 +54,211 @@
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 
     <div class="content-shell">
-    <header class="hero">
-      <div class="hero__content">
-        <div class="hero__topbar">
-          <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
-        </div>
-        <div class="brand-lockup">
-          <img class="brand-lockup__logo" src="icons/merge-mark.svg" alt="Merge logo">
-        </div>
-        <h1>Contact Database Cleanup POWERED</h1>
-        <p class="hero__text">
-          Profesionálny nástroj na čistenie databáz kontaktov. Importuje CSV, XLSX alebo XLS,
-          odstráni duplicity a pripraví finálny export so stĺpcami meno, priezvisko, email a telefón.
-          Výstup je vhodný pre Mailchimp, Ecomail a ďalšie newsletter systémy, pretože obsahuje presne tie údaje,
-          ktoré tieto platformy pri importe štandardne očakávajú.
-        </p>
-        <div class="hero__actions">
-          <button id="buyHeroBtn" class="button button--primary" type="button">Kúpiť Pro</button>
-          <button id="accountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
-          <button id="logoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
-        </div>
-        <div class="hero__meta">
-          <span class="hero__meta-label">Výstup</span>
-          <span class="hero__meta-text">meno, priezvisko, email, telefón</span>
-        </div>
-        <p id="accountStatus" class="hero__account-status">Vytvor si účet a aktivuj mesačné členstvo pre vlastný import databáz.</p>
-      </div>
-    </header>
-
-    <section class="trust-bar" aria-label="Hlavné výhody">
-      <article class="trust-pill">
-        <span class="trust-pill__icon">GDPR</span>
-        <span class="trust-pill__text">GDPR ready</span>
-      </article>
-      <article class="trust-pill">
-        <span class="trust-pill__icon">STRIPE</span>
-        <span class="trust-pill__text">Secure payment</span>
-      </article>
-      <article class="trust-pill">
-        <span class="trust-pill__icon">FILES</span>
-        <span class="trust-pill__text">CSV / XLSX / XLS</span>
-      </article>
-      <article class="trust-pill">
-        <span class="trust-pill__icon">EMAIL</span>
-        <span class="trust-pill__text">Mailchimp / Ecomail ready</span>
-      </article>
-    </section>
-
-    <main class="layout">
-      <section id="section-import" class="card">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">1. Import</p>
-            <h2>Odomknite import databáz</h2>
+      <header class="hero">
+        <div class="hero__content">
+          <div class="hero__topbar">
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
           </div>
-          <p class="section-copy">Podporované: <code>.csv</code>, <code>.xlsx</code>, <code>.xls</code></p>
+          <div class="brand-lockup">
+            <img class="brand-lockup__logo" src="icons/merge-mark.svg" alt="Unifyo logo">
+          </div>
+          <p class="hero__eyebrow">Uprac svoje kontakty za pár sekúnd</p>
+          <h1>Vyčisti databázu kontaktov za pár sekúnd.</h1>
+          <p class="hero__lede">Odstráň duplicity okamžite. Nahraj súbor, vyčisti dáta a stiahni si hotový výsledok bez chaosu, neporiadku a straty času.</p>
+          <p class="hero__text">
+            Unifyo je produkt pre CRM importy, mailing listy a kontaktné databázy, ktoré potrebujú
+            jeden čistý výsledok len so stĺpcami <strong>meno</strong>, <strong>priezvisko</strong>,
+            <strong>email</strong> a <strong>telefón</strong>.
+          </p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="/app.html">Prejsť do aplikácie</a>
+            <a class="button button--ghost" href="/pricing.html">Pozrieť cenník</a>
+          </div>
+          <div class="hero__flow">
+            <span>Nahraj súbor</span>
+            <span>Vyčisti automaticky</span>
+            <span>Stiahni výsledok</span>
+          </div>
+          <div class="hero__meta">
+            <span class="hero__meta-label">Výstup</span>
+            <span class="hero__meta-text">meno, priezvisko, email, telefón</span>
+          </div>
         </div>
+      </header>
 
-        <div id="uploadBox" class="upload upload--locked">
-          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple hidden>
-          <span id="uploadTitle" class="upload__title">Plný import je súčasťou členského prístupu</span>
-          <span id="uploadSubtitle" class="upload__subtitle">Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.</span>
-          <button id="unlockUploadBtn" class="button button--primary" type="button">Odomknúť cez Stripe</button>
-        </div>
-
-        <div class="toolbar">
-          <button id="mergeBtn" class="button button--primary is-hidden" disabled>Vyčistiť a zlúčiť</button>
-          <button id="buyToolbarBtn" class="button button--primary" type="button">Kúpiť Pro</button>
-          <button id="resetBtn" class="button button--ghost">Vymazať všetko</button>
-        </div>
-
-        <div id="datasetList" class="dataset-list empty-state">Zatiaľ nie sú načítané žiadne súbory.</div>
+      <section class="trust-bar" aria-label="Hlavné výhody">
+        <article class="trust-pill">
+          <span class="trust-pill__icon">SECURE</span>
+          <span class="trust-pill__text">Bezpečné spracovanie</span>
+        </article>
+        <article class="trust-pill">
+          <span class="trust-pill__icon">PRIVATE</span>
+          <span class="trust-pill__text">Súbory sa po spracovaní neukladajú</span>
+        </article>
+        <article class="trust-pill">
+          <span class="trust-pill__icon">GDPR</span>
+          <span class="trust-pill__text">GDPR ready</span>
+        </article>
+        <article class="trust-pill">
+          <span class="trust-pill__icon">READY</span>
+          <span class="trust-pill__text">Pripravené pre Mailchimp / Ecomail</span>
+        </article>
       </section>
 
-      <section id="section-account" class="card is-hidden">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">2. Účet</p>
-            <h2>Stav členstva</h2>
-          </div>
-        </div>
-
-        <div id="accountSummary" class="account-summary empty-state">Zatiaľ nie si prihlásený.</div>
-      </section>
-
-      <section id="section-rules" class="card">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">3. Pravidlá</p>
-            <h2>Ako to funguje</h2>
-          </div>
-        </div>
-
-        <ul class="rule-list">
-          <li>Kontakty bez e-mailu aj telefónu sa automaticky vyradia.</li>
-          <li>Duplicitný kontakt sa hľadá primárne podľa e-mailu alebo telefónu.</li>
-          <li>Meno a priezvisko sa používa len ako veľmi opatrný doplnkový signál.</li>
-            <li>Telefón sa normalizuje do jednotného formátu a e-mail sa čistí na lowercase.</li>
-            <li>Vo výsledku zostanú len stĺpce meno, priezvisko, email a telefón.</li>
-            <li>Výstup je pripravený tak, aby sa dal jednoducho importovať do Mailchimpu, Ecomailu a bežných newsletter systémov.</li>
-            <li>Prístup k plnému importu a exportu je dostupný po zakúpení Pro verzie.</li>
-          </ul>
-      </section>
-
-      <section id="section-preview" class="card">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">4. Ukážka výstupu</p>
-            <h2>Ako vyzerá finálny export</h2>
-          </div>
-        </div>
-
-        <div class="table-wrap table-wrap--preview">
-          <table>
-            <thead>
-              <tr>
-                <th>Meno</th>
-                <th>Priezvisko</th>
-                <th>Email</th>
-                <th>Telefón</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Jana</td>
-                <td>Nováková</td>
-                <td class="mono">jana.novakova@example.com</td>
-                <td class="mono">+421 905 123 456</td>
-              </tr>
-              <tr>
-                <td>Peter</td>
-                <td>Mravec</td>
-                <td class="mono">peter.mravec@example.com</td>
-                <td class="mono">+421 907 555 210</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="table-subnote">Presne tento formát je vhodný pre CRM, mailing databázy a newsletter importy.</p>
-      </section>
-
-      <section id="section-results" class="card card--wide">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">5. Výsledok</p>
-            <h2>Finálny zoznam kontaktov</h2>
-          </div>
-          <div class="toolbar toolbar--compact">
-            <button id="downloadCsvBtn" class="button button--ghost" disabled>Export CSV</button>
-            <button id="downloadXlsxBtn" class="button button--ghost" disabled>Export XLSX</button>
-          </div>
-        </div>
-
-        <div class="summary-grid">
-          <article class="summary-card">
-            <span>Načítané riadky</span>
-            <strong id="totalRows">0</strong>
-          </article>
-          <article class="summary-card">
-            <span>Použiteľné kontakty</span>
-            <strong id="validContacts">0</strong>
-          </article>
-          <article class="summary-card">
-            <span>Finálny výstup</span>
-            <strong id="mergedContacts">0</strong>
-          </article>
-          <article class="summary-card">
-            <span>Odstránené duplicity</span>
-            <strong id="duplicatesRemoved">0</strong>
-          </article>
-          <article class="summary-card">
-            <span>Vyradené bez kontaktu</span>
-            <strong id="droppedInvalid">0</strong>
-          </article>
-        </div>
-
-        <div id="resultTable" class="table-wrap empty-state">Zatiaľ bez výsledkov.</div>
-
-        <div class="section-head section-head--audit">
-          <div>
-            <p class="section-kicker">6. Audit</p>
-            <h2>Odstránené duplicity</h2>
-          </div>
-        </div>
-
-        <div id="duplicatesAudit" class="empty-state">Zatiaľ bez odstránených duplicitných záznamov.</div>
-      </section>
-
-      <section id="section-public" class="card card--wide card--info">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">7. Pre verejnosť</p>
-            <h2>Ako to funguje</h2>
-          </div>
-        </div>
-
-        <div class="info-grid">
-          <article class="info-card">
-            <strong>1. Odomkni Pro</strong>
-            <p>Po úhrade cez Stripe získaš prístup k importu databáz a k finálnemu exportu.</p>
-          </article>
-          <article class="info-card">
-            <strong>2. Nahraj kontakty</strong>
-            <p>Vyber jeden alebo viac súborov vo formáte CSV, XLSX alebo XLS.</p>
-          </article>
-          <article class="info-card">
-            <strong>3. Appka ich vyčistí</strong>
-            <p>Normalizuje e-maily a telefóny, vyradí nepoužiteľné riadky a nájde duplicity.</p>
-          </article>
-          <article class="info-card">
-            <strong>4. Exportuj finálny zoznam</strong>
-            <p>Stiahneš jeden čistý výstup pripravený na ďalšie použitie.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="section-audience" class="card card--wide">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">8. Pre koho je to</p>
-            <h2>Najčastejšie použitie</h2>
-          </div>
-        </div>
-
-        <div class="audience-grid">
-          <article class="audience-card">
-            <strong>Firmy a obchodné tímy</strong>
-            <p>Vyčistenie databázy kontaktov pred CRM importom, obchodnou kampaňou alebo odovzdaním databázy tímu.</p>
-          </article>
-          <article class="audience-card">
-            <strong>Marketéri a newslettery</strong>
-            <p>Príprava databázy pre Mailchimp, Ecomail a ďalšie mailing nástroje bez chaosu a duplicitných kontaktov.</p>
-          </article>
-          <article class="audience-card">
-            <strong>Administratíva a backoffice</strong>
-            <p>Spájanie viacerých exportov od klientov, partnerov alebo kolegov do jedného čistého a použiteľného zoznamu.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="section-privacy" class="card">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">9. Súkromie</p>
-            <h2>Bezpečné spracovanie</h2>
-          </div>
-        </div>
-
-        <div class="privacy-note">
-          <strong>Dáta sa spracúvajú len na účel čistenia a exportu.</strong>
-          <p>Nahraté súbory slúžia na import, deduplikáciu a vytvorenie finálneho výstupu. Podrobnosti nájdeš v ochrane súkromia.</p>
-        </div>
-      </section>
-
-      <section id="section-faq" class="card">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">10. FAQ</p>
-            <h2>Časté otázky</h2>
-          </div>
-        </div>
-
-        <div class="faq-list">
-          <article class="faq-item">
-            <strong>Čo sa považuje za duplicitu?</strong>
-            <p>Primárne zhoda e-mailu alebo telefónu. Meno a priezvisko sa používa len opatrne ako doplnkový signál.</p>
-          </article>
-          <article class="faq-item">
-            <strong>Čo ak kontakt nemá e-mail ani telefón?</strong>
-            <p>Taký kontakt sa do finálneho výstupu nezaradí.</p>
-          </article>
-          <article class="faq-item">
-            <strong>Kedy prebehne platba?</strong>
-            <p>Platba prebieha cez Stripe po registrácii a prihlásení. Po úspešnej úhrade sa členstvo priradí k účtu a sprístupní sa vlastný import.</p>
-          </article>
-          <article class="faq-item">
-            <strong>Je výstup vhodný pre newsletter systémy?</strong>
-            <p>Áno. Výstup obsahuje len prehľadné polia meno, priezvisko, email a telefón, takže je vhodný pre Mailchimp, Ecomail aj ďalšie bežné newsletter platformy.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="section-pricing" class="card card--wide">
-        <div class="section-head">
-          <div>
-            <p class="section-kicker">11. Cenník</p>
-            <h2>Pro verzia</h2>
-          </div>
-        </div>
-
-        <div class="pricing-grid">
-          <article class="pricing-card pricing-card--pro">
-            <span class="pricing-card__label">Pro</span>
-            <p class="pricing-card__intro">Akciový prístup k plnej verzii služby</p>
-            <div class="pricing-card__price-wrap">
-              <span class="pricing-card__price-old">4,99 € / mesiac</span>
-              <span class="pricing-card__deal">Akciová cena</span>
-              <strong class="pricing-card__price">teraz len 0,99 € / mesiac</strong>
+      <main class="layout">
+        <section class="card card--wide">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Prečo Unifyo</p>
+              <h2>Prestaň strácať čas s neporiadkom v kontaktoch.</h2>
             </div>
-            <p class="pricing-card__copy">Limitovaná akciová cena pre ostré firemné použitie. Odomkneš import viacerých databáz, deduplikáciu, audit odstránených záznamov a export pripravený pre CRM alebo newsletter systémy. Platba prebieha bezpečne cez Stripe.</p>
-            <ul class="rule-list">
-              <li>plný import a deduplikácia</li>
-              <li>CSV a XLSX export</li>
-              <li>audit odstránených duplicit</li>
-              <li>výstup pre Mailchimp, Ecomail a CRM</li>
-              <li>prioritná podpora</li>
-            </ul>
-            <button id="buyProBtn" class="button button--primary pricing-card__link" type="button">Aktivovať za 0,99 € / mesiac</button>
-            <p class="pricing-card__note">Bezpečná platba cez Stripe. Akciová cena je zobrazená priamo pred dokončením checkoutu.</p>
-          </article>
-        </div>
-      </section>
-    </main>
+          </div>
 
-    <footer class="site-footer">
-      <a href="/privacy.html">Ochrana súkromia</a>
-      <a href="/terms.html">Podmienky používania</a>
-      <a href="/cookie-policy.html">Cookies</a>
-      <a href="mailto:rampacek.alan@gmail.com">Kontakt</a>
-    </footer>
-    </div>
-  </div>
+          <div class="problem-grid">
+            <article class="problem-card">
+              <span>Neprehľadné zoznamy kontaktov</span>
+              <p>Viac exportov, nejednotné názvy stĺpcov a neusporiadané dáta.</p>
+            </article>
+            <article class="problem-card">
+              <span>Duplicitné záznamy</span>
+              <p>Rovnaké kontakty viackrát cez e-mail, telefón alebo podobné mená.</p>
+            </article>
+            <article class="problem-card">
+              <span>Zbytočne stratený čas</span>
+              <p>Ručné čistenie databáz a opravy importov do CRM alebo newsletter nástrojov.</p>
+            </article>
+          </div>
+          <p class="section-note">Unifyo z toho spraví jeden čistý výstup pripravený na okamžitý import.</p>
+        </section>
 
-  <template id="datasetItemTemplate">
-    <article class="dataset-item">
-      <div>
-        <div class="dataset-item__head">
-          <h3 class="dataset-item__name"></h3>
-          <span class="dataset-item__type"></span>
-        </div>
-        <p class="dataset-item__meta"></p>
-        <div class="dataset-item__mapping"></div>
-      </div>
-    </article>
-  </template>
+        <section class="card card--wide">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Predtým → Potom</p>
+              <h2>Pozri si výsledok ešte pred prvým importom.</h2>
+            </div>
+          </div>
 
-  <div id="promoModal" class="modal" hidden>
-    <div id="promoModalBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog modal__dialog--promo" role="dialog" aria-modal="true" aria-labelledby="promoModalTitle">
-      <button id="promoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Akciová ponuka</p>
-      <h2 id="promoModalTitle">Plný import databáz kontaktov za zvýhodnenú cenu.</h2>
-      <p class="modal__sublead">Vytvor si účet cez meno, e-mail a heslo. Po úhrade sa členstvo priradí priamo k tvojmu účtu.</p>
-      <div class="promo-price">
-        <span class="promo-price__old">4,99 € / mesiac</span>
-        <span class="promo-price__deal">Akciová cena</span>
-        <strong class="promo-price__current">teraz len 0,99 € / mesiac</strong>
-      </div>
-      <p class="modal__lead">
-        Odomkni plný import databáz kontaktov, deduplikáciu, export CSV/XLSX a audit odstránených duplicit za zvýhodnenú mesačnú cenu.
-      </p>
-      <div class="modal__promo-points">
-        <span>Akcia 0,99 € / mesiac</span>
-        <span>Import CSV, XLSX a XLS</span>
-        <span>CSV aj XLSX export</span>
-        <span>Audit duplicitných záznamov</span>
-      </div>
-      <div class="modal__actions">
-        <button id="promoModalAuth" class="button button--ghost" type="button">Prihlásiť sa / Registrovať</button>
-        <button id="promoModalStart" class="button button--primary" type="button">Aktivovať za 0,99 € / mesiac</button>
-      </div>
-      <p class="modal__note">Platba prebieha bezpečne cez Stripe. Zvýhodnená cena sa zobrazí aj v checkout okne.</p>
-    </div>
-  </div>
+          <div class="compare-grid">
+            <article class="compare-card">
+              <div class="compare-card__head">
+                <span class="pill pill--warn">Predtým</span>
+                <strong>Neusporiadané vstupné dáta</strong>
+              </div>
+              <div class="table-wrap table-wrap--preview">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Meno</th>
+                      <th>Priezvisko</th>
+                      <th>Email</th>
+                      <th>Telefón</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Jana</td>
+                      <td>Jana</td>
+                      <td class="mono"> JANA.NOVAKOVA@example.com </td>
+                      <td class="mono">0905 123 456</td>
+                    </tr>
+                    <tr>
+                      <td>Jana</td>
+                      <td>Nováková</td>
+                      <td class="mono">jana.novakova@example.com</td>
+                      <td class="mono"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
 
-  <div id="authModal" class="modal" hidden>
-    <div id="authModalBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-      <button id="authModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Účet</p>
-      <h2 id="authModalTitle">Registrácia a prihlásenie</h2>
-      <p class="modal__sublead">Pri registrácii zadáš meno, e-mail a heslo. Členstvo sa aktivuje na konkrétny účet, takže sa vieš kedykoľvek znova prihlásiť.</p>
-      <div class="auth-switch">
-        <button id="authRegisterTab" class="button button--ghost auth-switch__button auth-switch__button--active" type="button">Registrácia</button>
-        <button id="authLoginTab" class="button button--ghost auth-switch__button" type="button">Prihlásenie</button>
-      </div>
-      <form id="authForm" class="auth-form">
-        <label id="authNameField" class="auth-field">
-          <span>Meno</span>
-          <input id="authName" type="text" autocomplete="name">
-        </label>
-        <label class="auth-field">
-          <span>E-mail</span>
-          <input id="authEmail" type="email" autocomplete="email" required>
-        </label>
-        <label class="auth-field">
-          <span>Heslo</span>
-          <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required>
-        </label>
-        <button id="authSubmitBtn" class="button button--primary" type="submit">Vytvoriť účet</button>
-      </form>
-      <button id="forgotPasswordBtn" class="auth-link" type="button">Zabudli ste heslo?</button>
-      <p id="authMessage" class="auth-message" hidden></p>
-    </div>
-  </div>
+            <article class="compare-card compare-card--after">
+              <div class="compare-card__head">
+                <span class="pill">Potom</span>
+                <strong>Čistý finálny export</strong>
+              </div>
+              <div class="table-wrap table-wrap--preview">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Meno</th>
+                      <th>Priezvisko</th>
+                      <th>Email</th>
+                      <th>Telefón</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Jana</td>
+                      <td>Nováková</td>
+                      <td class="mono">jana.novakova@example.com</td>
+                      <td class="mono">+421 905 123 456</td>
+                    </tr>
+                    <tr>
+                      <td>Peter</td>
+                      <td>Mravec</td>
+                      <td class="mono">peter.mravec@example.com</td>
+                      <td class="mono">+421 907 555 210</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+          <p class="table-subnote">Presne tento formát vieš importovať do CRM, Mailchimpu, Ecomailu alebo newsletter systémov.</p>
+        </section>
 
-  <div id="resetRequestModal" class="modal" hidden>
-    <div id="resetRequestBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="resetRequestTitle">
-      <button id="resetRequestClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Obnova hesla</p>
-      <h2 id="resetRequestTitle">Pošli si reset link</h2>
-      <form id="resetRequestForm" class="auth-form">
-        <label class="auth-field">
-          <span>E-mail</span>
-          <input id="resetRequestEmail" type="email" autocomplete="email" required>
-        </label>
-        <button class="button button--primary" type="submit">Poslať link na obnovu</button>
-      </form>
-      <p id="resetRequestMessage" class="auth-message" hidden></p>
-    </div>
-  </div>
+        <section class="card card--wide card--info">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Ako to funguje</p>
+              <h2>Jednoducho, rýchlo a bez zbytočného trenia.</h2>
+            </div>
+          </div>
 
-  <div id="resetPasswordModal" class="modal" hidden>
-    <div id="resetPasswordBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="resetPasswordTitle">
-      <button id="resetPasswordClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Nové heslo</p>
-      <h2 id="resetPasswordTitle">Nastaviť nové heslo</h2>
-      <p class="modal__sublead">Zadaj nové heslo pre svoj účet. Reset link je jednorazový.</p>
-      <form id="resetPasswordForm" class="auth-form">
-        <label class="auth-field">
-          <span>Nové heslo</span>
-          <input id="resetPasswordInput" type="password" minlength="8" required>
-        </label>
-        <button class="button button--primary" type="submit">Uložiť nové heslo</button>
-      </form>
-      <p id="resetPasswordMessage" class="auth-message" hidden></p>
-    </div>
-  </div>
+          <div class="info-grid">
+            <article class="info-card">
+              <strong>1. Nahraj súbory</strong>
+              <p>Vyber jeden alebo viac súborov vo formáte CSV, XLSX alebo XLS.</p>
+            </article>
+            <article class="info-card">
+              <strong>2. Vyčisti automaticky</strong>
+              <p>Systém odstráni duplicity, vyčistí dáta a ponechá len použiteľné kontakty.</p>
+            </article>
+            <article class="info-card">
+              <strong>3. Stiahni výsledok</strong>
+              <p>Stiahneš jeden čistý výstup pripravený na CRM alebo newsletter import.</p>
+            </article>
+            <article class="info-card">
+              <strong>4. Použi výsledok</strong>
+              <p>Hotový export vieš ihneď poslať do CRM, Ecomailu, Mailchimpu alebo ďalšieho systému.</p>
+            </article>
+          </div>
+        </section>
 
-  <div id="accountPanel" class="modal" hidden>
-    <div id="accountPanelBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="accountPanelTitle">
-      <button id="accountPanelClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Účet</p>
-      <h2 id="accountPanelTitle">Nastavenia účtu a história</h2>
-      <p class="modal__sublead">Tu nájdeš údaje o účte, stav členstva a posledné prihlásenia a aktivity.</p>
-      <div id="accountPanelSummary" class="account-summary empty-state">Načítavam údaje o účte...</div>
-      <div class="section-head section-head--audit">
-        <div>
-          <p class="section-kicker">Aktivita</p>
-          <h2>Posledné udalosti</h2>
-        </div>
-      </div>
-      <div id="accountActivityList" class="empty-state">Zatiaľ bez aktivity.</div>
-    </div>
-  </div>
+        <section class="card card--wide">
+          <div class="cta-strip">
+            <div>
+              <strong>Pripravený vyčistiť svoju databázu kontaktov?</strong>
+              <p>Prejdi do aplikácie a spracuj svoje súbory v niekoľkých krokoch.</p>
+            </div>
+            <a class="button button--primary" href="/app.html">Vyčistiť moje kontakty</a>
+          </div>
+        </section>
+      </main>
 
-  <div id="adminPanel" class="modal" hidden>
-    <div id="adminPanelBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog modal__dialog--wide modal__dialog--admin" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle">
-      <button id="adminPanelClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Admin</p>
-      <h2 id="adminPanelTitle">Prehľad používateľov a správa členstiev</h2>
-      <p class="modal__sublead">Administrátor vidí používateľov, históriu aktivít a vie manuálne aktivovať alebo deaktivovať členstvo.</p>
-      <div class="section-head">
-        <div>
-          <p class="section-kicker">Používatelia</p>
-          <h2>Registrované účty</h2>
-        </div>
-      </div>
-      <div id="adminUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
-      <div class="section-head section-head--audit">
-        <div>
-          <p class="section-kicker">Admin log</p>
-          <h2>Posledné udalosti v systéme</h2>
-        </div>
-      </div>
-      <div id="adminActivityList" class="empty-state">Zatiaľ bez záznamov.</div>
+      <footer class="site-footer">
+        <a href="/pricing.html">Cenník</a>
+        <a href="/privacy.html">Ochrana súkromia</a>
+        <a href="/terms.html">Podmienky používania</a>
+        <a href="/cookie-policy.html">Cookies</a>
+        <a href="mailto:rampacek.alan@gmail.com">Kontakt</a>
+      </footer>
     </div>
   </div>
 
   <script src="consent.js"></script>
-  <script src="app.js"></script>
+  <script src="site-nav.js"></script>
 </body>
 </html>
