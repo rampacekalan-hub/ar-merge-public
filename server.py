@@ -766,8 +766,8 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         email = normalize_email(payload.get("email"))
         if not email:
-          self.write_json({"error": "Zadajte e-mail."}, status=HTTPStatus.BAD_REQUEST)
-          return
+            self.write_json({"error": "Zadajte e-mail."}, status=HTTPStatus.BAD_REQUEST)
+            return
 
         connection = get_db()
         try:
@@ -793,6 +793,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"ok": True})
         except RuntimeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        except smtplib.SMTPAuthenticationError:
+            self.write_json(
+                {"error": "SMTP prihlásenie zlyhalo. Skontrolujte SMTP_USER a SMTP_PASSWORD."},
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+        except smtplib.SMTPException:
+            self.write_json(
+                {"error": "Odoslanie reset e-mailu zlyhalo na SMTP serveri."},
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+        except Exception as exc:
+            self.write_json({"error": f"Reset e-mail sa nepodarilo odoslať: {exc}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
         finally:
             connection.close()
 
