@@ -9,9 +9,43 @@
 <body>
   <div class="ambient ambient--one"></div>
   <div class="ambient ambient--two"></div>
-  <div class="app-shell">
+  <div class="app-shell app-shell--dashboard">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar__brand">
+        <img class="sidebar__logo" src="icons/merge-mark.svg" alt="Merge logo">
+        <div>
+          <strong>Contact Database Cleanup</strong>
+          <span>POWERED</span>
+        </div>
+      </div>
+
+      <nav class="sidebar__nav" aria-label="Navigácia">
+        <a href="#section-import" class="sidebar__link">Import</a>
+        <a href="#section-account" class="sidebar__link">Účet</a>
+        <a href="#section-rules" class="sidebar__link">Pravidlá</a>
+        <a href="#section-preview" class="sidebar__link">Ukážka výstupu</a>
+        <a href="#section-results" class="sidebar__link">Výsledok</a>
+        <a href="#section-public" class="sidebar__link">Ako to funguje</a>
+        <a href="#section-audience" class="sidebar__link">Pre koho je to</a>
+        <a href="#section-privacy" class="sidebar__link">Súkromie</a>
+        <a href="#section-faq" class="sidebar__link">FAQ</a>
+        <a href="#section-pricing" class="sidebar__link">Cenník</a>
+      </nav>
+
+      <div class="sidebar__footer">
+        <span>Secure payment cez Stripe</span>
+        <span>CSV / XLSX / XLS</span>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
+
+    <div class="content-shell">
     <header class="hero">
       <div class="hero__content">
+        <div class="hero__topbar">
+          <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
+        </div>
         <div class="brand-lockup">
           <img class="brand-lockup__logo" src="icons/merge-mark.svg" alt="Merge logo">
         </div>
@@ -55,7 +89,7 @@
     </section>
 
     <main class="layout">
-      <section class="card">
+      <section id="section-import" class="card">
         <div class="section-head">
           <div>
             <p class="section-kicker">1. Import</p>
@@ -80,7 +114,7 @@
         <div id="datasetList" class="dataset-list empty-state">Zatiaľ nie sú načítané žiadne súbory.</div>
       </section>
 
-      <section class="card">
+      <section id="section-account" class="card">
         <div class="section-head">
           <div>
             <p class="section-kicker">2. Účet</p>
@@ -91,7 +125,7 @@
         <div id="accountSummary" class="account-summary empty-state">Zatiaľ nie si prihlásený.</div>
       </section>
 
-      <section class="card">
+      <section id="section-rules" class="card">
         <div class="section-head">
           <div>
             <p class="section-kicker">3. Pravidlá</p>
@@ -110,7 +144,7 @@
           </ul>
       </section>
 
-      <section class="card">
+      <section id="section-preview" class="card">
         <div class="section-head">
           <div>
             <p class="section-kicker">4. Ukážka výstupu</p>
@@ -147,7 +181,7 @@
         <p class="table-subnote">Presne tento formát je vhodný pre CRM, mailing databázy a newsletter importy.</p>
       </section>
 
-      <section class="card card--wide">
+      <section id="section-results" class="card card--wide">
         <div class="section-head">
           <div>
             <p class="section-kicker">5. Výsledok</p>
@@ -194,7 +228,7 @@
         <div id="duplicatesAudit" class="empty-state">Zatiaľ bez odstránených duplicitných záznamov.</div>
       </section>
 
-      <section class="card card--wide card--info">
+      <section id="section-public" class="card card--wide card--info">
         <div class="section-head">
           <div>
             <p class="section-kicker">7. Pre verejnosť</p>
@@ -222,7 +256,7 @@
         </div>
       </section>
 
-      <section class="card card--wide">
+      <section id="section-audience" class="card card--wide">
         <div class="section-head">
           <div>
             <p class="section-kicker">8. Pre koho je to</p>
@@ -246,7 +280,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section id="section-privacy" class="card">
         <div class="section-head">
           <div>
             <p class="section-kicker">9. Súkromie</p>
@@ -260,7 +294,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section id="section-faq" class="card">
         <div class="section-head">
           <div>
             <p class="section-kicker">10. FAQ</p>
@@ -288,7 +322,7 @@
         </div>
       </section>
 
-      <section class="card card--wide">
+      <section id="section-pricing" class="card card--wide">
         <div class="section-head">
           <div>
             <p class="section-kicker">11. Cenník</p>
@@ -326,6 +360,7 @@
       <a href="/cookie-policy.html">Cookies</a>
       <a href="mailto:rampacek.alan@gmail.com">Kontakt</a>
     </footer>
+    </div>
   </div>
 
   <template id="datasetItemTemplate">

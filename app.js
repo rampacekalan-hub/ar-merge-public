@@ -69,6 +69,10 @@ const elements = {
   resetPasswordForm: document.getElementById("resetPasswordForm"),
   resetPasswordInput: document.getElementById("resetPasswordInput"),
   resetPasswordMessage: document.getElementById("resetPasswordMessage"),
+  sidebar: document.getElementById("sidebar"),
+  sidebarToggle: document.getElementById("sidebarToggle"),
+  sidebarBackdrop: document.getElementById("sidebarBackdrop"),
+  sidebarLinks: document.querySelectorAll(".sidebar__link"),
 };
 
 bootstrap();
@@ -108,6 +112,9 @@ async function bootstrap() {
   elements.resetPasswordBackdrop.addEventListener("click", closeResetPasswordModal);
   elements.resetPasswordClose.addEventListener("click", closeResetPasswordModal);
   elements.resetPasswordForm.addEventListener("submit", handleResetPasswordSubmit);
+  elements.sidebarToggle?.addEventListener("click", toggleSidebar);
+  elements.sidebarBackdrop?.addEventListener("click", closeSidebar);
+  elements.sidebarLinks.forEach((link) => link.addEventListener("click", closeSidebar));
   document.addEventListener("keydown", handleModalEscape);
   elements.downloadCsvBtn.addEventListener("click", () => {
     if (state.mergedContacts.length) {
@@ -203,6 +210,7 @@ function handleModalEscape(event) {
   if (!elements.resetPasswordModal.hidden) {
     closeResetPasswordModal();
   }
+  closeSidebar();
 }
 
 function maybeOpenPromoModal() {
@@ -220,6 +228,14 @@ function maybeOpenPromoModal() {
 function closePromoModal() {
   elements.promoModal.hidden = true;
   syncModalState();
+}
+
+function toggleSidebar() {
+  document.body.classList.toggle("sidebar-open");
+}
+
+function closeSidebar() {
+  document.body.classList.remove("sidebar-open");
 }
 
 function syncModalState() {
