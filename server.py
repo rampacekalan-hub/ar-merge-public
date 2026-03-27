@@ -16,6 +16,7 @@ from email.parser import BytesParser
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 import openpyxl
 import stripe
@@ -154,6 +155,14 @@ def normalize_email(email):
     return str(email or "").strip().lower()
 
 
+def parse_positive_int(value, default=0):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed
+
+
 def is_admin_email(email):
     return normalize_email(email) in ADMIN_EMAILS
 
@@ -183,7 +192,7 @@ def hash_session_token(token):
 
 def build_reset_link(token):
     base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else ""
-    return f"{base}/?reset_token={token}"
+    return f"{base}/app.html?reset_token={token}"
 
 
 def send_reset_email(to_email, name, token):
@@ -192,14 +201,14 @@ def send_reset_email(to_email, name, token):
 
     reset_link = build_reset_link(token)
     message = EmailMessage()
-    message["Subject"] = "Obnova hesla - Contact Database Cleanup POWERED"
+    message["Subject"] = "Obnova hesla - Unifyo"
     message["From"] = SMTP_FROM_EMAIL
     message["To"] = to_email
     greeting = name or to_email
     message.set_content(
         f"""Dobrý deň {greeting},
 
-prišla nám žiadosť o obnovu hesla pre váš účet v Contact Database Cleanup POWERED.
+prišla nám žiadosť o obnovu hesla pre váš účet v Unifyo.
 
 Pre nastavenie nového hesla otvorte tento odkaz:
 {reset_link}
@@ -683,6 +692,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/account"):
             self.handle_account()
             return
+        if self.path.startswith("/api/admin/user-detail"):
+            self.handle_admin_user_detail()
+            return
         if self.path.startswith("/api/admin/overview"):
             self.handle_admin_overview()
             return
@@ -707,11 +719,20 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/logout":
             self.handle_logout()
             return
+        if self.path == "/api/account/update":
+            self.handle_account_update()
+            return
+        if self.path == "/api/account/change-password":
+            self.handle_account_change_password()
+            return
         if self.path == "/api/create-checkout-session":
             self.handle_create_checkout_session()
             return
         if self.path == "/api/admin/membership":
             self.handle_admin_membership_update()
+            return
+        if self.path == "/api/admin/role":
+            self.handle_admin_role_update()
             return
         if self.path == "/api/stripe-webhook":
             self.handle_stripe_webhook()
@@ -848,7 +869,65 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "membership_valid_until": row["membership_valid_until"] or "",
                     }
                 )
-            self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50)})
+            threshold = format_timestamp(utc_now() - timedelta(days=30))
+            stats = {
+                "total_users": len(users),
+                "active_memberships": sum(1 for item in users if item["membership_status"] == "active"),
+                "admin_users": sum(1 for item in users if item["role"] == "admin"),
+                "recent_registrations": connection.execute(
+                    "SELECT COUNT(*) AS total FROM users WHERE created_at >= ?",
+                    (threshold,),
+                ).fetchone()["total"],
+            }
+            self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50), "stats": stats})
+        finally:
+            connection.close()
+
+    def handle_admin_user_detail(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            params = parse_qs(urlparse(self.path).query)
+            user_id = parse_positive_int((params.get("user_id") or ["0"])[0], 0)
+            if not user_id:
+                self.write_json({"error": "Chýba ID používateľa."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            row = connection.execute(
+                """
+                SELECT users.*, memberships.status AS membership_status, memberships.current_period_end AS membership_valid_until
+                FROM users
+                LEFT JOIN memberships ON memberships.user_id = users.id
+                WHERE users.id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+            if not row:
+                self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            self.write_json(
+                {
+                    "user": {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "email": row["email"],
+                        "role": row["role"],
+                        "created_at": row["created_at"],
+                        "membership_status": row["membership_status"] or "inactive",
+                        "membership_valid_until": row["membership_valid_until"] or "",
+                    },
+                    "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
+                }
+            )
         finally:
             connection.close()
 
@@ -1051,6 +1130,83 @@ class AppHandler(SimpleHTTPRequestHandler):
         finally:
             connection.close()
 
+    def handle_account_update(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+
+            name = str(payload.get("name") or "").strip()
+            email = normalize_email(payload.get("email"))
+            if len(name) < 2:
+                self.write_json({"error": "Zadajte meno alebo názov používateľa."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            if not email or "@" not in email:
+                self.write_json({"error": "Zadajte platný e-mail."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            existing = connection.execute(
+                "SELECT id FROM users WHERE email = ? AND id != ?",
+                (email, user["id"]),
+            ).fetchone()
+            if existing:
+                self.write_json({"error": "Tento e-mail už používa iný účet."}, status=HTTPStatus.CONFLICT)
+                return
+
+            role = "admin" if (user["role"] == "admin" or is_admin_email(email)) else "user"
+            connection.execute(
+                "UPDATE users SET name = ?, email = ?, role = ?, updated_at = ? WHERE id = ?",
+                (name, email, role, format_timestamp(utc_now()), user["id"]),
+            )
+            connection.commit()
+            log_activity(connection, "account_updated", "Používateľ upravil svoj účet.", user["id"], email=email)
+            updated = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            self.write_json({**user_payload(connection, updated), "activity": get_recent_activity(connection, updated["id"], limit=25)})
+        finally:
+            connection.close()
+
+    def handle_account_change_password(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        current_password = str(payload.get("current_password") or "")
+        new_password = str(payload.get("new_password") or "")
+        if len(new_password) < 8:
+            self.write_json({"error": "Nové heslo musí mať aspoň 8 znakov."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            if not verify_password(current_password, user["password_salt"], user["password_hash"]):
+                self.write_json({"error": "Aktuálne heslo nie je správne."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            salt, password_hash = create_password_hash(new_password)
+            connection.execute(
+                "UPDATE users SET password_hash = ?, password_salt = ?, updated_at = ? WHERE id = ?",
+                (password_hash, salt, format_timestamp(utc_now()), user["id"]),
+            )
+            connection.commit()
+            log_activity(connection, "password_changed", "Používateľ zmenil heslo v účte.", user["id"])
+            self.write_json({"ok": True})
+        finally:
+            connection.close()
+
     def handle_logout(self):
         connection = get_db()
         try:
@@ -1091,8 +1247,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 mode="subscription",
                 customer=customer_id,
                 line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
-                success_url=f"{base_url}/?checkout=success",
-                cancel_url=f"{base_url}/?checkout=cancel",
+                success_url=f"{base_url}/app.html?checkout=success",
+                cancel_url=f"{base_url}/app.html?checkout=cancel",
                 allow_promotion_codes=True,
                 metadata={"user_id": str(user["id"])},
                 client_reference_id=str(user["id"]),
@@ -1126,7 +1282,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             payload = require_json(self)
             user_id = int(payload.get("user_id") or 0)
             action = str(payload.get("action") or "").strip()
-            if not user_id or action not in {"activate_30d", "deactivate"}:
+            days = parse_positive_int(payload.get("days"), 30)
+            if not user_id or action not in {"activate_30d", "activate_days", "deactivate"}:
                 self.write_json({"error": "Neplatná admin akcia."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
@@ -1137,8 +1294,9 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             now = utc_now()
             now_value = format_timestamp(now)
-            if action == "activate_30d":
-                end_value = format_timestamp(now + timedelta(days=30))
+            if action in {"activate_30d", "activate_days"}:
+                extend_days = 30 if action == "activate_30d" else max(1, min(days, 365))
+                end_value = format_timestamp(now + timedelta(days=extend_days))
                 connection.execute(
                     """
                     INSERT INTO memberships (user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at)
@@ -1150,7 +1308,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     """,
                     (user_id, target_user["stripe_customer_id"], "", end_value, now_value, now_value),
                 )
-                log_activity(connection, "admin_membership_update", "Admin aktivoval členstvo na 30 dní.", admin_user["id"], target_user_id=user_id)
+                log_activity(connection, "admin_membership_update", f"Admin aktivoval členstvo na {extend_days} dní.", admin_user["id"], target_user_id=user_id, days=extend_days)
             else:
                 connection.execute(
                     """
@@ -1168,6 +1326,43 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"ok": True})
         except ValueError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            connection.close()
+
+    def handle_admin_role_update(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            user_id = parse_positive_int(payload.get("user_id"), 0)
+            role = str(payload.get("role") or "").strip().lower()
+            if not user_id or role not in {"admin", "user"}:
+                self.write_json({"error": "Neplatná rola alebo používateľ."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            target_user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not target_user:
+                self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
+                return
+            if target_user["id"] == admin_user["id"] and role != "admin":
+                self.write_json({"error": "Nemôžete odobrať admin práva sami sebe."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            connection.execute(
+                "UPDATE users SET role = ?, updated_at = ? WHERE id = ?",
+                (role, format_timestamp(utc_now()), user_id),
+            )
+            connection.commit()
+            log_activity(connection, "admin_role_update", f"Admin zmenil rolu používateľa na {role}.", admin_user["id"], target_user_id=user_id, role=role)
+            self.write_json({"ok": True})
         finally:
             connection.close()
 
@@ -1356,7 +1551,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 def main():
     init_db()
     server = ThreadingHTTPServer((HOST, PORT), AppHandler)
-    print(f"Serving Contact Database Cleanup POWERED on http://{HOST}:{PORT}")
+    print(f"Serving Unifyo on http://{HOST}:{PORT}")
     server.serve_forever()
 
 

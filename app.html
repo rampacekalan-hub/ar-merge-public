@@ -13,7 +13,7 @@
   <div class="app-shell app-shell--dashboard">
     <aside id="sidebar" class="sidebar">
       <div class="sidebar__brand">
-        <img class="sidebar__logo" src="icons/merge-mark.svg" alt="Unifyo logo">
+        <img class="sidebar__logo" src="icons/unifyo-logo.png" alt="Unifyo logo">
         <div>
           <strong>Unifyo</strong>
           <span>unifyo.online</span>
@@ -23,7 +23,7 @@
       <nav class="sidebar__nav" aria-label="Navigácia">
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="pages" aria-expanded="true">
-            <span>Stránky</span>
+            <span>Prehľad</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="pages">
@@ -35,7 +35,7 @@
 
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="work" aria-expanded="true">
-            <span>Práca s databázou</span>
+            <span>Spracovanie</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="work">
@@ -46,11 +46,11 @@
         </div>
 
         <div class="sidebar-group">
-          <button class="sidebar-group__toggle" type="button" data-sidebar-group="account" aria-expanded="false">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="account" aria-expanded="true">
             <span>Účet a nastavenia</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
-          <div class="sidebar-group__content is-collapsed" data-sidebar-group-content="account">
+          <div class="sidebar-group__content" data-sidebar-group-content="account">
             <button id="accountMenuBtn" class="sidebar__link sidebar__link--button" type="button">Prihlásiť sa / Registrovať</button>
             <button id="adminMenuBtn" class="sidebar__link sidebar__link--button is-hidden" type="button">Administrácia</button>
           </div>
@@ -87,14 +87,14 @@
               <button id="logoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
             </div>
           </div>
-          <p class="hero__eyebrow">Aplikácia pre čistenie kontaktov</p>
-          <h1>Vyčisti databázu kontaktov bez chaosu.</h1>
-          <p class="hero__lede">Nahraj súbory, odstráň duplicity a stiahni si jeden čistý výstup pripravený pre CRM, Ecomail alebo Mailchimp.</p>
+          <p class="hero__eyebrow">Pracovná zóna</p>
+          <h1>Čisté kontakty. Bez duplicít. Bez chaosu.</h1>
+          <p class="hero__lede">Nahraj svoje databázy, systém ich automaticky vyčistí a ty stiahneš jeden finálny export pripravený na ďalší import.</p>
           <p id="accountStatus" class="hero__account-status">Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.</p>
           <div class="hero__actions">
-            <button id="buyHeroBtn" class="button button--primary" type="button">Začať čistenie</button>
-            <button id="buyToolbarBtn" class="button button--ghost" type="button">Aktivovať členstvo</button>
-          </div>
+              <button id="buyHeroBtn" class="button button--primary" type="button">Nahrať a vyčistiť</button>
+              <button id="buyToolbarBtn" class="button button--ghost" type="button">Aktivovať členstvo</button>
+            </div>
           <div class="hero__flow">
             <span>Nahraj súbory</span>
             <span>Vyčisti automaticky</span>
@@ -112,16 +112,16 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Import</p>
-              <h2 id="uploadTitle">Plný import je súčasťou členského prístupu</h2>
+              <h2 id="uploadTitle">Import pripravený na spracovanie</h2>
             </div>
           </div>
-          <p id="uploadSubtitle" class="section-copy">Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.</p>
+          <p id="uploadSubtitle" class="section-copy">Nahraj CSV, XLSX alebo XLS súbory. Unifyo ich vyčistí, odstráni duplicity a pripraví jeden prehľadný export.</p>
 
           <div id="uploadBox" class="upload upload--locked" role="button" tabindex="0">
             <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple>
             <div>
-              <div class="upload__title">Nahraj CSV, XLSX alebo XLS súbory</div>
-              <p class="upload__subtitle">Po aktívnom členstve sa výber súborov otvorí priamo odtiaľto.</p>
+              <div class="upload__title">Nahraj svoje súbory</div>
+              <p class="upload__subtitle">Po aktívnom členstve sa výber súborov otvorí priamo odtiaľto a spracovanie môže začať.</p>
               <button id="unlockUploadBtn" class="button button--primary" type="button">Nahrať a vyčistiť</button>
             </div>
           </div>
@@ -138,7 +138,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Účet</p>
-              <h2>Prístup a členstvo</h2>
+              <h2>Tvoj účet a členstvo</h2>
             </div>
           </div>
 
@@ -146,13 +146,13 @@
 
           <div class="pricing-card pricing-card--pro">
             <span class="pricing-card__label">Členský prístup</span>
-            <p class="pricing-card__intro">Plný import vlastných súborov, export do CSV/XLSX a audit odstránených duplicit.</p>
+            <p class="pricing-card__intro">Plný import vlastných súborov, export do CSV/XLSX a prehľad odstránených duplicit v jednom účte.</p>
             <div class="pricing-card__price-wrap">
               <span class="pricing-card__price-old">4,99 € / mesiac</span>
               <span class="pricing-card__deal">Akciová cena</span>
               <strong class="pricing-card__price">0,99 € / mesiac</strong>
             </div>
-            <p class="pricing-card__copy">Členstvo sa viaže na tvoj účet, takže po prihlásení uvidíš platnosť aj históriu aktivít.</p>
+            <p class="pricing-card__copy">Členstvo sa viaže na tvoj účet. Po prihlásení vidíš platnosť, históriu aktivít a všetko dôležité na jednom mieste.</p>
             <div class="toolbar">
               <button id="buyProBtn" class="button button--primary" type="button">Aktivovať za 0,99 € / mesiac</button>
               <button id="pricingCtaBtn" class="button button--ghost" type="button">Vyčistiť moje kontakty</button>
@@ -164,7 +164,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Výsledok</p>
-              <h2>Prehľad spracovania a finálny export</h2>
+              <h2>Výsledok spracovania a finálny export</h2>
             </div>
             <div class="toolbar toolbar--compact">
               <button id="downloadCsvBtn" class="button button--ghost" type="button" disabled>Stiahnuť CSV</button>
@@ -338,6 +338,49 @@
       <p class="section-kicker">Účet a nastavenia</p>
       <h2>Prehľad tvojho účtu</h2>
       <div id="accountPanelSummary" class="account-summary empty-state">Načítavam údaje o účte...</div>
+      <div class="account-panel-grid">
+        <section class="panel-card">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Profil</p>
+              <h3>Upraviť účet</h3>
+            </div>
+          </div>
+          <form id="accountUpdateForm" class="auth-form auth-form--compact">
+            <label class="auth-field">
+              <span>Meno</span>
+              <input id="accountNameInput" type="text" name="name" autocomplete="name" required>
+            </label>
+            <label class="auth-field">
+              <span>E-mail</span>
+              <input id="accountEmailInput" type="email" name="email" autocomplete="email" required>
+            </label>
+            <button id="accountUpdateSubmit" class="button button--primary" type="submit">Uložiť zmeny</button>
+          </form>
+          <p id="accountUpdateMessage" class="auth-message" hidden></p>
+        </section>
+
+        <section class="panel-card">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Bezpečnosť</p>
+              <h3>Zmeniť heslo</h3>
+            </div>
+          </div>
+          <form id="accountPasswordForm" class="auth-form auth-form--compact">
+            <label class="auth-field">
+              <span>Aktuálne heslo</span>
+              <input id="accountCurrentPassword" type="password" name="current_password" autocomplete="current-password" required>
+            </label>
+            <label class="auth-field">
+              <span>Nové heslo</span>
+              <input id="accountNewPassword" type="password" name="new_password" autocomplete="new-password" required>
+            </label>
+            <button id="accountPasswordSubmit" class="button button--ghost" type="submit">Aktualizovať heslo</button>
+          </form>
+          <p id="accountPasswordMessage" class="auth-message" hidden></p>
+        </section>
+      </div>
       <div class="section-head section-head--audit">
         <div>
           <p class="section-kicker">História</p>
@@ -354,6 +397,23 @@
       <button id="adminPanelClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
       <p class="section-kicker">Administrácia</p>
       <h2>Prehľad používateľov a členstiev</h2>
+      <div id="adminStats" class="summary-grid summary-grid--admin empty-state">Načítavam štatistiky...</div>
+      <div class="admin-toolbar">
+        <label class="auth-field auth-field--inline">
+          <span>Hľadať</span>
+          <input id="adminSearchInput" type="search" placeholder="Meno alebo e-mail">
+        </label>
+        <label class="auth-field auth-field--inline">
+          <span>Filter členstva</span>
+          <select id="adminMembershipFilter">
+            <option value="all">Všetci používatelia</option>
+            <option value="active">Len aktívne členstvá</option>
+            <option value="inactive">Len neaktívne členstvá</option>
+            <option value="admin">Len admini</option>
+          </select>
+        </label>
+        <button id="adminExportBtn" class="button button--ghost" type="button">Export používateľov</button>
+      </div>
       <div class="section-head">
         <div>
           <p class="section-kicker">Používatelia</p>
@@ -361,6 +421,13 @@
         </div>
       </div>
       <div id="adminUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
+      <div class="section-head section-head--audit">
+        <div>
+          <p class="section-kicker">Detail používateľa</p>
+          <h3>História a zásahy</h3>
+        </div>
+      </div>
+      <div id="adminUserDetail" class="panel-card empty-state">Vyber používateľa z tabuľky a zobrazí sa detail účtu, história aj rýchle zásahy.</div>
       <div class="section-head section-head--audit">
         <div>
           <p class="section-kicker">Aktivity systému</p>
