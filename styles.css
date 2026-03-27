@@ -140,6 +140,7 @@ h3 {
   display: grid;
   grid-template-columns: 1.25fr 0.75fr;
   gap: 20px;
+  align-items: start;
 }
 
 .card,
@@ -154,8 +155,9 @@ h3 {
 }
 
 .card {
+  position: relative;
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 26px;
 }
 
 .card--wide {
@@ -170,8 +172,10 @@ h3 {
 }
 
 .hero__content {
+  display: grid;
+  gap: 0;
   border-radius: 32px;
-  padding: 30px 34px;
+  padding: 34px 36px;
   box-shadow: var(--shadow);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.94)),
@@ -181,10 +185,10 @@ h3 {
 
 .hero__text {
   margin-top: 18px;
-  max-width: 74ch;
+  max-width: 68ch;
   color: var(--muted);
-  line-height: 1.68;
-  font-size: 1rem;
+  line-height: 1.72;
+  font-size: 1.02rem;
 }
 
 .hero__actions {
@@ -226,24 +230,45 @@ h3 {
 }
 
 .trust-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 10px 0 20px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 24px;
 }
 
 .trust-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(246, 250, 255, 0.94));
+  border: 1px solid rgba(37, 99, 235, 0.1);
+  box-shadow: var(--shadow);
+}
+
+.trust-pill__icon {
   display: inline-flex;
   align-items: center;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(37, 99, 235, 0.08);
-  box-shadow: var(--shadow);
+  justify-content: center;
+  min-width: 52px;
+  height: 52px;
+  padding: 0 12px;
+  border-radius: 18px;
+  background: rgba(37, 99, 235, 0.09);
   color: var(--accent-strong);
-  font-size: 0.84rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trust-pill__text {
+  color: var(--surface-dark);
+  font-size: 0.98rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  line-height: 1.25;
 }
 
 .summary-card span,
@@ -264,11 +289,12 @@ h3 {
 }
 
 .info-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .pricing-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
 }
 
 .audience-grid {
@@ -309,7 +335,7 @@ h3 {
 
 .pricing-card {
   border-radius: 26px;
-  padding: 22px;
+  padding: 24px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(37, 99, 235, 0.1);
   box-shadow: var(--shadow);
@@ -331,11 +357,41 @@ h3 {
   letter-spacing: 0.08em;
 }
 
+.pricing-card__price-wrap {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pricing-card__price-old {
+  color: #7f8ea8;
+  text-decoration: line-through;
+  text-decoration-thickness: 3px;
+  text-decoration-color: rgba(220, 38, 38, 0.72);
+  font-weight: 800;
+  font-size: 1.28rem;
+  letter-spacing: -0.01em;
+}
+
+.pricing-card__deal {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .pricing-card__price {
   display: block;
-  margin-top: 14px;
   font-size: 2rem;
-  color: var(--surface-dark);
+  color: #0f3fb8;
+  text-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
 }
 
 .pricing-card__copy {
@@ -351,6 +407,11 @@ h3 {
 
 .table-wrap--preview {
   margin-top: 2px;
+}
+
+.card--info {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(244, 249, 255, 0.94));
 }
 
 .legal-layout {
@@ -571,6 +632,44 @@ h3 {
   color: var(--muted);
 }
 
+.promo-price {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.promo-price__old {
+  color: #7f8ea8;
+  text-decoration: line-through;
+  text-decoration-thickness: 3px;
+  text-decoration-color: rgba(220, 38, 38, 0.72);
+  font-weight: 800;
+  font-size: 1.22rem;
+  letter-spacing: -0.01em;
+}
+
+.promo-price__deal {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.promo-price__current {
+  color: #0f3fb8;
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+}
+
 .modal__block {
   border-radius: 20px;
   padding: 16px 18px;
@@ -628,6 +727,12 @@ h3 {
   flex-wrap: wrap;
 }
 
+.section-head {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(37, 99, 235, 0.08);
+}
+
 .upload {
   display: grid;
   place-items: center;
@@ -662,6 +767,13 @@ body.is-pro-unlocked .upload--locked {
   font-size: 1.2rem;
   font-weight: 800;
   margin-bottom: 8px;
+}
+
+.upload__subtitle {
+  max-width: 42ch;
+  color: var(--muted);
+  line-height: 1.65;
+  margin-bottom: 18px;
 }
 
 .toolbar {
@@ -715,6 +827,7 @@ body.is-pro-unlocked .upload--locked {
   border: 1px dashed var(--line);
   background: rgba(255, 255, 255, 0.42);
   padding: 18px;
+  line-height: 1.7;
 }
 
 .dataset-item {
@@ -780,6 +893,10 @@ body.is-pro-unlocked .upload--locked {
   line-height: 1.75;
 }
 
+.rule-list li + li {
+  margin-top: 6px;
+}
+
 .card--results {
   grid-column: 1 / -1;
 }
@@ -829,10 +946,15 @@ body.is-pro-unlocked .upload--locked {
 
 .table-wrap {
   overflow: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(37, 99, 235, 0.08);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .section-head--audit {
   margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(37, 99, 235, 0.08);
 }
 
 .audit-list {
@@ -891,6 +1013,10 @@ td {
   border-bottom: 1px solid var(--line);
 }
 
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 th {
   font-size: 0.86rem;
   color: var(--accent-strong);
@@ -941,6 +1067,10 @@ th {
   h1 {
     max-width: none;
   }
+
+  .trust-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -976,6 +1106,10 @@ th {
   .summary-card,
   .result-card {
     padding: 16px;
+  }
+
+  .trust-bar {
+    grid-template-columns: 1fr;
   }
 
   th,
