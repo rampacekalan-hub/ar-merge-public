@@ -33,12 +33,22 @@
     </header>
 
     <section class="trust-bar" aria-label="Hlavné výhody">
-      <span class="trust-pill">GDPR ready</span>
-      <span class="trust-pill">Stripe secure payment</span>
-      <span class="trust-pill">CSV / XLSX / XLS</span>
-      <span class="trust-pill">Mailchimp / Ecomail ready</span>
-      <span class="trust-pill">Pripravené pre vlastnú doménu</span>
-      <span class="trust-pill">GA4 ready</span>
+      <article class="trust-pill">
+        <span class="trust-pill__icon">GDPR</span>
+        <span class="trust-pill__text">GDPR ready</span>
+      </article>
+      <article class="trust-pill">
+        <span class="trust-pill__icon">STRIPE</span>
+        <span class="trust-pill__text">Secure payment</span>
+      </article>
+      <article class="trust-pill">
+        <span class="trust-pill__icon">FILES</span>
+        <span class="trust-pill__text">CSV / XLSX / XLS</span>
+      </article>
+      <article class="trust-pill">
+        <span class="trust-pill__icon">EMAIL</span>
+        <span class="trust-pill__text">Mailchimp / Ecomail ready</span>
+      </article>
     </section>
 
     <main class="layout">
@@ -275,8 +285,13 @@
         <div class="pricing-grid">
           <article class="pricing-card pricing-card--pro">
             <span class="pricing-card__label">Pro</span>
-            <strong class="pricing-card__price">Jednorazová platba pred importom</strong>
-            <p class="pricing-card__copy">Plná verzia pre reálne firemné použitie. Odomkneš import viacerých databáz, deduplikáciu, audit odstránených záznamov a export pripravený pre CRM alebo newsletter systémy. Platba prebieha bezpečne cez Stripe.</p>
+            <p class="pricing-card__intro">Akciový prístup k plnej verzii služby</p>
+            <div class="pricing-card__price-wrap">
+              <span class="pricing-card__price-old">4,99 € / mesiac</span>
+              <span class="pricing-card__deal">Akciová cena</span>
+              <strong class="pricing-card__price">teraz len 0,99 € / mesiac</strong>
+            </div>
+            <p class="pricing-card__copy">Limitovaná akciová cena pre ostré firemné použitie. Odomkneš import viacerých databáz, deduplikáciu, audit odstránených záznamov a export pripravený pre CRM alebo newsletter systémy. Platba prebieha bezpečne cez Stripe.</p>
             <ul class="rule-list">
               <li>plný import a deduplikácia</li>
               <li>CSV a XLSX export</li>
@@ -284,7 +299,8 @@
               <li>výstup pre Mailchimp, Ecomail a CRM</li>
               <li>prioritná podpora</li>
             </ul>
-            <button id="buyProBtn" class="button button--primary pricing-card__link" type="button">Kúpiť Pro cez Stripe</button>
+            <button id="buyProBtn" class="button button--primary pricing-card__link" type="button">Aktivovať za 0,99 € / mesiac</button>
+            <p class="pricing-card__note">Bezpečná platba cez Stripe. Akciová cena je zobrazená priamo pred dokončením checkoutu.</p>
           </article>
         </div>
       </section>
@@ -315,19 +331,27 @@
     <div id="promoModalBackdrop" class="modal__backdrop"></div>
     <div class="modal__dialog modal__dialog--promo" role="dialog" aria-modal="true" aria-labelledby="promoModalTitle">
       <button id="promoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Pro verzia</p>
-      <h2 id="promoModalTitle">Plný import databáz kontaktov odomkneš po platbe cez Stripe.</h2>
+      <p class="section-kicker">Akciová ponuka</p>
+      <h2 id="promoModalTitle">Plný import databáz kontaktov za zvýhodnenú cenu.</h2>
+      <p class="modal__sublead">Odblokuj profesionálnu verziu pre import, čistenie a export kontaktov.</p>
+      <div class="promo-price">
+        <span class="promo-price__old">4,99 € / mesiac</span>
+        <span class="promo-price__deal">Akciová cena</span>
+        <strong class="promo-price__current">teraz len 0,99 € / mesiac</strong>
+      </div>
       <p class="modal__lead">
-        Získaj prístup k importu, deduplikácii, exportu CSV/XLSX a k auditu odstránených duplicit.
+        Odomkni plný import databáz kontaktov, deduplikáciu, export CSV/XLSX a audit odstránených duplicit za zvýhodnenú mesačnú cenu.
       </p>
       <div class="modal__promo-points">
+        <span>Akcia 0,99 € / mesiac</span>
         <span>Import CSV, XLSX a XLS</span>
         <span>CSV aj XLSX export</span>
         <span>Audit duplicitných záznamov</span>
       </div>
       <div class="modal__actions">
-        <button id="promoModalStart" class="button button--primary" type="button">Kúpiť Pro cez Stripe</button>
+        <button id="promoModalStart" class="button button--primary" type="button">Aktivovať za 0,99 € / mesiac</button>
       </div>
+      <p class="modal__note">Platba prebieha bezpečne cez Stripe. Zvýhodnená cena sa zobrazí aj v checkout okne.</p>
     </div>
   </div>
 

@@ -357,6 +357,13 @@ h3 {
   letter-spacing: 0.08em;
 }
 
+.pricing-card__intro {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+
 .pricing-card__price-wrap {
   display: grid;
   gap: 8px;
@@ -403,6 +410,13 @@ h3 {
 .pricing-card__link {
   display: inline-flex;
   text-decoration: none;
+}
+
+.pricing-card__note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
 }
 
 .table-wrap--preview {
@@ -632,6 +646,13 @@ h3 {
   color: var(--muted);
 }
 
+.modal__sublead {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
 .promo-price {
   display: grid;
   gap: 8px;
@@ -668,6 +689,13 @@ h3 {
   line-height: 1.05;
   letter-spacing: -0.03em;
   text-shadow: 0 10px 30px rgba(37, 99, 235, 0.12);
+}
+
+.modal__note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
 }
 
 .modal__block {
