@@ -4,9 +4,10 @@ import io
 import json
 import os
 from datetime import date, datetime
+from email import policy
+from email.parser import BytesParser
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-import cgi
 
 import openpyxl
 import xlrd
@@ -139,6 +140,36 @@ def table_from_rows(rows, row_types=None):
     }
 
 
+def parse_multipart_form(headers, body):
+    content_type = headers.get("Content-Type", "")
+    if "multipart/form-data" not in content_type.lower():
+        raise ValueError("Požiadavka musí byť multipart/form-data.")
+
+    raw_message = (
+        f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8")
+        + body
+    )
+    message = BytesParser(policy=policy.default).parsebytes(raw_message)
+
+    fields = {}
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+
+        name = part.get_param("name", header="content-disposition")
+        if not name:
+            continue
+
+        entry = {
+            "filename": part.get_filename(),
+            "content": part.get_payload(decode=True) or b"",
+            "content_type": part.get_content_type(),
+        }
+        fields.setdefault(name, []).append(entry)
+
+    return fields
+
+
 class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=BASE_DIR, **kwargs)
@@ -155,24 +186,29 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint neexistuje.")
 
-    def handle_parse(self):
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-            },
-        )
+    def read_request_body(self):
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            raise ValueError("Neplatná Content-Length hlavička.")
+        return self.rfile.read(content_length)
 
-        file_item = form["file"] if "file" in form else None
-        if file_item is None or getattr(file_item, "file", None) is None:
+    def handle_parse(self):
+        try:
+            form = parse_multipart_form(self.headers, self.read_request_body())
+        except Exception as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        file_items = form.get("file", [])
+        if not file_items:
             self.write_json({"error": "Súbor nebol prijatý."}, status=HTTPStatus.BAD_REQUEST)
             return
 
-        file_name = file_item.filename or "upload"
+        file_item = file_items[0]
+        file_name = file_item.get("filename") or "upload"
         extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
-        file_bytes = file_item.file.read()
+        file_bytes = file_item.get("content", b"")
 
         try:
             if extension == "csv":
@@ -190,29 +226,24 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.write_json(table)
 
     def handle_process(self):
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-            },
-        )
+        try:
+            form = parse_multipart_form(self.headers, self.read_request_body())
+        except Exception as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
 
         if "files" not in form:
             self.write_json({"error": "Neboli prijaté žiadne súbory."}, status=HTTPStatus.BAD_REQUEST)
             return
 
         file_items = form["files"]
-        if not isinstance(file_items, list):
-            file_items = [file_items]
-
         uploads = []
         for file_item in file_items:
-            if getattr(file_item, "file", None) is None:
+            file_name = file_item.get("filename") or "upload"
+            file_bytes = file_item.get("content", b"")
+            if not file_bytes:
                 continue
-            file_name = file_item.filename or "upload"
-            uploads.append((file_name, file_item.file.read()))
+            uploads.append((file_name, file_bytes))
 
         if not uploads:
             self.write_json({"error": "Neboli prijaté žiadne súbory."}, status=HTTPStatus.BAD_REQUEST)
