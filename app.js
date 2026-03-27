@@ -15,10 +15,12 @@ const state = {
 
 const elements = {
   fileInput: document.getElementById("fileInput"),
+  uploadBox: document.getElementById("uploadBox"),
   buyHeroBtn: document.getElementById("buyHeroBtn"),
   accountBtn: document.getElementById("accountBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
   accountStatus: document.getElementById("accountStatus"),
+  accountSummary: document.getElementById("accountSummary"),
   uploadTitle: document.getElementById("uploadTitle"),
   uploadSubtitle: document.getElementById("uploadSubtitle"),
   unlockUploadBtn: document.getElementById("unlockUploadBtn"),
@@ -60,6 +62,7 @@ async function bootstrap() {
   disableServiceWorkers();
   await refreshCurrentUser();
   elements.fileInput.addEventListener("change", handleFileSelection);
+  elements.uploadBox.addEventListener("click", handleUploadBoxClick);
   elements.buyHeroBtn.addEventListener("click", startCheckoutFlow);
   elements.accountBtn.addEventListener("click", () => openAuthModal(state.user ? "login" : "register"));
   elements.logoutBtn.addEventListener("click", logout);
@@ -120,8 +123,8 @@ function renderAccessState() {
     elements.buyHeroBtn.disabled = false;
   }
   if (elements.unlockUploadBtn) {
-    elements.unlockUploadBtn.textContent = hasMembership ? "Import odomknutý" : "Aktivovať cez Stripe";
-    elements.unlockUploadBtn.disabled = hasMembership;
+    elements.unlockUploadBtn.textContent = hasMembership ? "Vybrať súbory" : "Aktivovať cez Stripe";
+    elements.unlockUploadBtn.disabled = false;
   }
   if (elements.buyProBtn) {
     elements.buyProBtn.textContent = hasMembership ? "Členstvo aktívne" : "Aktivovať za 0,99 € / mesiac";
@@ -157,6 +160,7 @@ function renderAccessState() {
         ? "Účet je pripravený. Aktivuj členstvo cez Stripe a potom sa odomkne vlastný import."
         : "Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.";
   }
+  renderAccountSummary();
 }
 
 function handleModalEscape(event) {
@@ -233,8 +237,22 @@ async function refreshCurrentUser() {
 
   const url = new URL(window.location.href);
   const checkoutState = url.searchParams.get("checkout");
-  if (checkoutState === "success" && state.user?.membership_active) {
-    window.alert("Členstvo bolo úspešne aktivované.");
+  if (checkoutState === "success") {
+    try {
+      const refreshResponse = await fetch("/api/refresh-membership");
+      const refreshPayload = await refreshResponse.json();
+      if (refreshResponse.ok) {
+        state.user = refreshPayload.user;
+      }
+    } catch (_error) {
+      // ignore sync issue here; current state stays visible
+    }
+
+    if (state.user?.membership_active) {
+      window.alert("Členstvo bolo úspešne aktivované.");
+    } else {
+      window.alert("Platba prebehla. Členstvo sa ešte synchronizuje, skús stránku obnoviť o pár sekúnd.");
+    }
   }
   if (checkoutState === "cancel") {
     window.alert("Platba bola zrušená.");
@@ -243,6 +261,43 @@ async function refreshCurrentUser() {
     url.searchParams.delete("checkout");
     window.history.replaceState({}, "", url.toString());
   }
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "—";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(parsed);
+}
+
+function renderAccountSummary() {
+  if (!elements.accountSummary) {
+    return;
+  }
+  if (!state.user) {
+    elements.accountSummary.className = "account-summary empty-state";
+    elements.accountSummary.textContent = "Zatiaľ nie si prihlásený.";
+    return;
+  }
+
+  elements.accountSummary.className = "account-summary";
+  elements.accountSummary.innerHTML = `
+    <article class="account-card">
+      <div class="account-card__row"><strong>E-mail</strong><span>${escapeHtml(state.user.email || "")}</span></div>
+      <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(state.user.created_at))}</span></div>
+      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(state.user.membership_active ? "Aktívne" : "Neaktívne")}</span></div>
+      <div class="account-card__row"><strong>Členstvo od</strong><span>${escapeHtml(formatDate(state.user.membership_started_at))}</span></div>
+      <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(state.user.membership_valid_until))}</span></div>
+    </article>
+  `;
 }
 
 async function handleAuthSubmit(event) {
@@ -278,6 +333,7 @@ async function handleAuthSubmit(event) {
 async function logout() {
   await fetch("/api/logout", { method: "POST" });
   state.user = null;
+  resetApp();
   renderAccessState();
 }
 
@@ -307,6 +363,17 @@ async function startProCheckout() {
   } catch (error) {
     window.alert(error.message);
   }
+}
+
+function handleUploadBoxClick(event) {
+  if (event.target.closest("button")) {
+    return;
+  }
+  if (state.user?.membership_active) {
+    elements.fileInput.click();
+    return;
+  }
+  startCheckoutFlow();
 }
 
 async function disableServiceWorkers() {

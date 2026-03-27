@@ -64,7 +64,7 @@
           <p class="section-copy">Podporované: <code>.csv</code>, <code>.xlsx</code>, <code>.xls</code></p>
         </div>
 
-        <div class="upload upload--locked">
+        <div id="uploadBox" class="upload upload--locked">
           <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple hidden>
           <span id="uploadTitle" class="upload__title">Plný import je súčasťou členského prístupu</span>
           <span id="uploadSubtitle" class="upload__subtitle">Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.</span>
@@ -83,7 +83,18 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">2. Pravidlá</p>
+            <p class="section-kicker">2. Účet</p>
+            <h2>Stav členstva</h2>
+          </div>
+        </div>
+
+        <div id="accountSummary" class="account-summary empty-state">Zatiaľ nie si prihlásený.</div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">3. Pravidlá</p>
             <h2>Ako to funguje</h2>
           </div>
         </div>
@@ -102,7 +113,7 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">3. Ukážka výstupu</p>
+            <p class="section-kicker">4. Ukážka výstupu</p>
             <h2>Ako vyzerá finálny export</h2>
           </div>
         </div>
@@ -139,7 +150,7 @@
       <section class="card card--wide">
         <div class="section-head">
           <div>
-            <p class="section-kicker">4. Výsledok</p>
+            <p class="section-kicker">5. Výsledok</p>
             <h2>Finálny zoznam kontaktov</h2>
           </div>
           <div class="toolbar toolbar--compact">
@@ -175,7 +186,7 @@
 
         <div class="section-head section-head--audit">
           <div>
-            <p class="section-kicker">5. Audit</p>
+            <p class="section-kicker">6. Audit</p>
             <h2>Odstránené duplicity</h2>
           </div>
         </div>
@@ -186,7 +197,7 @@
       <section class="card card--wide card--info">
         <div class="section-head">
           <div>
-            <p class="section-kicker">6. Pre verejnosť</p>
+            <p class="section-kicker">7. Pre verejnosť</p>
             <h2>Ako to funguje</h2>
           </div>
         </div>
@@ -214,7 +225,7 @@
       <section class="card card--wide">
         <div class="section-head">
           <div>
-            <p class="section-kicker">7. Pre koho je to</p>
+            <p class="section-kicker">8. Pre koho je to</p>
             <h2>Najčastejšie použitie</h2>
           </div>
         </div>
@@ -238,7 +249,7 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">8. Súkromie</p>
+            <p class="section-kicker">9. Súkromie</p>
             <h2>Bezpečné spracovanie</h2>
           </div>
         </div>
@@ -252,7 +263,7 @@
       <section class="card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">9. FAQ</p>
+            <p class="section-kicker">10. FAQ</p>
             <h2>Časté otázky</h2>
           </div>
         </div>
@@ -280,7 +291,7 @@
       <section class="card card--wide">
         <div class="section-head">
           <div>
-            <p class="section-kicker">10. Cenník</p>
+            <p class="section-kicker">11. Cenník</p>
             <h2>Pro verzia</h2>
           </div>
         </div>

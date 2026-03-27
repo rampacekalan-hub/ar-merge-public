@@ -216,6 +216,7 @@ def get_membership(connection, user_id):
         return None
     membership = dict(row)
     membership["current_period_end"] = parse_timestamp(membership.get("current_period_end"))
+    membership["created_at"] = parse_timestamp(membership.get("created_at"))
     return membership
 
 
@@ -233,14 +234,17 @@ def is_membership_active(membership):
 def user_payload(connection, user_row):
     membership = get_membership(connection, user_row["id"])
     period_end = membership.get("current_period_end") if membership else None
+    membership_started = membership.get("created_at") if membership else None
     return {
         "authenticated": True,
         "user": {
             "id": user_row["id"],
             "email": user_row["email"],
+            "created_at": user_row["created_at"],
             "membership_active": is_membership_active(membership),
             "membership_status": membership.get("status") if membership else "inactive",
             "membership_valid_until": format_timestamp(period_end) if period_end else "",
+            "membership_started_at": format_timestamp(membership_started) if membership_started else "",
         },
     }
 
@@ -324,6 +328,33 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
         ),
     )
     connection.commit()
+
+
+def sync_membership_for_user(connection, user_row):
+    customer_id = user_row["stripe_customer_id"]
+    if not customer_id or not STRIPE_SECRET_KEY:
+        return
+
+    subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+    subscription_data = subscriptions.get("data", [])
+    if not subscription_data:
+        return
+
+    def priority(item):
+        status = item.get("status", "")
+        order = {
+            "active": 0,
+            "trialing": 1,
+            "past_due": 2,
+            "unpaid": 3,
+            "canceled": 4,
+            "incomplete": 5,
+            "incomplete_expired": 6,
+        }
+        return (order.get(status, 99), -(item.get("created") or 0))
+
+    selected = sorted(subscription_data, key=priority)[0]
+    sync_membership_from_subscription(connection, selected, fallback_user_id=user_row["id"])
 
 
 def normalize_cell(value):
@@ -486,6 +517,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/me"):
             self.handle_me()
             return
+        if self.path.startswith("/api/refresh-membership"):
+            self.handle_refresh_membership()
+            return
         super().do_GET()
 
     def do_POST(self):
@@ -560,7 +594,27 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not user:
                 self.write_json({"authenticated": False, "user": None})
                 return
+            try:
+                sync_membership_for_user(connection, user)
+                user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            except Exception:
+                pass
             self.write_json(user_payload(connection, user))
+        finally:
+            connection.close()
+
+    def handle_refresh_membership(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            sync_membership_for_user(connection, user)
+            user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            self.write_json(user_payload(connection, user))
+        except stripe.error.StripeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
         finally:
             connection.close()
 
