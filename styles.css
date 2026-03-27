@@ -235,13 +235,18 @@ h3 {
 }
 
 .info-grid,
-.faq-list {
+.faq-list,
+.pricing-grid {
   display: grid;
   gap: 14px;
 }
 
 .info-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pricing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .info-card,
@@ -271,6 +276,48 @@ h3 {
 
 .privacy-note {
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(255, 255, 255, 0.92));
+}
+
+.pricing-card {
+  border-radius: 26px;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(37, 99, 235, 0.1);
+  box-shadow: var(--shadow);
+}
+
+.pricing-card--pro {
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.96));
+}
+
+.pricing-card__label {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pricing-card__price {
+  display: block;
+  margin-top: 14px;
+  font-size: 2rem;
+  color: var(--surface-dark);
+}
+
+.pricing-card__copy {
+  margin: 12px 0 16px;
+  color: var(--muted);
+  line-height: 1.68;
+}
+
+.pricing-card__link {
+  display: inline-flex;
+  text-decoration: none;
 }
 
 .legal-layout {
@@ -808,6 +855,7 @@ th {
   .layout,
   .legal-layout,
   .info-grid,
+  .pricing-grid,
   .summary-grid,
   .results-grid,
   .audit-grid {

@@ -8,6 +8,8 @@
   };
 
   const TRACKING_CONFIG = {
+    // Doplň sem reálne ID pri ostrom spustení analytiky a marketingu.
+    // Prázdne hodnoty znamenajú, že sa nič nenačíta ani po súhlase.
     ga4MeasurementId: "",
     metaPixelId: "",
   };

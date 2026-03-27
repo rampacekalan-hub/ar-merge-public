@@ -16,6 +16,8 @@ const elements = {
   demoBtn: document.getElementById("demoBtn"),
   demoInfoBtn: document.getElementById("demoInfoBtn"),
   startFreeBtn: document.getElementById("startFreeBtn"),
+  pricingFreeBtn: document.getElementById("pricingFreeBtn"),
+  buyProBtn: document.getElementById("buyProBtn"),
   mergeBtn: document.getElementById("mergeBtn"),
   resetBtn: document.getElementById("resetBtn"),
   datasetList: document.getElementById("datasetList"),
@@ -48,6 +50,8 @@ function bootstrap() {
   elements.demoBtn.addEventListener("click", loadDemoFiles);
   elements.demoInfoBtn.addEventListener("click", openDemoModal);
   elements.startFreeBtn.addEventListener("click", startFreeTrial);
+  elements.pricingFreeBtn.addEventListener("click", startFreeTrial);
+  elements.buyProBtn.addEventListener("click", startProCheckout);
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.demoModalBackdrop.addEventListener("click", closeDemoModal);
@@ -127,6 +131,15 @@ function syncModalState() {
 
 function startFreeTrial() {
   elements.fileInput.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function startProCheckout() {
+  const paymentLink = window.AR_MERGE_BILLING?.stripePaymentLink || "";
+  if (!paymentLink) {
+    window.alert("Stripe Payment Link este nie je nastaveny. Doplň ho v billing-config.js.");
+    return;
+  }
+  window.location.href = paymentLink;
 }
 
 async function loadDemoFiles() {
