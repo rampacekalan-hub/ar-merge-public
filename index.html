@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Merge</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient--one"></div>
+  <div class="ambient ambient--two"></div>
+  <div class="app-shell">
+    <header class="hero">
+      <div class="hero__content">
+        <div class="brand-lockup">
+          <img class="brand-lockup__logo" src="icons/merge-mark.svg" alt="Merge logo">
+        </div>
+        <h1>Čistý import kontaktov bez duplicit.</h1>
+        <p class="hero__text">
+          Nahraj CSV, XLSX alebo XLS. Appka vyčistí kontaktné dáta, odstráni duplicity,
+          vyhodí nepoužiteľné riadky a pripraví jeden čistý finálny export so stĺpcami
+          meno, priezvisko, email a telefón.
+        </p>
+        <div class="hero__actions">
+          <button id="startFreeBtn" class="button button--primary" type="button">Vyskúšať zdarma</button>
+        </div>
+        <div class="hero__meta">
+          <span class="hero__meta-label">Výstup</span>
+          <span class="hero__meta-text">meno, priezvisko, email, telefón</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">1. Import</p>
+            <h2>Nahraj databázy</h2>
+          </div>
+          <p class="section-copy">Podporované: <code>.csv</code>, <code>.xlsx</code>, <code>.xls</code></p>
+        </div>
+
+        <label class="upload" for="fileInput">
+          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple>
+          <span class="upload__title">Vybrať súbory</span>
+          <span class="upload__subtitle">Môžeš nahrať viac databáz naraz.</span>
+        </label>
+
+        <div class="toolbar">
+          <button id="demoBtn" class="button button--ghost">Načítať ukážku</button>
+          <button id="demoInfoBtn" class="button button--ghost">Ako funguje ukážka?</button>
+          <button id="mergeBtn" class="button button--primary" disabled>Vyčistiť a zlúčiť</button>
+          <button id="resetBtn" class="button button--ghost">Vymazať všetko</button>
+        </div>
+
+        <div id="datasetList" class="dataset-list empty-state">Zatiaľ nie sú načítané žiadne súbory.</div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">2. Pravidlá</p>
+            <h2>Ako to funguje</h2>
+          </div>
+        </div>
+
+        <ul class="rule-list">
+          <li>Kontakty bez e-mailu aj telefónu sa automaticky vyradia.</li>
+          <li>Duplicitný kontakt sa hľadá primárne podľa e-mailu alebo telefónu.</li>
+          <li>Meno a priezvisko sa používa len ako veľmi opatrný doplnkový signál.</li>
+          <li>Telefón sa normalizuje do jednotného formátu a e-mail sa čistí na lowercase.</li>
+          <li>Vo výsledku zostanú len stĺpce meno, priezvisko, email a telefón.</li>
+        </ul>
+      </section>
+
+      <section class="card card--wide">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">3. Výsledok</p>
+            <h2>Finálny zoznam kontaktov</h2>
+          </div>
+          <div class="toolbar toolbar--compact">
+            <button id="downloadCsvBtn" class="button button--ghost" disabled>Export CSV</button>
+            <button id="downloadXlsxBtn" class="button button--ghost" disabled>Export XLSX</button>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <article class="summary-card">
+            <span>Načítané riadky</span>
+            <strong id="totalRows">0</strong>
+          </article>
+          <article class="summary-card">
+            <span>Použiteľné kontakty</span>
+            <strong id="validContacts">0</strong>
+          </article>
+          <article class="summary-card">
+            <span>Finálny výstup</span>
+            <strong id="mergedContacts">0</strong>
+          </article>
+          <article class="summary-card">
+            <span>Odstránené duplicity</span>
+            <strong id="duplicatesRemoved">0</strong>
+          </article>
+          <article class="summary-card">
+            <span>Vyradené bez kontaktu</span>
+            <strong id="droppedInvalid">0</strong>
+          </article>
+        </div>
+
+        <div id="resultTable" class="table-wrap empty-state">Zatiaľ bez výsledkov.</div>
+
+        <div class="section-head section-head--audit">
+          <div>
+            <p class="section-kicker">4. Audit</p>
+            <h2>Odstránené duplicity</h2>
+          </div>
+        </div>
+
+        <div id="duplicatesAudit" class="empty-state">Zatiaľ bez odstránených duplicitných záznamov.</div>
+      </section>
+
+      <section class="card card--wide card--info">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">4. Pre verejnosť</p>
+            <h2>Ako to funguje</h2>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <article class="info-card">
+            <strong>1. Nahraj kontakty</strong>
+            <p>Vyber jeden alebo viac súborov vo formáte CSV, XLSX alebo XLS.</p>
+          </article>
+          <article class="info-card">
+            <strong>2. Appka ich vyčistí</strong>
+            <p>Normalizuje e-maily a telefóny, vyradí nepoužiteľné riadky a nájde duplicity.</p>
+          </article>
+          <article class="info-card">
+            <strong>3. Exportuj finálny zoznam</strong>
+            <p>Stiahneš jeden čistý výstup pripravený na ďalšie použitie.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">5. Súkromie</p>
+            <h2>Bezpečné spracovanie</h2>
+          </div>
+        </div>
+
+        <div class="privacy-note">
+          <strong>Dáta ostávajú pod tvojou kontrolou.</strong>
+          <p>Kontakty sa spracúvajú lokálne v tejto appke. Slúži len na čistenie, kontrolu a export finálneho zoznamu.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">6. FAQ</p>
+            <h2>Časté otázky</h2>
+          </div>
+        </div>
+
+        <div class="faq-list">
+          <article class="faq-item">
+            <strong>Čo sa považuje za duplicitu?</strong>
+            <p>Primárne zhoda e-mailu alebo telefónu. Meno a priezvisko sa používa len opatrne ako doplnkový signál.</p>
+          </article>
+          <article class="faq-item">
+            <strong>Čo ak kontakt nemá e-mail ani telefón?</strong>
+            <p>Taký kontakt sa do finálneho výstupu nezaradí.</p>
+          </article>
+          <article class="faq-item">
+            <strong>Viem si to najprv vyskúšať?</strong>
+            <p>Áno. Použi tlačidlo <em>Načítať ukážku</em> a appka vloží vzorové dáta.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="datasetItemTemplate">
+    <article class="dataset-item">
+      <div>
+        <div class="dataset-item__head">
+          <h3 class="dataset-item__name"></h3>
+          <span class="dataset-item__type"></span>
+        </div>
+        <p class="dataset-item__meta"></p>
+        <div class="dataset-item__mapping"></div>
+      </div>
+    </article>
+  </template>
+
+  <div id="demoModal" class="modal" hidden>
+    <div id="demoModalBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
+      <button id="demoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Ukážka</p>
+      <h2 id="demoModalTitle">Ako funguje ukážka</h2>
+      <div class="modal__content">
+        <div class="modal__block">
+          <strong>Čo sa stane</strong>
+          <p>Po kliknutí sa načítajú vzorové kontakty, na ktorých si môžeš bezpečne pozrieť import, čistenie a deduplikáciu.</p>
+        </div>
+        <div class="modal__block">
+          <strong>Čo uvidíš</strong>
+          <p>Importované záznamy, vyradené kontakty, odstránené duplicity, finálny zoznam a možnosť exportu do CSV alebo XLSX.</p>
+        </div>
+        <div class="modal__block">
+          <strong>Dôležité</strong>
+          <p>Ukážka slúži len na otestovanie aplikácie. Svoje vlastné súbory môžeš nahrať kedykoľvek potom.</p>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button id="demoModalDismiss" class="button button--ghost" type="button">Zatvoriť</button>
+        <button id="demoModalLoad" class="button button--primary" type="button">Rozumiem a načítať ukážku</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="promoModal" class="modal" hidden>
+    <div id="promoModalBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog modal__dialog--promo" role="dialog" aria-modal="true" aria-labelledby="promoModalTitle">
+      <button id="promoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Rýchly štart</p>
+      <h2 id="promoModalTitle">Spoj až 20 databáz do jednej za pár sekúnd.</h2>
+      <p class="modal__lead">
+        Nahraj kontakty, pozri si odstránené duplicity a vyskúšaj free verziu bez komplikovaného nastavovania.
+      </p>
+      <div class="modal__promo-points">
+        <span>Free verzia na vyskúšanie</span>
+        <span>CSV aj XLSX</span>
+        <span>Audit duplicitných záznamov</span>
+      </div>
+      <div class="modal__actions">
+        <button id="promoModalStart" class="button button--primary" type="button">Vyskúšať zdarma</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

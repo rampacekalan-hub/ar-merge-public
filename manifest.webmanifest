@@ -1,0 +1,18 @@
+{
+  "name": "Kontakt Merge",
+  "short_name": "Kontakty",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#113946",
+  "lang": "sk",
+  "description": "Porovnanie a zlúčenie viacerých databáz kontaktov bez duplicít.",
+  "icons": [
+    {
+      "src": "icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
