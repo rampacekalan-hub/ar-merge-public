@@ -24,12 +24,14 @@
         </p>
         <div class="hero__actions">
           <button id="buyHeroBtn" class="button button--primary" type="button">Kúpiť Pro</button>
-          <button id="demoHeroBtn" class="button button--ghost" type="button">Vyskúšať demo</button>
+          <button id="accountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
+          <button id="logoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
         </div>
         <div class="hero__meta">
           <span class="hero__meta-label">Výstup</span>
           <span class="hero__meta-text">meno, priezvisko, email, telefón</span>
         </div>
+        <p id="accountStatus" class="hero__account-status">Vytvor si účet a aktivuj mesačné členstvo pre vlastný import databáz.</p>
       </div>
     </header>
 
@@ -64,8 +66,8 @@
 
         <div class="upload upload--locked">
           <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple hidden>
-          <span class="upload__title">Plný import je súčasťou Pro verzie</span>
-          <span class="upload__subtitle">Po úhrade získaš prístup k importu, deduplikácii a exportu.</span>
+          <span id="uploadTitle" class="upload__title">Plný import je súčasťou členského prístupu</span>
+          <span id="uploadSubtitle" class="upload__subtitle">Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.</span>
           <button id="unlockUploadBtn" class="button button--primary" type="button">Odomknúť cez Stripe</button>
         </div>
 
@@ -266,7 +268,7 @@
           </article>
           <article class="faq-item">
             <strong>Kedy prebehne platba?</strong>
-            <p>Platba prebieha cez Stripe ešte pred importom databáz. Po úspešnej úhrade sa sprístupní nahratie súborov aj spracovanie.</p>
+            <p>Platba prebieha cez Stripe po registrácii a prihlásení. Po úspešnej úhrade sa členstvo priradí k účtu a sprístupní sa vlastný import.</p>
           </article>
           <article class="faq-item">
             <strong>Je výstup vhodný pre newsletter systémy?</strong>
@@ -350,15 +352,40 @@
         <span>Audit duplicitných záznamov</span>
       </div>
       <div class="modal__actions">
-        <button id="promoModalDemo" class="button button--ghost" type="button">Vyskúšať ako to funguje</button>
+        <button id="promoModalAuth" class="button button--ghost" type="button">Prihlásiť sa / Registrovať</button>
         <button id="promoModalStart" class="button button--primary" type="button">Aktivovať za 0,99 € / mesiac</button>
       </div>
       <p class="modal__note">Platba prebieha bezpečne cez Stripe. Zvýhodnená cena sa zobrazí aj v checkout okne.</p>
     </div>
   </div>
 
+  <div id="authModal" class="modal" hidden>
+    <div id="authModalBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+      <button id="authModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">Účet</p>
+      <h2 id="authModalTitle">Registrácia a prihlásenie</h2>
+      <p class="modal__sublead">Členstvo sa aktivuje na konkrétny účet, takže po zaplatení sa vieš vrátiť kedykoľvek aj znovu.</p>
+      <div class="auth-switch">
+        <button id="authRegisterTab" class="button button--ghost auth-switch__button auth-switch__button--active" type="button">Registrácia</button>
+        <button id="authLoginTab" class="button button--ghost auth-switch__button" type="button">Prihlásenie</button>
+      </div>
+      <form id="authForm" class="auth-form">
+        <label class="auth-field">
+          <span>E-mail</span>
+          <input id="authEmail" type="email" autocomplete="email" required>
+        </label>
+        <label class="auth-field">
+          <span>Heslo</span>
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required>
+        </label>
+        <button id="authSubmitBtn" class="button button--primary" type="submit">Vytvoriť účet</button>
+      </form>
+      <p id="authMessage" class="auth-message" hidden></p>
+    </div>
+  </div>
+
   <script src="consent.js"></script>
-  <script src="billing-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

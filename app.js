@@ -1,5 +1,6 @@
 const state = {
-  isProUnlocked: false,
+  user: null,
+  authMode: "register",
   files: [],
   datasets: [],
   mergedContacts: [],
@@ -12,12 +13,14 @@ const state = {
   },
 };
 
-const PRO_ACCESS_KEY = "ar_merge_pro_access";
-
 const elements = {
   fileInput: document.getElementById("fileInput"),
   buyHeroBtn: document.getElementById("buyHeroBtn"),
-  demoHeroBtn: document.getElementById("demoHeroBtn"),
+  accountBtn: document.getElementById("accountBtn"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  accountStatus: document.getElementById("accountStatus"),
+  uploadTitle: document.getElementById("uploadTitle"),
+  uploadSubtitle: document.getElementById("uploadSubtitle"),
   unlockUploadBtn: document.getElementById("unlockUploadBtn"),
   buyToolbarBtn: document.getElementById("buyToolbarBtn"),
   buyProBtn: document.getElementById("buyProBtn"),
@@ -37,33 +40,49 @@ const elements = {
   promoModal: document.getElementById("promoModal"),
   promoModalBackdrop: document.getElementById("promoModalBackdrop"),
   promoModalClose: document.getElementById("promoModalClose"),
-  promoModalDemo: document.getElementById("promoModalDemo"),
+  promoModalAuth: document.getElementById("promoModalAuth"),
   promoModalStart: document.getElementById("promoModalStart"),
+  authModal: document.getElementById("authModal"),
+  authModalBackdrop: document.getElementById("authModalBackdrop"),
+  authModalClose: document.getElementById("authModalClose"),
+  authRegisterTab: document.getElementById("authRegisterTab"),
+  authLoginTab: document.getElementById("authLoginTab"),
+  authForm: document.getElementById("authForm"),
+  authEmail: document.getElementById("authEmail"),
+  authPassword: document.getElementById("authPassword"),
+  authSubmitBtn: document.getElementById("authSubmitBtn"),
+  authMessage: document.getElementById("authMessage"),
 };
 
 bootstrap();
 
-function bootstrap() {
+async function bootstrap() {
   disableServiceWorkers();
-  hydrateProAccess();
+  await refreshCurrentUser();
   elements.fileInput.addEventListener("change", handleFileSelection);
-  elements.buyHeroBtn.addEventListener("click", startProCheckout);
-  elements.demoHeroBtn.addEventListener("click", runDemoFlow);
+  elements.buyHeroBtn.addEventListener("click", startCheckoutFlow);
+  elements.accountBtn.addEventListener("click", () => openAuthModal(state.user ? "login" : "register"));
+  elements.logoutBtn.addEventListener("click", logout);
   elements.unlockUploadBtn.addEventListener("click", startProCheckout);
-  elements.buyToolbarBtn.addEventListener("click", startProCheckout);
-  elements.buyProBtn.addEventListener("click", startProCheckout);
+  elements.buyToolbarBtn.addEventListener("click", startCheckoutFlow);
+  elements.buyProBtn.addEventListener("click", startCheckoutFlow);
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
-  elements.promoModalDemo.addEventListener("click", async () => {
+  elements.promoModalAuth.addEventListener("click", () => {
     closePromoModal();
-    await runDemoFlow();
+    openAuthModal("register");
   });
-  elements.promoModalStart.addEventListener("click", () => {
+  elements.promoModalStart.addEventListener("click", async () => {
     closePromoModal();
-    startProCheckout();
+    await startCheckoutFlow();
   });
+  elements.authModalBackdrop.addEventListener("click", closeAuthModal);
+  elements.authModalClose.addEventListener("click", closeAuthModal);
+  elements.authRegisterTab.addEventListener("click", () => setAuthMode("register"));
+  elements.authLoginTab.addEventListener("click", () => setAuthMode("login"));
+  elements.authForm.addEventListener("submit", handleAuthSubmit);
   document.addEventListener("keydown", handleModalEscape);
   elements.downloadCsvBtn.addEventListener("click", () => {
     if (state.mergedContacts.length) {
@@ -85,39 +104,58 @@ function bootstrap() {
   renderAccessState();
 }
 
-function hydrateProAccess() {
-  const url = new URL(window.location.href);
-  if (url.searchParams.get("paid") === "1") {
-    localStorage.setItem(PRO_ACCESS_KEY, "1");
-    url.searchParams.delete("paid");
-    window.history.replaceState({}, "", url.toString());
-  }
-  state.isProUnlocked = localStorage.getItem(PRO_ACCESS_KEY) === "1";
-}
-
 function renderAccessState() {
-  document.body.classList.toggle("is-pro-unlocked", state.isProUnlocked);
+  const hasMembership = Boolean(state.user?.membership_active);
+  const isLoggedIn = Boolean(state.user);
+  document.body.classList.toggle("is-pro-unlocked", hasMembership);
   if (elements.mergeBtn) {
-    elements.mergeBtn.classList.toggle("is-hidden", !state.isProUnlocked);
-    elements.mergeBtn.disabled = !state.isProUnlocked || state.files.length === 0;
+    elements.mergeBtn.classList.toggle("is-hidden", !hasMembership);
+    elements.mergeBtn.disabled = !hasMembership || state.files.length === 0;
   }
   if (elements.buyToolbarBtn) {
-    elements.buyToolbarBtn.classList.toggle("is-hidden", state.isProUnlocked);
+    elements.buyToolbarBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.buyHeroBtn) {
-    elements.buyHeroBtn.textContent = state.isProUnlocked ? "Pro odomknuté" : "Kúpiť Pro";
-    elements.buyHeroBtn.disabled = state.isProUnlocked;
+    elements.buyHeroBtn.textContent = hasMembership ? "Členstvo aktívne" : "Aktivovať členstvo";
+    elements.buyHeroBtn.disabled = false;
   }
   if (elements.unlockUploadBtn) {
-    elements.unlockUploadBtn.textContent = state.isProUnlocked ? "Import odomknutý" : "Odomknúť cez Stripe";
-    elements.unlockUploadBtn.disabled = state.isProUnlocked;
+    elements.unlockUploadBtn.textContent = hasMembership ? "Import odomknutý" : "Aktivovať cez Stripe";
+    elements.unlockUploadBtn.disabled = hasMembership;
   }
   if (elements.buyProBtn) {
-    elements.buyProBtn.textContent = state.isProUnlocked ? "Pro odomknuté" : "Kúpiť Pro cez Stripe";
-    elements.buyProBtn.disabled = state.isProUnlocked;
+    elements.buyProBtn.textContent = hasMembership ? "Členstvo aktívne" : "Aktivovať za 0,99 € / mesiac";
+    elements.buyProBtn.disabled = hasMembership;
   }
   if (elements.fileInput) {
-    elements.fileInput.disabled = !state.isProUnlocked;
+    elements.fileInput.disabled = !hasMembership;
+  }
+  if (elements.accountBtn) {
+    elements.accountBtn.textContent = isLoggedIn ? state.user.email : "Prihlásiť sa";
+  }
+  if (elements.logoutBtn) {
+    elements.logoutBtn.classList.toggle("is-hidden", !isLoggedIn);
+  }
+  if (elements.accountStatus) {
+    if (hasMembership) {
+      elements.accountStatus.textContent = `Prihlásený účet ${state.user.email} má aktívne členstvo.`;
+    } else if (isLoggedIn) {
+      elements.accountStatus.textContent = `Prihlásený účet ${state.user.email} ešte nemá aktívne členstvo.`;
+    } else {
+      elements.accountStatus.textContent = "Vytvor si účet a aktivuj mesačné členstvo pre vlastný import databáz.";
+    }
+  }
+  if (elements.uploadTitle) {
+    elements.uploadTitle.textContent = hasMembership
+      ? "Import pre tvoje členstvo je odomknutý"
+      : "Plný import je súčasťou členského prístupu";
+  }
+  if (elements.uploadSubtitle) {
+    elements.uploadSubtitle.textContent = hasMembership
+      ? "Môžeš nahrať vlastné CSV, XLSX alebo XLS súbory a spracovať ich."
+      : isLoggedIn
+        ? "Účet je pripravený. Aktivuj členstvo cez Stripe a potom sa odomkne vlastný import."
+        : "Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.";
   }
 }
 
@@ -128,10 +166,13 @@ function handleModalEscape(event) {
   if (!elements.promoModal.hidden) {
     closePromoModal();
   }
+  if (!elements.authModal.hidden) {
+    closeAuthModal();
+  }
 }
 
 function maybeOpenPromoModal() {
-  if (state.isProUnlocked) {
+  if (state.user?.membership_active) {
     return;
   }
   if (sessionStorage.getItem("promo_seen") === "1") {
@@ -148,47 +189,123 @@ function closePromoModal() {
 }
 
 function syncModalState() {
-  const hasOpenModal = !elements.promoModal.hidden;
+  const hasOpenModal = !elements.promoModal.hidden || !elements.authModal.hidden;
   document.body.classList.toggle("modal-open", hasOpenModal);
 }
 
-function startProCheckout() {
-  const paymentLink = window.AR_MERGE_BILLING?.stripePaymentLink || "";
-  if (!paymentLink) {
-    window.alert("Stripe Payment Link este nie je nastaveny. Doplň ho v billing-config.js.");
-    return;
-  }
-  window.location.href = paymentLink;
+function openAuthModal(mode = "register") {
+  setAuthMode(mode);
+  clearAuthMessage();
+  elements.authModal.hidden = false;
+  syncModalState();
 }
 
-async function runDemoFlow() {
-  resetApp();
-  elements.datasetList.className = "dataset-list empty-state";
-  elements.datasetList.textContent = "Načítavam ukážkové dáta...";
+function closeAuthModal() {
+  elements.authModal.hidden = true;
+  syncModalState();
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode;
+  const isRegister = mode === "register";
+  elements.authRegisterTab.classList.toggle("auth-switch__button--active", isRegister);
+  elements.authLoginTab.classList.toggle("auth-switch__button--active", !isRegister);
+  elements.authSubmitBtn.textContent = isRegister ? "Vytvoriť účet" : "Prihlásiť sa";
+  elements.authPassword.autocomplete = isRegister ? "new-password" : "current-password";
+}
+
+function setAuthMessage(message, isError = false) {
+  elements.authMessage.hidden = false;
+  elements.authMessage.textContent = message;
+  elements.authMessage.classList.toggle("auth-message--error", isError);
+}
+
+function clearAuthMessage() {
+  elements.authMessage.hidden = true;
+  elements.authMessage.textContent = "";
+  elements.authMessage.classList.remove("auth-message--error");
+}
+
+async function refreshCurrentUser() {
+  const response = await fetch("/api/me");
+  const payload = await response.json();
+  state.user = payload.user;
+
+  const url = new URL(window.location.href);
+  const checkoutState = url.searchParams.get("checkout");
+  if (checkoutState === "success" && state.user?.membership_active) {
+    window.alert("Členstvo bolo úspešne aktivované.");
+  }
+  if (checkoutState === "cancel") {
+    window.alert("Platba bola zrušená.");
+  }
+  if (checkoutState) {
+    url.searchParams.delete("checkout");
+    window.history.replaceState({}, "", url.toString());
+  }
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  clearAuthMessage();
+
+  const email = elements.authEmail.value.trim();
+  const password = elements.authPassword.value;
+  const endpoint = state.authMode === "register" ? "/api/register" : "/api/login";
 
   try {
-    const response = await fetch("/api/demo", { method: "POST" });
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.error || "Demo sa nepodarilo načítať.");
+      throw new Error(payload.error || "Autentifikácia zlyhala.");
     }
 
-    state.datasets = payload.datasets || [];
-    state.mergedContacts = payload.rows || [];
-    state.removedDuplicates = payload.removed_duplicates || [];
-    state.report = payload.report || state.report;
-
-    renderDatasetResults();
-    renderSummary();
-    renderResultTable();
-    renderDuplicatesAudit();
-    window.scrollTo({ top: document.querySelector(".layout")?.offsetTop || 0, behavior: "smooth" });
-  } catch (error) {
-    elements.datasetList.className = "dataset-list empty-state";
-    elements.datasetList.textContent = "Ukážkové dáta sa nepodarilo načítať.";
-    window.alert(`Nepodarilo sa spustiť demo: ${error.message}`);
-  } finally {
+    state.user = payload.user;
+    closeAuthModal();
     renderAccessState();
+    if (state.authMode === "register") {
+      window.alert("Účet bol vytvorený. Teraz môžeš aktivovať členstvo cez Stripe.");
+    }
+  } catch (error) {
+    setAuthMessage(error.message, true);
+  }
+}
+
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  state.user = null;
+  renderAccessState();
+}
+
+async function startCheckoutFlow() {
+  if (!state.user) {
+    openAuthModal("register");
+    return;
+  }
+  if (state.user.membership_active) {
+    renderAccessState();
+    return;
+  }
+  await startProCheckout();
+}
+
+async function startProCheckout() {
+  try {
+    const response = await fetch("/api/create-checkout-session", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      if (response.status === 401) {
+        openAuthModal("login");
+      }
+      throw new Error(payload.error || "Stripe checkout sa nepodarilo spustiť.");
+    }
+    window.location.href = payload.url;
+  } catch (error) {
+    window.alert(error.message);
   }
 }
 
@@ -207,8 +324,8 @@ async function disableServiceWorkers() {
 }
 
 function handleFileSelection(event) {
-  if (!state.isProUnlocked) {
-    startProCheckout();
+  if (!state.user?.membership_active) {
+    startCheckoutFlow();
     return;
   }
   const files = Array.from(event.target.files || []);

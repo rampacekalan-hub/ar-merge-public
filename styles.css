@@ -218,6 +218,13 @@ h3 {
   border: 1px solid rgba(37, 99, 235, 0.08);
 }
 
+.hero__account-status {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+  font-size: 0.96rem;
+}
+
 .hero__meta-label {
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -842,6 +849,56 @@ body.is-pro-unlocked .upload--locked {
   background: rgba(8, 20, 33, 0.06);
   color: var(--surface-dark);
   font-weight: 700;
+}
+
+.auth-switch {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.auth-switch__button {
+  min-width: 140px;
+}
+
+.auth-switch__button--active {
+  background: rgba(37, 99, 235, 0.14);
+  color: var(--accent-strong);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.auth-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-field span {
+  color: var(--surface-dark);
+  font-weight: 700;
+}
+
+.auth-field input {
+  width: 100%;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(248, 251, 255, 0.9);
+  color: var(--surface-dark);
+}
+
+.auth-message {
+  margin: 14px 0 0;
+  color: var(--success);
+  line-height: 1.6;
+}
+
+.auth-message--error {
+  color: #b42318;
 }
 
 .dataset-list,

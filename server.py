@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
-from datetime import date, datetime
+import secrets
+import sqlite3
+from datetime import date, datetime, timedelta, timezone
 from email import policy
 from email.parser import BytesParser
 from http import HTTPStatus
+from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import openpyxl
+import stripe
 import xlrd
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -20,6 +26,304 @@ from contact_importer import OUTPUT_HEADERS, process_uploads
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "app.db")
+SESSION_COOKIE_NAME = "cdc_session"
+SESSION_TTL_DAYS = 30
+PASSWORD_ITERATIONS = 200_000
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip()
+
+stripe.api_key = STRIPE_SECRET_KEY
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def format_timestamp(value):
+    if isinstance(value, str):
+        return value
+    if not value:
+        return ""
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def parse_timestamp(value):
+    if not value:
+        return None
+    return datetime.fromisoformat(value)
+
+
+def get_db():
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_db():
+    connection = get_db()
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                stripe_customer_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS memberships (
+                user_id INTEGER PRIMARY KEY,
+                status TEXT NOT NULL,
+                stripe_customer_id TEXT,
+                stripe_subscription_id TEXT,
+                current_period_end TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS checkout_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                stripe_session_id TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def normalize_email(email):
+    return str(email or "").strip().lower()
+
+
+def hash_password(password, salt):
+    return hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt),
+        PASSWORD_ITERATIONS,
+    ).hex()
+
+
+def create_password_hash(password):
+    salt = secrets.token_hex(16)
+    password_hash = hash_password(password, salt)
+    return salt, password_hash
+
+
+def verify_password(password, salt, password_hash):
+    return hmac.compare_digest(hash_password(password, salt), password_hash)
+
+
+def hash_session_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def require_json(handler):
+    try:
+        content_length = int(handler.headers.get("Content-Length", "0"))
+        payload = json.loads(handler.rfile.read(content_length).decode("utf-8"))
+    except Exception:
+        raise ValueError("Neplatné JSON dáta.")
+    return payload
+
+
+def get_cookie_token(headers):
+    cookie_header = headers.get("Cookie", "")
+    if not cookie_header:
+        return ""
+    cookie = SimpleCookie()
+    cookie.load(cookie_header)
+    morsel = cookie.get(SESSION_COOKIE_NAME)
+    return morsel.value if morsel else ""
+
+
+def create_session(connection, user_id):
+    token = secrets.token_urlsafe(32)
+    now = utc_now()
+    expires_at = now + timedelta(days=SESSION_TTL_DAYS)
+    connection.execute(
+        """
+        INSERT INTO sessions (user_id, token_hash, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, hash_session_token(token), format_timestamp(expires_at), format_timestamp(now)),
+    )
+    connection.commit()
+    return token, expires_at
+
+
+def clear_session(connection, token):
+    if not token:
+        return
+    connection.execute("DELETE FROM sessions WHERE token_hash = ?", (hash_session_token(token),))
+    connection.commit()
+
+
+def get_session_user(connection, headers):
+    token = get_cookie_token(headers)
+    if not token:
+        return None
+
+    row = connection.execute(
+        """
+        SELECT users.*
+        FROM sessions
+        JOIN users ON users.id = sessions.user_id
+        WHERE sessions.token_hash = ?
+        """,
+        (hash_session_token(token),),
+    ).fetchone()
+    if not row:
+        return None
+
+    session_row = connection.execute(
+        "SELECT expires_at FROM sessions WHERE token_hash = ?",
+        (hash_session_token(token),),
+    ).fetchone()
+    expires_at = parse_timestamp(session_row["expires_at"]) if session_row else None
+    if not expires_at or expires_at <= utc_now():
+        clear_session(connection, token)
+        return None
+    return row
+
+
+def get_membership(connection, user_id):
+    row = connection.execute(
+        "SELECT * FROM memberships WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        return None
+    membership = dict(row)
+    membership["current_period_end"] = parse_timestamp(membership.get("current_period_end"))
+    return membership
+
+
+def is_membership_active(membership):
+    if not membership:
+        return False
+    if membership.get("status") not in {"active", "trialing"}:
+        return False
+    period_end = membership.get("current_period_end")
+    if not period_end:
+        return False
+    return period_end > utc_now()
+
+
+def user_payload(connection, user_row):
+    membership = get_membership(connection, user_row["id"])
+    period_end = membership.get("current_period_end") if membership else None
+    return {
+        "authenticated": True,
+        "user": {
+            "id": user_row["id"],
+            "email": user_row["email"],
+            "membership_active": is_membership_active(membership),
+            "membership_status": membership.get("status") if membership else "inactive",
+            "membership_valid_until": format_timestamp(period_end) if period_end else "",
+        },
+    }
+
+
+def get_request_base_url(handler):
+    if APP_BASE_URL:
+        return APP_BASE_URL.rstrip("/")
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto")
+    proto = forwarded_proto or ("https" if PORT == 443 else "http")
+    host = handler.headers.get("X-Forwarded-Host") or handler.headers.get("Host") or f"127.0.0.1:{PORT}"
+    return f"{proto}://{host}".rstrip("/")
+
+
+def get_or_create_customer(connection, user_row):
+    customer_id = user_row["stripe_customer_id"]
+    if customer_id:
+        return customer_id
+
+    customer = stripe.Customer.create(
+        email=user_row["email"],
+        metadata={"user_id": str(user_row["id"])},
+    )
+    customer_id = customer["id"]
+    now = format_timestamp(utc_now())
+    connection.execute(
+        "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
+        (customer_id, now, user_row["id"]),
+    )
+    connection.commit()
+    return customer_id
+
+
+def sync_membership_from_subscription(connection, subscription, fallback_user_id=None):
+    customer_id = subscription.get("customer")
+    subscription_id = subscription.get("id")
+    status = subscription.get("status", "inactive")
+    period_end_ts = subscription.get("current_period_end")
+    period_end = datetime.fromtimestamp(period_end_ts, tz=timezone.utc) if period_end_ts else None
+    now = format_timestamp(utc_now())
+
+    user_row = None
+    if customer_id:
+        user_row = connection.execute(
+            "SELECT * FROM users WHERE stripe_customer_id = ?",
+            (customer_id,),
+        ).fetchone()
+    if not user_row and fallback_user_id:
+        user_row = connection.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (fallback_user_id,),
+        ).fetchone()
+        if user_row and customer_id and user_row["stripe_customer_id"] != customer_id:
+            connection.execute(
+                "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
+                (customer_id, now, user_row["id"]),
+            )
+
+    if not user_row:
+        return
+
+    connection.execute(
+        """
+        INSERT INTO memberships (
+            user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            status = excluded.status,
+            stripe_customer_id = excluded.stripe_customer_id,
+            stripe_subscription_id = excluded.stripe_subscription_id,
+            current_period_end = excluded.current_period_end,
+            updated_at = excluded.updated_at
+        """,
+        (
+            user_row["id"],
+            status,
+            customer_id,
+            subscription_id,
+            format_timestamp(period_end) if period_end else "",
+            now,
+            now,
+        ),
+    )
+    connection.commit()
 
 
 def normalize_cell(value):
@@ -174,12 +478,34 @@ class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=BASE_DIR, **kwargs)
 
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
+    def do_GET(self):
+        if self.path.startswith("/api/me"):
+            self.handle_me()
+            return
+        super().do_GET()
+
     def do_POST(self):
+        if self.path == "/api/register":
+            self.handle_register()
+            return
+        if self.path == "/api/login":
+            self.handle_login()
+            return
+        if self.path == "/api/logout":
+            self.handle_logout()
+            return
+        if self.path == "/api/create-checkout-session":
+            self.handle_create_checkout_session()
+            return
+        if self.path == "/api/stripe-webhook":
+            self.handle_stripe_webhook()
+            return
         if self.path == "/api/process":
             self.handle_process()
-            return
-        if self.path == "/api/demo":
-            self.handle_demo()
             return
         if self.path == "/api/parse":
             self.handle_parse()
@@ -195,6 +521,228 @@ class AppHandler(SimpleHTTPRequestHandler):
         except ValueError:
             raise ValueError("Neplatná Content-Length hlavička.")
         return self.rfile.read(content_length)
+
+    def write_json(self, payload, status=HTTPStatus.OK, cookie_headers=None):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        if cookie_headers:
+            for value in cookie_headers:
+                self.send_header("Set-Cookie", value)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def is_secure_request(self):
+        if APP_BASE_URL.startswith("https://"):
+            return True
+        forwarded_proto = self.headers.get("X-Forwarded-Proto", "")
+        return forwarded_proto.lower() == "https"
+
+    def session_cookie_header(self, token, expires_at):
+        secure_flag = " Secure;" if self.is_secure_request() else ""
+        return (
+            f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax;{secure_flag} Max-Age={SESSION_TTL_DAYS * 24 * 60 * 60}; "
+            f"Expires={expires_at.astimezone(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT')}"
+        )
+
+    def expired_session_cookie_header(self):
+        secure_flag = " Secure;" if self.is_secure_request() else ""
+        return (
+            f"{SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax;{secure_flag} Max-Age=0; "
+            "Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+        )
+
+    def handle_me(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"authenticated": False, "user": None})
+                return
+            self.write_json(user_payload(connection, user))
+        finally:
+            connection.close()
+
+    def handle_register(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        email = normalize_email(payload.get("email"))
+        password = str(payload.get("password") or "")
+        if not email or "@" not in email:
+            self.write_json({"error": "Zadajte platný e-mail."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if len(password) < 8:
+            self.write_json({"error": "Heslo musí mať aspoň 8 znakov."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        connection = get_db()
+        try:
+            existing = connection.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+            if existing:
+                self.write_json({"error": "Účet s týmto e-mailom už existuje."}, status=HTTPStatus.CONFLICT)
+                return
+
+            salt, password_hash = create_password_hash(password)
+            now = format_timestamp(utc_now())
+            cursor = connection.execute(
+                """
+                INSERT INTO users (email, password_hash, password_salt, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (email, password_hash, salt, now, now),
+            )
+            user_id = cursor.lastrowid
+            token, expires_at = create_session(connection, user_id)
+            user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            self.write_json(
+                user_payload(connection, user),
+                status=HTTPStatus.CREATED,
+                cookie_headers=[self.session_cookie_header(token, expires_at)],
+            )
+        finally:
+            connection.close()
+
+    def handle_login(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        email = normalize_email(payload.get("email"))
+        password = str(payload.get("password") or "")
+        connection = get_db()
+        try:
+            user = connection.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+            if not user or not verify_password(password, user["password_salt"], user["password_hash"]):
+                self.write_json({"error": "Neplatný e-mail alebo heslo."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+
+            old_token = get_cookie_token(self.headers)
+            clear_session(connection, old_token)
+            token, expires_at = create_session(connection, user["id"])
+            self.write_json(
+                user_payload(connection, user),
+                cookie_headers=[self.session_cookie_header(token, expires_at)],
+            )
+        finally:
+            connection.close()
+
+    def handle_logout(self):
+        connection = get_db()
+        try:
+            clear_session(connection, get_cookie_token(self.headers))
+            self.write_json(
+                {"ok": True},
+                cookie_headers=[self.expired_session_cookie_header()],
+            )
+        finally:
+            connection.close()
+
+    def handle_create_checkout_session(self):
+        if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID:
+            self.write_json(
+                {"error": "Stripe nie je nakonfigurovaný. Nastav STRIPE_SECRET_KEY a STRIPE_PRICE_ID."},
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+            return
+
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste alebo zaregistrujte."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+
+            membership = get_membership(connection, user["id"])
+            if is_membership_active(membership):
+                self.write_json({"error": "Členstvo je už aktívne."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            base_url = get_request_base_url(self)
+            customer_id = get_or_create_customer(connection, user)
+            session = stripe.checkout.Session.create(
+                mode="subscription",
+                customer=customer_id,
+                line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
+                success_url=f"{base_url}/?checkout=success",
+                cancel_url=f"{base_url}/?checkout=cancel",
+                allow_promotion_codes=True,
+                metadata={"user_id": str(user["id"])},
+                client_reference_id=str(user["id"]),
+            )
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO checkout_sessions (user_id, stripe_session_id, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (user["id"], session["id"], format_timestamp(utc_now())),
+            )
+            connection.commit()
+            self.write_json({"url": session["url"]})
+        except stripe.error.StripeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+        finally:
+            connection.close()
+
+    def handle_stripe_webhook(self):
+        if not STRIPE_WEBHOOK_SECRET:
+            self.write_json({"error": "Webhook secret nie je nastavený."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        payload = self.read_request_body()
+        signature = self.headers.get("Stripe-Signature", "")
+
+        try:
+            event = stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
+        except ValueError:
+            self.write_json({"error": "Neplatný webhook payload."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        except stripe.error.SignatureVerificationError:
+            self.write_json({"error": "Neplatný Stripe podpis."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        connection = get_db()
+        try:
+            event_type = event["type"]
+            data = event["data"]["object"]
+
+            if event_type == "checkout.session.completed":
+                user_id = int(data.get("metadata", {}).get("user_id") or data.get("client_reference_id") or 0)
+                subscription_id = data.get("subscription")
+                if subscription_id:
+                    subscription = stripe.Subscription.retrieve(subscription_id)
+                    sync_membership_from_subscription(connection, subscription, fallback_user_id=user_id or None)
+
+            if event_type in {"customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"}:
+                sync_membership_from_subscription(connection, data)
+
+            self.write_json({"received": True})
+        except Exception as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            connection.close()
+
+    def require_active_membership(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Pre túto akciu sa musíte prihlásiť."}, status=HTTPStatus.UNAUTHORIZED)
+                return None
+
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na nahranie vlastných súborov je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return None
+            return user
+        finally:
+            connection.close()
 
     def handle_parse(self):
         try:
@@ -229,6 +777,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.write_json(table)
 
     def handle_process(self):
+        if not self.require_active_membership():
+            return
+
         try:
             form = parse_multipart_form(self.headers, self.read_request_body())
         except Exception as exc:
@@ -239,14 +790,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"error": "Neboli prijaté žiadne súbory."}, status=HTTPStatus.BAD_REQUEST)
             return
 
-        file_items = form["files"]
         uploads = []
-        for file_item in file_items:
+        for file_item in form["files"]:
             file_name = file_item.get("filename") or "upload"
             file_bytes = file_item.get("content", b"")
-            if not file_bytes:
-                continue
-            uploads.append((file_name, file_bytes))
+            if file_bytes:
+                uploads.append((file_name, file_bytes))
 
         if not uploads:
             self.write_json({"error": "Neboli prijaté žiadne súbory."}, status=HTTPStatus.BAD_REQUEST)
@@ -260,32 +809,13 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         self.write_json(payload)
 
-    def handle_demo(self):
-        examples_dir = os.path.join(BASE_DIR, "examples")
-        demo_files = ["contacts_a.csv", "contacts_b.csv"]
-        uploads = []
-
-        for filename in demo_files:
-            path = os.path.join(examples_dir, filename)
-            if not os.path.exists(path):
-                self.write_json({"error": f"Ukážkový súbor {filename} neexistuje."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-                return
-            with open(path, "rb") as handle:
-                uploads.append((filename, handle.read()))
-
-        try:
-            payload = process_uploads(uploads)
-        except Exception as exc:
-            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+    def handle_export_xlsx(self):
+        if not self.require_active_membership():
             return
 
-        self.write_json(payload)
-
-    def handle_export_xlsx(self):
         try:
-            content_length = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
-        except Exception:
+            payload = require_json(self)
+        except ValueError:
             self.write_json({"error": "Neplatné dáta pre export."}, status=HTTPStatus.BAD_REQUEST)
             return
 
@@ -329,18 +859,11 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def write_json(self, payload, status=HTTPStatus.OK):
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
 
 def main():
+    init_db()
     server = ThreadingHTTPServer((HOST, PORT), AppHandler)
-    print(f"Serving Kontakt Merge on http://{HOST}:{PORT}")
+    print(f"Serving Contact Database Cleanup POWERED on http://{HOST}:{PORT}")
     server.serve_forever()
 
 
