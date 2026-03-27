@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Merge</title>
+  <title>Contact Database Cleanup POWERED</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,14 +15,15 @@
         <div class="brand-lockup">
           <img class="brand-lockup__logo" src="icons/merge-mark.svg" alt="Merge logo">
         </div>
-        <h1>Čistý import kontaktov bez duplicit.</h1>
+        <h1>Contact Database Cleanup POWERED</h1>
         <p class="hero__text">
-          Nahraj CSV, XLSX alebo XLS. Appka vyčistí kontaktné dáta, odstráni duplicity,
-          vyhodí nepoužiteľné riadky a pripraví jeden čistý finálny export so stĺpcami
-          meno, priezvisko, email a telefón.
+          Profesionálny nástroj na čistenie databáz kontaktov. Importuje CSV, XLSX alebo XLS,
+          odstráni duplicity a pripraví finálny export so stĺpcami meno, priezvisko, email a telefón.
+          Výstup je vhodný pre Mailchimp, Ecomail a ďalšie newsletter systémy, pretože obsahuje presne tie údaje,
+          ktoré tieto platformy pri importe štandardne očakávajú.
         </p>
         <div class="hero__actions">
-          <button id="startFreeBtn" class="button button--primary" type="button">Vyskúšať zdarma</button>
+          <button id="buyHeroBtn" class="button button--primary" type="button">Kúpiť Pro</button>
         </div>
         <div class="hero__meta">
           <span class="hero__meta-label">Výstup</span>
@@ -36,21 +37,21 @@
         <div class="section-head">
           <div>
             <p class="section-kicker">1. Import</p>
-            <h2>Nahraj databázy</h2>
+            <h2>Odomknite import databáz</h2>
           </div>
           <p class="section-copy">Podporované: <code>.csv</code>, <code>.xlsx</code>, <code>.xls</code></p>
         </div>
 
-        <label class="upload" for="fileInput">
-          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple>
-          <span class="upload__title">Vybrať súbory</span>
-          <span class="upload__subtitle">Môžeš nahrať viac databáz naraz.</span>
-        </label>
+        <div class="upload upload--locked">
+          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" multiple hidden>
+          <span class="upload__title">Plný import je súčasťou Pro verzie</span>
+          <span class="upload__subtitle">Po úhrade získaš prístup k importu, deduplikácii a exportu.</span>
+          <button id="unlockUploadBtn" class="button button--primary" type="button">Odomknúť cez Stripe</button>
+        </div>
 
         <div class="toolbar">
-          <button id="demoBtn" class="button button--ghost">Načítať ukážku</button>
-          <button id="demoInfoBtn" class="button button--ghost">Ako funguje ukážka?</button>
-          <button id="mergeBtn" class="button button--primary" disabled>Vyčistiť a zlúčiť</button>
+          <button id="mergeBtn" class="button button--primary is-hidden" disabled>Vyčistiť a zlúčiť</button>
+          <button id="buyToolbarBtn" class="button button--primary" type="button">Kúpiť Pro</button>
           <button id="resetBtn" class="button button--ghost">Vymazať všetko</button>
         </div>
 
@@ -69,9 +70,11 @@
           <li>Kontakty bez e-mailu aj telefónu sa automaticky vyradia.</li>
           <li>Duplicitný kontakt sa hľadá primárne podľa e-mailu alebo telefónu.</li>
           <li>Meno a priezvisko sa používa len ako veľmi opatrný doplnkový signál.</li>
-          <li>Telefón sa normalizuje do jednotného formátu a e-mail sa čistí na lowercase.</li>
-          <li>Vo výsledku zostanú len stĺpce meno, priezvisko, email a telefón.</li>
-        </ul>
+            <li>Telefón sa normalizuje do jednotného formátu a e-mail sa čistí na lowercase.</li>
+            <li>Vo výsledku zostanú len stĺpce meno, priezvisko, email a telefón.</li>
+            <li>Výstup je pripravený tak, aby sa dal jednoducho importovať do Mailchimpu, Ecomailu a bežných newsletter systémov.</li>
+            <li>Prístup k plnému importu a exportu je dostupný po zakúpení Pro verzie.</li>
+          </ul>
       </section>
 
       <section class="card card--wide">
@@ -131,15 +134,19 @@
 
         <div class="info-grid">
           <article class="info-card">
-            <strong>1. Nahraj kontakty</strong>
+            <strong>1. Odomkni Pro</strong>
+            <p>Po úhrade cez Stripe získaš prístup k importu databáz a k finálnemu exportu.</p>
+          </article>
+          <article class="info-card">
+            <strong>2. Nahraj kontakty</strong>
             <p>Vyber jeden alebo viac súborov vo formáte CSV, XLSX alebo XLS.</p>
           </article>
           <article class="info-card">
-            <strong>2. Appka ich vyčistí</strong>
+            <strong>3. Appka ich vyčistí</strong>
             <p>Normalizuje e-maily a telefóny, vyradí nepoužiteľné riadky a nájde duplicity.</p>
           </article>
           <article class="info-card">
-            <strong>3. Exportuj finálny zoznam</strong>
+            <strong>4. Exportuj finálny zoznam</strong>
             <p>Stiahneš jeden čistý výstup pripravený na ďalšie použitie.</p>
           </article>
         </div>
@@ -154,8 +161,8 @@
         </div>
 
         <div class="privacy-note">
-          <strong>Dáta ostávajú pod tvojou kontrolou.</strong>
-          <p>Kontakty sa spracúvajú lokálne v tejto appke. Slúži len na čistenie, kontrolu a export finálneho zoznamu.</p>
+          <strong>Dáta sa spracúvajú len na účel čistenia a exportu.</strong>
+          <p>Nahraté súbory slúžia na import, deduplikáciu a vytvorenie finálneho výstupu. Podrobnosti nájdeš v ochrane súkromia.</p>
         </div>
       </section>
 
@@ -177,8 +184,12 @@
             <p>Taký kontakt sa do finálneho výstupu nezaradí.</p>
           </article>
           <article class="faq-item">
-            <strong>Viem si to najprv vyskúšať?</strong>
-            <p>Áno. Použi tlačidlo <em>Načítať ukážku</em> a appka vloží vzorové dáta.</p>
+            <strong>Kedy prebehne platba?</strong>
+            <p>Platba prebieha cez Stripe ešte pred importom databáz. Po úspešnej úhrade sa sprístupní nahratie súborov aj spracovanie.</p>
+          </article>
+          <article class="faq-item">
+            <strong>Je výstup vhodný pre newsletter systémy?</strong>
+            <p>Áno. Výstup obsahuje len prehľadné polia meno, priezvisko, email a telefón, takže je vhodný pre Mailchimp, Ecomail aj ďalšie bežné newsletter platformy.</p>
           </article>
         </div>
       </section>
@@ -187,26 +198,14 @@
         <div class="section-head">
           <div>
             <p class="section-kicker">7. Cenník</p>
-            <h2>Free a Pro</h2>
+            <h2>Pro verzia</h2>
           </div>
         </div>
 
         <div class="pricing-grid">
-          <article class="pricing-card pricing-card--free">
-            <span class="pricing-card__label">Free</span>
-            <strong class="pricing-card__price">0 €</strong>
-            <p class="pricing-card__copy">Na vyskúšanie služby a otestovanie základného flow.</p>
-            <ul class="rule-list">
-              <li>ukážkový import</li>
-              <li>základné spracovanie kontaktov</li>
-              <li>prehľad výsledku v aplikácii</li>
-            </ul>
-            <button id="pricingFreeBtn" class="button button--primary" type="button">Vyskúšať zdarma</button>
-          </article>
-
           <article class="pricing-card pricing-card--pro">
             <span class="pricing-card__label">Pro</span>
-            <strong class="pricing-card__price">Na vyžiadanie</strong>
+            <strong class="pricing-card__price">Jednorazová platba pred importom</strong>
             <p class="pricing-card__copy">Plná verzia pre reálne použitie vo firme alebo pri pravidelnej práci s databázami. Platba prebieha bezpečne cez Stripe.</p>
             <ul class="rule-list">
               <li>plný import a deduplikácia</li>
@@ -214,7 +213,7 @@
               <li>audit odstránených duplicit</li>
               <li>prioritná podpora</li>
             </ul>
-            <button id="buyProBtn" class="button button--ghost pricing-card__link" type="button">Kúpiť Pro cez Stripe</button>
+            <button id="buyProBtn" class="button button--primary pricing-card__link" type="button">Kúpiť Pro cez Stripe</button>
           </article>
         </div>
       </section>
@@ -241,49 +240,22 @@
     </article>
   </template>
 
-  <div id="demoModal" class="modal" hidden>
-    <div id="demoModalBackdrop" class="modal__backdrop"></div>
-    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
-      <button id="demoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Ukážka</p>
-      <h2 id="demoModalTitle">Ako funguje ukážka</h2>
-      <div class="modal__content">
-        <div class="modal__block">
-          <strong>Čo sa stane</strong>
-          <p>Po kliknutí sa načítajú vzorové kontakty, na ktorých si môžeš bezpečne pozrieť import, čistenie a deduplikáciu.</p>
-        </div>
-        <div class="modal__block">
-          <strong>Čo uvidíš</strong>
-          <p>Importované záznamy, vyradené kontakty, odstránené duplicity, finálny zoznam a možnosť exportu do CSV alebo XLSX.</p>
-        </div>
-        <div class="modal__block">
-          <strong>Dôležité</strong>
-          <p>Ukážka slúži len na otestovanie aplikácie. Svoje vlastné súbory môžeš nahrať kedykoľvek potom.</p>
-        </div>
-      </div>
-      <div class="modal__actions">
-        <button id="demoModalDismiss" class="button button--ghost" type="button">Zatvoriť</button>
-        <button id="demoModalLoad" class="button button--primary" type="button">Rozumiem a načítať ukážku</button>
-      </div>
-    </div>
-  </div>
-
   <div id="promoModal" class="modal" hidden>
     <div id="promoModalBackdrop" class="modal__backdrop"></div>
     <div class="modal__dialog modal__dialog--promo" role="dialog" aria-modal="true" aria-labelledby="promoModalTitle">
       <button id="promoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Rýchly štart</p>
-      <h2 id="promoModalTitle">Spoj až 20 databáz do jednej za pár sekúnd.</h2>
+      <p class="section-kicker">Pro verzia</p>
+      <h2 id="promoModalTitle">Plný import databáz kontaktov odomkneš po platbe cez Stripe.</h2>
       <p class="modal__lead">
-        Nahraj kontakty, pozri si odstránené duplicity a vyskúšaj free verziu bez komplikovaného nastavovania.
+        Získaj prístup k importu, deduplikácii, exportu CSV/XLSX a k auditu odstránených duplicit.
       </p>
       <div class="modal__promo-points">
-        <span>Free verzia na vyskúšanie</span>
-        <span>CSV aj XLSX</span>
+        <span>Import CSV, XLSX a XLS</span>
+        <span>CSV aj XLSX export</span>
         <span>Audit duplicitných záznamov</span>
       </div>
       <div class="modal__actions">
-        <button id="promoModalStart" class="button button--primary" type="button">Vyskúšať zdarma</button>
+        <button id="promoModalStart" class="button button--primary" type="button">Kúpiť Pro cez Stripe</button>
       </div>
     </div>
   </div>

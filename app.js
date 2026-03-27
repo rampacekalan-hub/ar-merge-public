@@ -1,4 +1,5 @@
 const state = {
+  isProUnlocked: false,
   files: [],
   datasets: [],
   mergedContacts: [],
@@ -11,12 +12,13 @@ const state = {
   },
 };
 
+const PRO_ACCESS_KEY = "ar_merge_pro_access";
+
 const elements = {
   fileInput: document.getElementById("fileInput"),
-  demoBtn: document.getElementById("demoBtn"),
-  demoInfoBtn: document.getElementById("demoInfoBtn"),
-  startFreeBtn: document.getElementById("startFreeBtn"),
-  pricingFreeBtn: document.getElementById("pricingFreeBtn"),
+  buyHeroBtn: document.getElementById("buyHeroBtn"),
+  unlockUploadBtn: document.getElementById("unlockUploadBtn"),
+  buyToolbarBtn: document.getElementById("buyToolbarBtn"),
   buyProBtn: document.getElementById("buyProBtn"),
   mergeBtn: document.getElementById("mergeBtn"),
   resetBtn: document.getElementById("resetBtn"),
@@ -31,11 +33,6 @@ const elements = {
   downloadCsvBtn: document.getElementById("downloadCsvBtn"),
   downloadXlsxBtn: document.getElementById("downloadXlsxBtn"),
   datasetItemTemplate: document.getElementById("datasetItemTemplate"),
-  demoModal: document.getElementById("demoModal"),
-  demoModalBackdrop: document.getElementById("demoModalBackdrop"),
-  demoModalClose: document.getElementById("demoModalClose"),
-  demoModalDismiss: document.getElementById("demoModalDismiss"),
-  demoModalLoad: document.getElementById("demoModalLoad"),
   promoModal: document.getElementById("promoModal"),
   promoModalBackdrop: document.getElementById("promoModalBackdrop"),
   promoModalClose: document.getElementById("promoModalClose"),
@@ -46,26 +43,19 @@ bootstrap();
 
 function bootstrap() {
   disableServiceWorkers();
+  hydrateProAccess();
   elements.fileInput.addEventListener("change", handleFileSelection);
-  elements.demoBtn.addEventListener("click", loadDemoFiles);
-  elements.demoInfoBtn.addEventListener("click", openDemoModal);
-  elements.startFreeBtn.addEventListener("click", startFreeTrial);
-  elements.pricingFreeBtn.addEventListener("click", startFreeTrial);
+  elements.buyHeroBtn.addEventListener("click", startProCheckout);
+  elements.unlockUploadBtn.addEventListener("click", startProCheckout);
+  elements.buyToolbarBtn.addEventListener("click", startProCheckout);
   elements.buyProBtn.addEventListener("click", startProCheckout);
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
-  elements.demoModalBackdrop.addEventListener("click", closeDemoModal);
-  elements.demoModalClose.addEventListener("click", closeDemoModal);
-  elements.demoModalDismiss.addEventListener("click", closeDemoModal);
-  elements.demoModalLoad.addEventListener("click", async () => {
-    closeDemoModal();
-    await loadDemoFiles();
-  });
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
   elements.promoModalStart.addEventListener("click", () => {
     closePromoModal();
-    startFreeTrial();
+    startProCheckout();
   });
   document.addEventListener("keydown", handleModalEscape);
   elements.downloadCsvBtn.addEventListener("click", () => {
@@ -85,25 +75,48 @@ function bootstrap() {
     }
   });
   maybeOpenPromoModal();
+  renderAccessState();
 }
 
-function openDemoModal() {
-  elements.demoModal.hidden = false;
-  document.body.classList.add("modal-open");
+function hydrateProAccess() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("paid") === "1") {
+    localStorage.setItem(PRO_ACCESS_KEY, "1");
+    url.searchParams.delete("paid");
+    window.history.replaceState({}, "", url.toString());
+  }
+  state.isProUnlocked = localStorage.getItem(PRO_ACCESS_KEY) === "1";
 }
 
-function closeDemoModal() {
-  elements.demoModal.hidden = true;
-  syncModalState();
+function renderAccessState() {
+  document.body.classList.toggle("is-pro-unlocked", state.isProUnlocked);
+  if (elements.mergeBtn) {
+    elements.mergeBtn.classList.toggle("is-hidden", !state.isProUnlocked);
+    elements.mergeBtn.disabled = !state.isProUnlocked || state.files.length === 0;
+  }
+  if (elements.buyToolbarBtn) {
+    elements.buyToolbarBtn.classList.toggle("is-hidden", state.isProUnlocked);
+  }
+  if (elements.buyHeroBtn) {
+    elements.buyHeroBtn.textContent = state.isProUnlocked ? "Pro odomknuté" : "Kúpiť Pro";
+    elements.buyHeroBtn.disabled = state.isProUnlocked;
+  }
+  if (elements.unlockUploadBtn) {
+    elements.unlockUploadBtn.textContent = state.isProUnlocked ? "Import odomknutý" : "Odomknúť cez Stripe";
+    elements.unlockUploadBtn.disabled = state.isProUnlocked;
+  }
+  if (elements.buyProBtn) {
+    elements.buyProBtn.textContent = state.isProUnlocked ? "Pro odomknuté" : "Kúpiť Pro cez Stripe";
+    elements.buyProBtn.disabled = state.isProUnlocked;
+  }
+  if (elements.fileInput) {
+    elements.fileInput.disabled = !state.isProUnlocked;
+  }
 }
 
 function handleModalEscape(event) {
   if (event.key !== "Escape") {
     return;
-  }
-
-  if (!elements.demoModal.hidden) {
-    closeDemoModal();
   }
   if (!elements.promoModal.hidden) {
     closePromoModal();
@@ -111,6 +124,9 @@ function handleModalEscape(event) {
 }
 
 function maybeOpenPromoModal() {
+  if (state.isProUnlocked) {
+    return;
+  }
   if (sessionStorage.getItem("promo_seen") === "1") {
     return;
   }
@@ -125,12 +141,8 @@ function closePromoModal() {
 }
 
 function syncModalState() {
-  const hasOpenModal = !elements.demoModal.hidden || !elements.promoModal.hidden;
+  const hasOpenModal = !elements.promoModal.hidden;
   document.body.classList.toggle("modal-open", hasOpenModal);
-}
-
-function startFreeTrial() {
-  elements.fileInput.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function startProCheckout() {
@@ -140,38 +152,6 @@ function startProCheckout() {
     return;
   }
   window.location.href = paymentLink;
-}
-
-async function loadDemoFiles() {
-  elements.demoBtn.disabled = true;
-  elements.demoBtn.textContent = "Nahrávam ukážku...";
-
-  try {
-    const demoFiles = await Promise.all([
-      fetchDemoFile("examples/contacts_a.csv"),
-      fetchDemoFile("examples/contacts_b.csv"),
-    ]);
-
-    state.files = demoFiles;
-    renderSelectedFiles();
-    elements.mergeBtn.disabled = false;
-  } catch (error) {
-    window.alert(`Ukážku sa nepodarilo načítať: ${error.message}`);
-  } finally {
-    elements.demoBtn.disabled = false;
-    elements.demoBtn.textContent = "Načítať ukážku";
-  }
-}
-
-async function fetchDemoFile(path) {
-  const response = await fetch(path);
-  if (!response.ok) {
-    throw new Error("Demo súbor sa nepodarilo načítať.");
-  }
-
-  const blob = await response.blob();
-  const fileName = path.split("/").pop() || "demo.csv";
-  return new File([blob], fileName, { type: blob.type || "text/csv" });
 }
 
 async function disableServiceWorkers() {
@@ -189,6 +169,10 @@ async function disableServiceWorkers() {
 }
 
 function handleFileSelection(event) {
+  if (!state.isProUnlocked) {
+    startProCheckout();
+    return;
+  }
   const files = Array.from(event.target.files || []);
   if (!files.length) {
     return;
@@ -196,7 +180,7 @@ function handleFileSelection(event) {
 
   state.files.push(...files);
   renderSelectedFiles();
-  elements.mergeBtn.disabled = state.files.length === 0;
+  renderAccessState();
   elements.fileInput.value = "";
 }
 
@@ -234,7 +218,7 @@ async function processFiles() {
   } catch (error) {
     window.alert(`Nepodarilo sa spracovať súbory: ${error.message}`);
   } finally {
-    elements.mergeBtn.disabled = state.files.length === 0;
+    renderAccessState();
     elements.mergeBtn.textContent = "Vyčistiť a zlúčiť";
   }
 }
@@ -359,8 +343,7 @@ function resetApp() {
   elements.resultTable.textContent = "Zatiaľ bez výsledkov.";
   elements.duplicatesAudit.className = "empty-state";
   elements.duplicatesAudit.textContent = "Zatiaľ bez odstránených duplicitných záznamov.";
-  elements.mergeBtn.disabled = true;
-  elements.demoBtn.disabled = false;
+  renderAccessState();
   elements.downloadCsvBtn.disabled = true;
   elements.downloadXlsxBtn.disabled = true;
 }
