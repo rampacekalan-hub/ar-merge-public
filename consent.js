@@ -79,6 +79,11 @@
         <div>
           <strong>Nastavenie cookies</strong>
           <p>Používame nevyhnutné cookies a po vašom súhlase aj analytické alebo marketingové technológie.</p>
+          <div class="cookie-banner__links">
+            <a href="/privacy.html">Ochrana súkromia</a>
+            <a href="/terms.html">Podmienky používania</a>
+            <a href="/cookie-policy.html">Cookies</a>
+          </div>
         </div>
         <div class="cookie-banner__actions">
           <button type="button" class="button button--ghost" data-action="customize">Nastaviť</button>
@@ -197,6 +202,55 @@
     document.body.classList.add("modal-open");
   }
 
+  function openLegalModal() {
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal__backdrop"></div>
+      <div class="modal__dialog">
+        <button type="button" class="modal__close" aria-label="Zavrieť">×</button>
+        <p class="section-kicker">Právne informácie</p>
+        <h2>Ochrana údajov a podmienky</h2>
+        <div class="legal-popup">
+          <p>
+            Prevádzkovateľom služby je <strong>ALAN RAMPÁČEK s. r. o.</strong>, IČO 56908377.
+            Nahraté súbory sa spracúvajú na účel importu, čistenia databázy, deduplikácie a exportu výsledku.
+          </p>
+          <p>
+            Podrobné informácie o spracúvaní osobných údajov, cookies a používaní služby nájdeš na nasledujúcich stránkach:
+          </p>
+          <div class="legal-popup__links">
+            <a href="/privacy.html">Ochrana súkromia</a>
+            <a href="/terms.html">Podmienky používania</a>
+            <a href="/cookie-policy.html">Cookies</a>
+          </div>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="button button--ghost" data-action="close">Zatvoriť</button>
+        </div>
+      </div>
+    `;
+
+    function close() {
+      modal.remove();
+      document.body.classList.remove("modal-open");
+    }
+
+    modal.addEventListener("click", (event) => {
+      if (event.target.classList.contains("modal__backdrop") || event.target.classList.contains("modal__close")) {
+        close();
+      }
+
+      const action = event.target.getAttribute("data-action");
+      if (action === "close") {
+        close();
+      }
+    });
+
+    document.body.appendChild(modal);
+    document.body.classList.add("modal-open");
+  }
+
   function createFooterLink() {
     const footer = document.querySelector(".site-footer");
     if (!footer) {
@@ -209,6 +263,13 @@
     button.textContent = "Nastavenie cookies";
     button.addEventListener("click", () => openPreferencesModal({ remove() {} }));
     footer.appendChild(button);
+
+    const legalButton = document.createElement("button");
+    legalButton.type = "button";
+    legalButton.className = "site-footer__button";
+    legalButton.textContent = "Právne informácie";
+    legalButton.addEventListener("click", openLegalModal);
+    footer.appendChild(legalButton);
   }
 
   document.addEventListener("DOMContentLoaded", () => {

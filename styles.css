@@ -405,6 +405,26 @@ h3 {
   line-height: 1.68;
 }
 
+.cookie-banner__links,
+.legal-popup__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.cookie-banner__links a,
+.legal-popup__links a {
+  color: var(--accent-strong);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.cookie-banner__links a:hover,
+.legal-popup__links a:hover {
+  text-decoration: underline;
+}
+
 .cookie-banner__actions {
   display: flex;
   flex-wrap: wrap;
@@ -416,6 +436,16 @@ h3 {
   display: grid;
   gap: 12px;
   margin-top: 18px;
+}
+
+.legal-popup p {
+  margin: 0 0 12px;
+  line-height: 1.72;
+  color: var(--muted);
+}
+
+.legal-popup p:last-child {
+  margin-bottom: 0;
 }
 
 .cookie-option {
