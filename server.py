@@ -8,6 +8,7 @@ import os
 import secrets
 import sqlite3
 import smtplib
+import socket
 from datetime import date, datetime, timedelta, timezone
 from email import policy
 from email.message import EmailMessage
@@ -191,8 +192,10 @@ Ak ste o obnovu hesla nežiadali, tento e-mail môžete ignorovať.
 """
     )
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+        smtp.ehlo()
         smtp.starttls()
+        smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(message)
 
@@ -801,6 +804,11 @@ class AppHandler(SimpleHTTPRequestHandler):
         except smtplib.SMTPException:
             self.write_json(
                 {"error": "Odoslanie reset e-mailu zlyhalo na SMTP serveri."},
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+        except (TimeoutError, socket.timeout):
+            self.write_json(
+                {"error": "SMTP server neodpovedá. Skontrolujte SMTP_HOST a SMTP_PORT."},
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
         except Exception as exc:
