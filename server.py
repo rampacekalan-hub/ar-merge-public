@@ -15,7 +15,7 @@ from email.message import EmailMessage
 from email.parser import BytesParser
 from http import HTTPStatus
 from http.cookies import SimpleCookie
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 import openpyxl
@@ -45,6 +45,13 @@ SMTP_USER = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip()
 ADMIN_EMAILS = {item.strip().lower() for item in os.environ.get("ADMIN_EMAILS", "").split(",") if item.strip()}
+MAX_REQUEST_BODY_MB = float(os.environ.get("MAX_REQUEST_BODY_MB", "16"))
+MAX_CONTACT_FILE_MB = float(os.environ.get("MAX_CONTACT_FILE_MB", "8"))
+MAX_COMPRESS_FILE_MB = float(os.environ.get("MAX_COMPRESS_FILE_MB", "12"))
+
+MAX_REQUEST_BODY_BYTES = max(1, int(MAX_REQUEST_BODY_MB * 1024 * 1024))
+MAX_CONTACT_FILE_BYTES = max(1, int(MAX_CONTACT_FILE_MB * 1024 * 1024))
+MAX_COMPRESS_FILE_BYTES = max(1, int(MAX_COMPRESS_FILE_MB * 1024 * 1024))
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -162,6 +169,10 @@ def parse_positive_int(value, default=0):
     except (TypeError, ValueError):
         return default
     return parsed
+
+
+def format_mb(size_bytes):
+    return f"{size_bytes / (1024 * 1024):.2f} MB"
 
 
 def is_admin_email(email):
@@ -708,6 +719,18 @@ def parse_multipart_form(headers, body):
     return fields
 
 
+def reject_large_upload(handler, file_size, limit_bytes, label):
+    if file_size <= limit_bytes:
+        return False
+    handler.write_json(
+        {
+            "error": f"{label} je príliš veľký. Maximum je {format_mb(limit_bytes)}."
+        },
+        status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+    )
+    return True
+
+
 class AppHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=BASE_DIR, **kwargs)
@@ -787,6 +810,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             raise ValueError("Neplatná Content-Length hlavička.")
+        if content_length <= 0:
+            raise ValueError("Požiadavka neobsahuje žiadne dáta.")
+        if content_length > MAX_REQUEST_BODY_BYTES:
+            raise ValueError(f"Požiadavka je príliš veľká. Maximum je {format_mb(MAX_REQUEST_BODY_BYTES)}.")
         return self.rfile.read(content_length)
 
     def write_json(self, payload, status=HTTPStatus.OK, cookie_headers=None):
@@ -1479,6 +1506,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         file_name = file_item.get("filename") or "upload"
         extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
         file_bytes = file_item.get("content", b"")
+        if reject_large_upload(self, len(file_bytes), MAX_CONTACT_FILE_BYTES, "Súbor"):
+            return
 
         try:
             if extension == "csv":
@@ -1515,6 +1544,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             file_name = file_item.get("filename") or "upload"
             file_bytes = file_item.get("content", b"")
             if file_bytes:
+                if reject_large_upload(self, len(file_bytes), MAX_CONTACT_FILE_BYTES, f"Súbor {file_name}"):
+                    return
                 uploads.append((file_name, file_bytes))
 
         if not uploads:
@@ -1558,6 +1589,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         file_item = file_items[0]
         file_name = file_item.get("filename") or "upload"
         file_bytes = file_item.get("content", b"")
+        if reject_large_upload(self, len(file_bytes), MAX_COMPRESS_FILE_BYTES, "Súbor"):
+            return
 
         try:
             result = compress_upload(file_name, file_bytes, target_mb)
@@ -1658,7 +1691,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
 def main():
     init_db()
-    server = ThreadingHTTPServer((HOST, PORT), AppHandler)
+    server = HTTPServer((HOST, PORT), AppHandler)
     print(f"Serving Unifyo on http://{HOST}:{PORT}")
     server.serve_forever()
 

@@ -296,23 +296,26 @@ function renderAccessState() {
     elements.mergeBtn.disabled = !hasMembership || state.files.length === 0;
   }
   if (elements.buyToolbarBtn) {
-    elements.buyToolbarBtn.classList.toggle("is-hidden", hasMembership);
+    elements.buyToolbarBtn.classList.toggle("is-hidden", hasMembership || isLoggedIn);
   }
   if (elements.buyHeroBtn) {
-    elements.buyHeroBtn.textContent = hasMembership ? "Nahrať súbory" : "Začať čistenie";
+    elements.buyHeroBtn.textContent = hasMembership ? "Nahrať súbory" : isLoggedIn ? "Odomknúť import" : "Začať čistenie";
     elements.buyHeroBtn.disabled = false;
+    elements.buyHeroBtn.classList.toggle("is-hidden", isLoggedIn);
   }
   if (elements.unlockUploadBtn) {
-    elements.unlockUploadBtn.textContent = hasMembership ? "Nahrať súbory" : "Nahrať a vyčistiť";
+    elements.unlockUploadBtn.textContent = hasMembership ? "Nahrať súbory" : isLoggedIn ? "Odomknúť import" : "Nahrať a vyčistiť";
     elements.unlockUploadBtn.disabled = false;
   }
   if (elements.buyProBtn) {
     elements.buyProBtn.textContent = hasMembership ? "Členstvo je aktívne" : "Aktivovať za 0,99 € / mesiac";
     elements.buyProBtn.disabled = false;
+    elements.buyProBtn.classList.toggle("is-hidden", isLoggedIn);
   }
   if (elements.pricingCtaBtn) {
     elements.pricingCtaBtn.textContent = hasMembership ? "Nahrať a vyčistiť" : "Vyčistiť moje kontakty";
     elements.pricingCtaBtn.disabled = false;
+    elements.pricingCtaBtn.classList.toggle("is-hidden", isLoggedIn);
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
@@ -1470,9 +1473,9 @@ function renderStickyDealBar() {
   const dismissed = window.localStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
   const shouldShow =
     !dismissed &&
-    !state.user?.membership_active &&
+    !state.user &&
     window.scrollY > 280 &&
-    state.mode === "contacts";
+    (state.mode === "contacts" || state.mode === "chooser");
   elements.stickyDealBar.hidden = !shouldShow;
 }
 

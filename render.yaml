@@ -13,3 +13,9 @@ services:
     envVars:
       - key: DB_PATH
         value: /var/data/app.db
+      - key: MAX_REQUEST_BODY_MB
+        value: "16"
+      - key: MAX_CONTACT_FILE_MB
+        value: "8"
+      - key: MAX_COMPRESS_FILE_MB
+        value: "12"

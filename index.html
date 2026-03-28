@@ -25,8 +25,7 @@
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="main">
             <a href="/index.html" class="sidebar__link" aria-current="page"><span class="sidebar__link-icon"></span><span>Domov</span></a>
-            <a href="/app.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Aplikácia</span></a>
-            <a href="/compress.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Kompresia</span></a>
+            <a id="homeSidebarAuthLink" href="/app.html" class="sidebar__link js-auth-entry" data-auth-href="/app.html" data-guest-href="/app.html"><span class="sidebar__link-icon"></span><span>Prihlásenie</span></a>
             <a href="/pricing.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cenník</span></a>
           </div>
         </div>
@@ -71,23 +70,23 @@
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
             <div class="hero__topbar-actions">
               <a class="ghost-link" href="/pricing.html">Cenník</a>
-              <a class="ghost-link" href="/app.html">Aplikácia</a>
-              <a class="ghost-link" href="/compress.html">Kompresia</a>
+              <a id="homeTopAuthLink" class="ghost-link js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásenie</a>
             </div>
           </div>
 
           <div class="hero__grid hero__grid--landing">
             <div class="hero__main">
-              <p class="hero__eyebrow">ČISTÉ KONTAKTY BEZ DUPLICÍT</p>
-              <h1>Odstráň duplicity z kontaktov za pár sekúnd</h1>
-              <p class="hero__lede">Nahraj súbor, automaticky ho vyčisti a stiahni hotový zoznam bez duplicít.</p>
+              <p class="hero__eyebrow">JEDNA APLIKÁCIA PRE KONTAKTY AJ KOMPRESIU</p>
+              <h1>Vyčisti kontakty a zmenši súbory v jednej aplikácii</h1>
+              <p class="hero__lede">Nahraj kontakty, odstráň duplicity, alebo zmenši PDF a obrázky na požadovanú veľkosť. Rýchlo, čisto, bez chaosu.</p>
               <div class="hero__actions">
-                <a class="button button--primary" href="/app.html">Vyčistiť kontakty teraz</a>
+                <a id="homePrimaryCta" class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásiť sa</a>
                 <a class="button button--ghost" href="#ako-to-funguje">Ako to funguje</a>
               </div>
               <div class="hero__microproof">
                 <span>CSV a XLSX</span>
                 <span>Presné odstránenie duplicit</span>
+                <span>Kompresia PDF a obrázkov</span>
                 <span>Export pripravený na import</span>
               </div>
             </div>
@@ -236,7 +235,7 @@
           <div class="section-head">
             <div>
               <p class="section-kicker">Ako to funguje</p>
-              <h2>Tri kroky a hotovo</h2>
+              <h2>Dve funkcie, tri kroky a hotovo</h2>
             </div>
           </div>
 
@@ -246,8 +245,8 @@
               <p>Podporujeme CSV, XLSX aj XLS.</p>
             </article>
             <article class="info-card">
-              <strong>2. Automatické čistenie</strong>
-              <p>Unifyo odstráni duplicity a zjednotí údaje.</p>
+              <strong>2. Vyber režim</strong>
+              <p>Čistenie kontaktov alebo kompresia súborov podľa potreby.</p>
             </article>
             <article class="info-card">
               <strong>3. Stiahni výsledok</strong>
@@ -283,10 +282,10 @@
         <section class="card card--wide card--simple">
           <div class="cta-strip">
             <div>
-              <strong>Začni čistiť kontakty bez chaosu</strong>
-              <p>Jeden čistý výstup. Bez duplicít. Bez ručnej práce.</p>
+              <strong>Začni s Unifyo: kontakty aj kompresia na jednom mieste</strong>
+              <p>Čisté dáta, menšie súbory a výrazne menej ručnej práce.</p>
             </div>
-            <a class="button button--primary" href="/app.html">Začni čistiť kontakty</a>
+            <a class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásiť sa a pokračovať</a>
           </div>
         </section>
       </main>
@@ -321,7 +320,7 @@
       </div>
       <div class="modal__actions">
         <a class="button button--ghost" href="/pricing.html">Pozrieť podrobnosti</a>
-        <a class="button button--primary" href="/app.html">Chcem premium prístup</a>
+        <a class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásiť sa a aktivovať</a>
       </div>
     </div>
   </div>

@@ -6,6 +6,7 @@
   const sidebarLinks = document.querySelectorAll(".sidebar__link");
   const sidebarGroupToggles = document.querySelectorAll(".sidebar-group__toggle");
   const collapsedKey = "unifyo_sidebar_collapsed";
+  const authEntryLinks = document.querySelectorAll(".js-auth-entry");
 
   function openSidebar() {
     document.body.classList.add("sidebar-open");
@@ -75,4 +76,34 @@
     openSidebar,
     closeSidebar,
   };
+
+  async function syncAuthEntries() {
+    if (!authEntryLinks.length) {
+      return;
+    }
+    try {
+      const response = await fetch("/api/me", { credentials: "same-origin" });
+      const payload = await response.json();
+      const isAuthenticated = Boolean(payload?.user);
+      authEntryLinks.forEach((link) => {
+        const guestHref = link.dataset.guestHref || "/app.html";
+        const authHref = link.dataset.authHref || "/app.html";
+        if (isAuthenticated) {
+          link.setAttribute("href", authHref);
+          link.textContent = "Aplikácia";
+        } else {
+          link.setAttribute("href", guestHref);
+          link.textContent = "Prihlásenie";
+        }
+      });
+    } catch (_error) {
+      authEntryLinks.forEach((link) => {
+        const guestHref = link.dataset.guestHref || "/app.html";
+        link.setAttribute("href", guestHref);
+        link.textContent = "Prihlásenie";
+      });
+    }
+  }
+
+  syncAuthEntries();
 }());
