@@ -3583,7 +3583,7 @@ h1 {
 
 @media (max-width: 1180px) {
   .hero--landing h1 {
-    white-space: normal;
+    white-space: normal !important;
   }
 }
 
@@ -3768,8 +3768,9 @@ h1 {
 
 @media (min-width: 1041px) {
   .hero--landing h1 {
-    max-width: 12ch !important;
-    font-size: clamp(2.05rem, 3.35vw, 3rem) !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    font-size: clamp(2.1rem, 3.05vw, 3.55rem) !important;
   }
 
   .hero__grid--landing {
