@@ -594,8 +594,37 @@ def extract_openai_response_text(payload):
     if output_text:
         return output_text
 
+    choices = payload.get("choices") or []
+    if choices:
+        message = choices[0].get("message") or {}
+        content = message.get("content") or ""
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+        if isinstance(content, list):
+            chunks = []
+            for item in content:
+                if isinstance(item, str) and item.strip():
+                    chunks.append(item.strip())
+                    continue
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") in {"text", "output_text"}:
+                    text_value = item.get("text") or item.get("value") or ""
+                    if isinstance(text_value, dict):
+                        text_value = text_value.get("value", "")
+                    if text_value:
+                        chunks.append(str(text_value).strip())
+            if chunks:
+                return "\n\n".join(chunks).strip()
+
     chunks = []
     for item in payload.get("output", []) or []:
+        if isinstance(item, dict) and item.get("type") in {"output_text", "text"}:
+            text_value = item.get("text") or item.get("value") or ""
+            if isinstance(text_value, dict):
+                text_value = text_value.get("value", "")
+            if text_value:
+                chunks.append(str(text_value).strip())
         for content in item.get("content", []) or []:
             content_type = content.get("type", "")
             if content_type in {"output_text", "text"}:
@@ -605,6 +634,29 @@ def extract_openai_response_text(payload):
                 if text_value:
                     chunks.append(str(text_value).strip())
     return "\n\n".join(chunk for chunk in chunks if chunk).strip()
+
+
+def perform_openai_request(url, payload):
+    request = urllib_request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(request, timeout=90) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib_error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:
+            detail = ""
+        raise RuntimeError(f"OpenAI API chyba: {detail or exc.reason}") from exc
+    except urllib_error.URLError as exc:
+        raise RuntimeError(f"OpenAI API nie je dostupné: {exc.reason}") from exc
 
 
 def build_assistant_system_prompt(user_row, profile):
@@ -627,20 +679,19 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
 
-    chat_messages = [
-        {
-            "role": "system",
-            "content": build_assistant_system_prompt(user_row, profile),
-        }
-    ]
+    assistant_model = OPENAI_MODEL
+    if assistant_model.lower().startswith("gpt-5"):
+        assistant_model = "gpt-4.1-mini"
+
+    input_messages = []
     for message in history_messages[-10:]:
-        chat_messages.append(
+        input_messages.append(
             {
                 "role": "assistant" if message["role"] == "assistant" else "user",
                 "content": message["content"],
             }
         )
-    chat_messages.append(
+    input_messages.append(
         {
             "role": "user",
             "content": user_message,
@@ -648,40 +699,49 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     )
 
     payload = {
-        "model": OPENAI_MODEL,
-        "messages": chat_messages,
-        "max_completion_tokens": 500,
+        "model": assistant_model,
+        "instructions": build_assistant_system_prompt(user_row, profile),
+        "input": input_messages,
+        "max_output_tokens": 500,
     }
-    request = urllib_request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    primary_error = ""
     try:
-        with urllib_request.urlopen(request, timeout=90) as response:
-            body = response.read().decode("utf-8")
-    except urllib_error.HTTPError as exc:
-        try:
-            detail = exc.read().decode("utf-8")
-        except Exception:
-            detail = ""
-        raise RuntimeError(f"OpenAI API chyba: {detail or exc.reason}") from exc
-    except urllib_error.URLError as exc:
-        raise RuntimeError(f"OpenAI API nie je dostupné: {exc.reason}") from exc
+        primary_payload = perform_openai_request("https://api.openai.com/v1/responses", payload)
+        text = extract_openai_response_text(primary_payload)
+        if text:
+            return text
+        primary_error = f"AI asistent vrátil prázdnu odpoveď. Stav: {primary_payload.get('status') or 'unknown'}."
+    except RuntimeError as exc:
+        primary_error = str(exc)
 
-    payload = json.loads(body)
-    text = ""
-    choices = payload.get("choices") or []
-    if choices:
-        message = choices[0].get("message") or {}
-        text = str(message.get("content") or "").strip()
-    if not text:
-        raise RuntimeError("AI asistent vrátil prázdnu odpoveď.")
-    return text
+    fallback_messages = [
+        {
+            "role": "system",
+            "content": build_assistant_system_prompt(user_row, profile),
+        }
+    ]
+    for message in history_messages[-8:]:
+        fallback_messages.append(
+            {
+                "role": "assistant" if message["role"] == "assistant" else "user",
+                "content": message["content"],
+            }
+        )
+    fallback_messages.append({"role": "user", "content": user_message})
+
+    fallback_payload = perform_openai_request(
+        "https://api.openai.com/v1/chat/completions",
+        {
+            "model": "gpt-4.1-mini",
+            "messages": fallback_messages,
+            "temperature": 0.7,
+            "max_tokens": 500,
+        },
+    )
+    text = extract_openai_response_text(fallback_payload)
+    if text:
+        return text
+    raise RuntimeError(primary_error or "AI asistent vrátil prázdnu odpoveď.")
 
 
 def is_membership_active(membership):

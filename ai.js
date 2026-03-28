@@ -141,7 +141,7 @@ function renderAssistantData() {
   }
   if (aiElements.chatHeadline) {
     aiElements.chatHeadline.textContent = aiState.messages.length
-      ? "Tvoj AI chat už pozná kontext konverzácie"
+      ? "Pokračuj tam, kde si skončil"
       : "Napíš, čo dnes potrebuješ vyriešiť";
   }
   autoResizeTextarea(aiElements.chatInput);
@@ -195,23 +195,9 @@ function renderEmptyChat(message = "", isError = false) {
   aiElements.chatFeed.className = "ai-chat-feed empty-state";
   aiElements.chatFeed.innerHTML = `
     <div class="ai-empty">
-      <span class="pill">Unifyo AI pripravené</span>
-      <h3>Napíš, čo dnes potrebuješ vyriešiť</h3>
-      <p>Asistent ti pomôže s plánom dňa, follow-upmi, klientskou komunikáciou, call scriptom aj organizáciou pipeline.</p>
-      <div class="ai-empty__grid">
-        <article class="ai-empty__card">
-          <strong>Plán dňa</strong>
-          <p>„Priprav mi dnešný plán ako finančný sprostredkovateľ.“</p>
-        </article>
-        <article class="ai-empty__card">
-          <strong>Follow-up</strong>
-          <p>„Napíš mi follow-up e-mail klientovi po stretnutí.“</p>
-        </article>
-        <article class="ai-empty__card">
-          <strong>Call script</strong>
-          <p>„Priprav mi scenár hovoru pre klienta, ktorému sa mám dnes ozvať.“</p>
-        </article>
-      </div>
+      <span class="pill">Pripravené</span>
+      <h3>Začni jednou vetou</h3>
+      <p>Napíš, čo potrebuješ dnes vyriešiť, a AI navrhne ďalší postup.</p>
     </div>
   `;
 }
@@ -257,7 +243,7 @@ async function handleChatSubmit(event) {
     }
     aiState.profile = payload.profile || aiState.profile || {};
     aiState.messages = payload.messages || aiState.messages;
-    setInlineMessage(aiElements.chatMessage, "Odpoveď je pripravená.", false);
+    setInlineMessage(aiElements.chatMessage, "", false, true);
   } catch (error) {
     setInlineMessage(aiElements.chatMessage, error.message, true);
   } finally {

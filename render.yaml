@@ -20,6 +20,6 @@ services:
       - key: MAX_COMPRESS_FILE_MB
         value: "100"
       - key: OPENAI_MODEL
-        value: gpt-5-mini
+        value: gpt-4.1-mini
       - key: OPENAI_API_KEY
         sync: false
