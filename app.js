@@ -37,6 +37,7 @@ const state = {
       progressTimer: null,
     },
   },
+  chooserDealDismissed: false,
 };
 
 const elements = {
@@ -191,12 +192,14 @@ const elements = {
   compressResultMessage: document.getElementById("compressResultMessage"),
   compressDownloadBtn: document.getElementById("compressDownloadBtn"),
   stickyDealBar: document.getElementById("stickyDealBar"),
-  stickyDealBtn: document.getElementById("stickyDealBtn"),
   stickyDealClose: document.getElementById("stickyDealClose"),
+  chooserDealMini: document.getElementById("chooserDealMini"),
+  chooserDealMiniClose: document.getElementById("chooserDealMiniClose"),
 };
 
 const SIDEBAR_COLLAPSED_KEY = "unifyo_sidebar_collapsed";
 const STICKY_DEAL_DISMISSED_KEY = "unifyo_sticky_deal_dismissed";
+const CHOOSER_DEAL_DISMISSED_KEY = "unifyo_chooser_deal_dismissed";
 const COMPRESS_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp"]);
 const ONLINE_COMPRESS_UI_LIMIT_BYTES = 100 * 1024 * 1024;
 
@@ -205,6 +208,7 @@ bootstrap();
 async function bootstrap() {
   disableServiceWorkers();
   state.mode = getModeFromUrl();
+  renderMode();
   await refreshCurrentUser();
   elements.fileInput.addEventListener("change", handleFileSelection);
   elements.uploadBox.addEventListener("click", handleUploadBoxClick);
@@ -263,11 +267,15 @@ async function bootstrap() {
   elements.compressResetBtn?.addEventListener("click", resetCompressionState);
   elements.compressDownloadBtn?.addEventListener("click", handleCompressionDownload);
   elements.compressTargetInput?.addEventListener("input", renderCompressionResult);
-  elements.stickyDealBtn?.addEventListener("click", startCheckoutFlow);
   elements.stickyDealClose?.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     dismissStickyDealBar();
+  });
+  elements.chooserDealMiniClose?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dismissChooserDealMini();
   });
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
@@ -330,6 +338,7 @@ async function bootstrap() {
   renderCompressionAccessState();
   renderCompressionResult();
   renderStickyDealBar();
+  renderChooserDealMini();
 }
 
 function renderAccessState() {
@@ -357,7 +366,7 @@ function renderAccessState() {
     elements.unlockUploadBtn.disabled = false;
   }
   if (elements.buyProBtn) {
-    elements.buyProBtn.textContent = hasMembership ? "Členstvo je aktívne" : "Aktivovať za 0,99 € / mesiac";
+    elements.buyProBtn.textContent = hasMembership ? "Členstvo je aktívne" : "Aktivovať za 1,99 € / mesiac";
     elements.buyProBtn.disabled = false;
     elements.buyProBtn.classList.toggle("is-hidden", hasMembership);
   }
@@ -449,6 +458,7 @@ function renderAccessState() {
   renderAssistantAccessState();
   renderMode();
   renderStickyDealBar();
+  renderChooserDealMini();
 }
 
 function getModeFromUrl() {
@@ -525,6 +535,7 @@ function renderMode() {
   if (isAssistant && state.user?.membership_active) {
     fetchAssistantDashboard();
   }
+  renderChooserDealMini();
 }
 
 function setUploadPhase(phase, progress = state.uploadUi.progress) {
@@ -1557,6 +1568,24 @@ function dismissStickyDealBar() {
     elements.stickyDealBar.hidden = true;
   }
   renderStickyDealBar();
+}
+
+function dismissChooserDealMini() {
+  state.chooserDealDismissed = true;
+  window.localStorage.setItem(CHOOSER_DEAL_DISMISSED_KEY, "1");
+  if (elements.chooserDealMini) {
+    elements.chooserDealMini.hidden = true;
+  }
+}
+
+function renderChooserDealMini() {
+  if (!elements.chooserDealMini) {
+    return;
+  }
+  const dismissed = state.chooserDealDismissed || window.localStorage.getItem(CHOOSER_DEAL_DISMISSED_KEY) === "1";
+  const hasMembership = Boolean(state.user?.membership_active);
+  const shouldShow = state.mode === "chooser" && !hasMembership && !dismissed;
+  elements.chooserDealMini.hidden = !shouldShow;
 }
 
 function renderStickyDealBar() {

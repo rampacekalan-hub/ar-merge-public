@@ -52,6 +52,9 @@ ADMIN_EMAILS = {item.strip().lower() for item in os.environ.get("ADMIN_EMAILS", 
 MAX_REQUEST_BODY_MB = float(os.environ.get("MAX_REQUEST_BODY_MB", "110"))
 MAX_CONTACT_FILE_MB = float(os.environ.get("MAX_CONTACT_FILE_MB", "8"))
 MAX_COMPRESS_FILE_MB = float(os.environ.get("MAX_COMPRESS_FILE_MB", "100"))
+OPENAI_WEB_SEARCH_ENABLED = os.environ.get("OPENAI_ENABLE_WEB_SEARCH", "1").strip().lower() not in {"0", "false", "no"}
+OPENAI_WEB_SEARCH_TOOL = os.environ.get("OPENAI_WEB_SEARCH_TOOL", "web_search_preview").strip() or "web_search_preview"
+OPENAI_WEB_SEARCH_RUNTIME_DISABLED = False
 
 MAX_REQUEST_BODY_BYTES = max(1, int(MAX_REQUEST_BODY_MB * 1024 * 1024))
 MAX_CONTACT_FILE_BYTES = max(1, int(MAX_CONTACT_FILE_MB * 1024 * 1024))
@@ -662,6 +665,7 @@ def perform_openai_request(url, payload):
 def build_assistant_system_prompt(user_row, profile):
     focus = profile.get("focus") or "všeobecná práca finančného sprostredkovateľa"
     notes = profile.get("notes") or "bez ďalších poznámok"
+    today_value = date.today().strftime("%d.%m.%Y")
     return (
         "Si Unifyo AI, profesionálny interný asistent pre finančných sprostredkovateľov na Slovensku. "
         "Pomáhaš s organizáciou dňa, prioritami, follow-upmi, klientskou komunikáciou, prípravou stretnutí, "
@@ -677,6 +681,8 @@ def build_assistant_system_prompt(user_row, profile):
         "alebo užitočné (najmä pri regulačných, právnych, dohľadových a oficiálnych témach). "
         "Ak je vhodné odporučiť zdroj, preferuj oficiálne a dôveryhodné weby: nbs.sk, slov-lex.sk, "
         "oficiálne stránky finančných inštitúcií, prípadne podľa kontextu alanrampacek.sk a prosight.sk. "
+        f"Aktuálny referenčný dátum je {today_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
+        "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
         "Nevymýšľaj si fakty. Ak si neistý, povedz to prirodzene a navrhni overenie. "
         "Nedávaj záväzné právne, daňové ani regulované investičné odporúčania; pri takých otázkach "
         "odporuč overenie cez compliance alebo kvalifikovaného odborníka. "
@@ -688,6 +694,7 @@ def build_assistant_system_prompt(user_row, profile):
 
 
 def call_openai_assistant(user_row, profile, history_messages, user_message):
+    global OPENAI_WEB_SEARCH_RUNTIME_DISABLED
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
 
@@ -710,21 +717,35 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
         }
     )
 
-    payload = {
+    payload_base = {
         "model": assistant_model,
         "instructions": build_assistant_system_prompt(user_row, profile),
         "input": input_messages,
         "max_output_tokens": 500,
     }
     primary_error = ""
-    try:
-        primary_payload = perform_openai_request("https://api.openai.com/v1/responses", payload)
-        text = extract_openai_response_text(primary_payload)
-        if text:
-            return text
-        primary_error = f"AI asistent vrátil prázdnu odpoveď. Stav: {primary_payload.get('status') or 'unknown'}."
-    except RuntimeError as exc:
-        primary_error = str(exc)
+    response_attempts = []
+    use_web_search = OPENAI_WEB_SEARCH_ENABLED and not OPENAI_WEB_SEARCH_RUNTIME_DISABLED
+    if use_web_search:
+        response_attempts.append({**payload_base, "tools": [{"type": OPENAI_WEB_SEARCH_TOOL}]})
+    response_attempts.append(payload_base)
+
+    for candidate_payload in response_attempts:
+        try:
+            primary_payload = perform_openai_request("https://api.openai.com/v1/responses", candidate_payload)
+            text = extract_openai_response_text(primary_payload)
+            if text:
+                return text
+            primary_error = f"AI asistent vrátil prázdnu odpoveď. Stav: {primary_payload.get('status') or 'unknown'}."
+        except RuntimeError as exc:
+            primary_error = str(exc)
+            if use_web_search and "tools" in candidate_payload:
+                lowered = primary_error.lower()
+                if (
+                    "tool" in lowered
+                    and ("unknown" in lowered or "unsupported" in lowered or "invalid" in lowered)
+                ) or OPENAI_WEB_SEARCH_TOOL.lower() in lowered:
+                    OPENAI_WEB_SEARCH_RUNTIME_DISABLED = True
 
     fallback_messages = [
         {

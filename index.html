@@ -36,10 +36,9 @@
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="landing">
-            <a href="#vysledok-preview" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ukážka výsledku</span></a>
-            <a href="#ako-to-funguje" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ako to funguje</span></a>
-            <a href="#ai-pre-sprostredkovatelov" class="sidebar__link"><span class="sidebar__link-icon"></span><span>AI pre sprostredkovateľov</span></a>
+            <a href="/how-it-works.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ako to funguje</span></a>
             <a href="#preco-unifyo" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Prečo Unifyo</span></a>
+            <a href="#zacni-s-unifyo" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Začni s Unifyo</span></a>
           </div>
         </div>
 
@@ -76,17 +75,17 @@
           </div>
 
           <div class="hero__grid hero__grid--landing">
-            <div class="hero__main">
+            <div class="hero__main hero__main--wide">
               <div class="hero__brand" aria-label="Unifyo">
                 <span class="hero__brand-mark">U</span>
                 <span class="hero__brand-name">Unifyo</span>
               </div>
               <p class="hero__eyebrow">JEDNA APLIKÁCIA. TRI PRAKTICKÉ SLUŽBY.</p>
-              <h1>Kontakty bez chaosu. Súbory menšie. AI pripravená pre sprostredkovateľov.</h1>
-              <p class="hero__lede">Unifyo spája čistenie kontaktov, kompresiu súborov a AI asistenta pre finančných sprostredkovateľov do jedného profesionálneho workflow.</p>
+              <h1>VYČISTI KONTAKTY, ZMENŠI SÚBORY A ZÍSKAJ AI ASISTENTA V JEDNOM NÁSTROJI</h1>
+              <p class="hero__lede">Unifyo ti dá do poriadku kontakty bez duplicit, zmenší PDF a obrázky na cieľovú veľkosť a pridá AI asistenta pre každodennú prax finančného sprostredkovateľa.</p>
               <div class="hero__actions">
                 <a id="homePrimaryCta" class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Spustiť aplikáciu</a>
-                <a class="button button--ghost" href="#ako-to-funguje">Ako to funguje</a>
+                <a class="button button--ghost" href="/how-it-works.html">Ako to funguje</a>
               </div>
               <div class="hero__microproof">
                 <span>CSV / XLSX</span>
@@ -123,168 +122,72 @@
       </section>
 
       <main class="layout layout--marketing">
-        <section id="vysledok-preview" class="card card--wide card--simple">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Predtým → Potom</p>
-              <h2>Duplicitný chaos na vstupe. Jeden čistý zoznam na výstupe.</h2>
-            </div>
-          </div>
-
-          <div class="compare-grid">
-            <article class="compare-card">
-              <div class="compare-card__head">
-                <span class="pill pill--warn">Pred importom</span>
-                <strong>3 riadky • 2 duplicity</strong>
-              </div>
-              <div class="table-wrap table-wrap--preview">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Meno</th>
-                      <th>Priezvisko</th>
-                      <th>Email</th>
-                      <th>Telefón</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr class="preview-row preview-row--duplicate">
-                      <td>Jana</td>
-                      <td>Nováková</td>
-                      <td class="mono">JANA.NOVAKOVA@example.com</td>
-                      <td class="mono">0905 123 456</td>
-                    </tr>
-                    <tr class="preview-row preview-row--duplicate">
-                      <td>Jana</td>
-                      <td>Nováková</td>
-                      <td class="mono">jana.novakova@example.com</td>
-                      <td class="mono">+421 905 123 456</td>
-                    </tr>
-                    <tr class="preview-row preview-row--duplicate">
-                      <td>JANA</td>
-                      <td>NOVAKOVA</td>
-                      <td class="mono">jana.novakova@example.com</td>
-                      <td class="mono">+421905123456</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p class="compare-card__meta">Nejednotný zápis mena, e-mailu a telefónu vytvára duplicity.</p>
-            </article>
-
-            <article class="compare-card compare-card--after">
-              <div class="compare-card__head">
-                <span class="pill">Po spracovaní</span>
-                <strong>1 čistý kontakt bez duplicit</strong>
-              </div>
-              <div class="table-wrap table-wrap--preview">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Meno</th>
-                      <th>Priezvisko</th>
-                      <th>Email</th>
-                      <th>Telefón</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr class="preview-row preview-row--clean">
-                      <td>Jana</td>
-                      <td>Nováková</td>
-                      <td class="mono">jana.novakova@example.com</td>
-                      <td class="mono">+421905123456</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p class="compare-card__meta compare-card__meta--success">Výstup je pripravený na import do Mailchimp, Ecomail aj CRM.</p>
-            </article>
-          </div>
-        </section>
-
-        <section id="ako-to-funguje" class="card card--wide card--simple">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Ako to funguje</p>
-              <h2>Tri služby, tri kroky a hotovo</h2>
-            </div>
-          </div>
-
-          <div class="info-grid">
-            <article class="info-card">
-              <strong>1. Nahraj súbor</strong>
-              <p>Podporujeme CSV, XLSX aj XLS.</p>
-            </article>
-            <article class="info-card">
-              <strong>2. Vyber režim</strong>
-              <p>Čistenie kontaktov, kompresia súborov alebo AI pomocník pre sprostredkovateľov.</p>
-            </article>
-            <article class="info-card">
-              <strong>3. Stiahni výsledok</strong>
-              <p>Hotový export alebo AI návrh okamžite použiješ v praxi.</p>
-            </article>
-          </div>
-        </section>
-
-        <section id="ai-pre-sprostredkovatelov" class="card card--wide card--simple">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">AI pre sprostredkovateľov</p>
-              <h2>Digitálny asistent pre obchod aj servis klientov</h2>
-            </div>
-          </div>
-
-          <div class="info-grid">
-            <article class="info-card">
-              <strong>Rýchlejší prístup k informáciám</strong>
-              <p>AI pripraví stručný prehľad, dôležité body a odporúčaný ďalší krok.</p>
-            </article>
-            <article class="info-card">
-              <strong>Pomoc s komunikáciou</strong>
-              <p>Follow-up texty, e-maily aj argumentačná príprava pre klienta v profesionálnom tóne.</p>
-            </article>
-            <article class="info-card">
-              <strong>Oficiálne zdroje na jednom mieste</strong>
-              <p>AI odporúča dôveryhodné weby ako nbs.sk, prosight.sk a ďalšie relevantné inštitúcie.</p>
-            </article>
-          </div>
-        </section>
-
         <section id="preco-unifyo" class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">Prečo Unifyo</p>
-              <h2>Keď kontakty robia chaos, Unifyo ich dá do poriadku</h2>
+              <h2>Menej chaosu, viac výkonu a rýchlejšia práca s klientmi</h2>
             </div>
           </div>
-
           <div class="problem-grid">
             <article class="problem-card">
-              <span>Neusporiadané kontakty?</span>
-              <p>Viac exportov, rôzne formáty a nejednotné údaje v jednom zozname.</p>
+              <span>Čistenie kontaktov</span>
+              <p>Odstránenie duplicit podľa e-mailu, telefónu aj podobných údajov mena.</p>
             </article>
             <article class="problem-card">
-              <span>Duplicitné záznamy?</span>
-              <p>Rovnaký kontakt viackrát cez e-mail, telefón alebo podobné meno.</p>
+              <span>Kompresia súborov</span>
+              <p>Zmenšenie PDF a obrázkov pre rýchle zdieľanie, upload a archiváciu.</p>
             </article>
             <article class="problem-card">
-              <span>Strata času ručným čistením?</span>
-              <p>To, čo trvá ručne hodiny, vyriešiš za pár sekúnd.</p>
+              <span>AI pre sprostredkovateľov</span>
+              <p>Praktické odpovede, návrhy komunikácie a ďalšie kroky v slovenskom kontexte.</p>
             </article>
             <article class="problem-card">
-              <span>Nevieš rýchlo pripraviť odpoveď klientovi?</span>
-              <p>AI asistent pripraví praktický návrh odpovede, ďalšie kroky aj relevantné zdroje.</p>
+              <span>Pripravené na import</span>
+              <p>Výstupy vhodné pre CRM, Mailchimp, Ecomail aj interné workflow.</p>
             </article>
           </div>
         </section>
 
-        <section class="card card--wide card--simple">
+        <section id="ako-to-funguje-link" class="card card--wide card--simple">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Ako to funguje</p>
+              <h2>Všetko prehľadne na jednej samostatnej stránke</h2>
+            </div>
+          </div>
+          <div class="info-grid">
+            <article class="info-card">
+              <strong>Čistenie kontaktov</strong>
+              <p>Import, deduplikácia, audit a čistý export.</p>
+              <a class="button button--ghost" href="/app.html?view=contacts">Otvoriť kontakty</a>
+            </article>
+            <article class="info-card">
+              <strong>Kompresia súborov</strong>
+              <p>PDF a obrázky na požadovanú veľkosť.</p>
+              <a class="button button--ghost" href="/app.html?view=compress">Otvoriť kompresiu</a>
+            </article>
+            <article class="info-card">
+              <strong>AI asistent</strong>
+              <p>Praktická podpora pre slovenských sprostredkovateľov.</p>
+              <a class="button button--ghost" href="/ai.html">Otvoriť AI</a>
+            </article>
+          </div>
+          <div class="toolbar toolbar--workspace">
+            <a class="button button--primary" href="/how-it-works.html">Prejsť na „Ako to funguje“</a>
+          </div>
+        </section>
+
+        <section id="zacni-s-unifyo" class="card card--wide card--simple">
           <div class="cta-strip">
             <div>
               <strong>Začni s Unifyo: kontakty, kompresia aj AI na jednom mieste</strong>
               <p>Čisté dáta, menšie súbory a moderný asistent pre každodennú prax sprostredkovateľa.</p>
             </div>
-            <a class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásiť sa a pokračovať</a>
+            <div class="toolbar toolbar--compact">
+              <a class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásiť sa a pokračovať</a>
+              <a class="button button--ghost" href="/pricing.html">Pozrieť cenník</a>
+            </div>
           </div>
         </section>
       </main>
@@ -307,32 +210,21 @@
       <h2>Premium prístup k aplikácii za cenu, ktorá sa už nemusí zopakovať</h2>
       <p class="modal__lead">Aktivuj si členstvo a odomkni plný import vlastných databáz, audit duplicit aj finálny export pripravený na ďalší systém. Začni teraz a ušetri výrazne oproti štandardnej cene.</p>
       <div class="promo-price promo-price--featured">
-        <span class="promo-price__old">4,99 € / mesiac</span>
-        <span class="promo-price__deal">Premium prístup • limitovaná akcia</span>
-        <strong class="promo-price__current">0,99 € / mesiac</strong>
-        <span class="promo-price__note">Cena platí iba teraz • ušetríš 80%</span>
+        <span class="promo-price__old">6,99 € / mesiac</span>
+        <span class="promo-price__deal">Kompletný balík služieb • limitovaná akcia</span>
+        <strong class="promo-price__current">1,99 € / mesiac</strong>
+        <span class="promo-price__note">Platí iba teraz • ušetríš 71%</span>
       </div>
       <div class="modal__promo-points landing-promo__points">
-        <span>Import vlastných súborov</span>
-        <span>Audit odstránených duplicit</span>
-        <span>Export do CSV/XLSX, kompresia a AI asistent</span>
+        <span>Čistenie kontaktov + audit duplicit</span>
+        <span>Kompresia PDF a obrázkov</span>
+        <span>AI asistent pre slovenský finančný trh</span>
       </div>
       <div class="modal__actions">
-        <a class="button button--ghost" href="/pricing.html">Pozrieť podrobnosti</a>
-        <a class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásiť sa a aktivovať</a>
+        <a class="button button--ghost" href="/pricing.html">Cenník</a>
+        <a class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Prihlásenie</a>
       </div>
     </div>
-  </div>
-
-  <div id="homeStickyDealBar" class="sticky-deal" hidden>
-    <button id="homeStickyDealClose" class="sticky-deal__close" type="button" aria-label="Zavrieť ponuku">×</button>
-    <div class="sticky-deal__text">
-      <span class="sticky-deal__label">Premium prístup</span>
-      <span class="sticky-deal__old">4,99 € / mesiac</span>
-      <strong class="sticky-deal__current">0,99 € / mesiac</strong>
-      <span class="sticky-deal__note">Limitovaná cena • odomkni kontakty, kompresiu aj AI</span>
-    </div>
-    <a id="homeStickyDealBtn" class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Aktivovať teraz</a>
   </div>
 
   <script src="consent.js"></script>
@@ -370,59 +262,6 @@
       window.setTimeout(openModal, 700);
     }());
 
-    (function () {
-      const bar = document.getElementById("homeStickyDealBar");
-      const closeButton = document.getElementById("homeStickyDealClose");
-      const dismissedKey = "unifyo_home_sticky_deal_dismissed";
-      let authResolved = false;
-      let delayPassed = false;
-      let currentUser = null;
-
-      if (!bar) {
-        return;
-      }
-
-      function hideBar() {
-        bar.hidden = true;
-      }
-
-      function closeBar(event) {
-        if (event) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        window.localStorage.setItem(dismissedKey, "1");
-        hideBar();
-      }
-
-      function maybeShowBar() {
-        if (!authResolved || !delayPassed) {
-          return;
-        }
-        if (window.localStorage.getItem(dismissedKey) === "1") {
-          hideBar();
-          return;
-        }
-        if (currentUser && currentUser.membership_active) {
-          hideBar();
-          return;
-        }
-        bar.hidden = false;
-      }
-
-      closeButton?.addEventListener("click", closeBar);
-
-      window.addEventListener("unifyo-auth-ready", function (event) {
-        authResolved = true;
-        currentUser = event.detail?.user || null;
-        maybeShowBar();
-      });
-
-      window.setTimeout(function () {
-        delayPassed = true;
-        maybeShowBar();
-      }, 2600);
-    }());
   </script>
 </body>
 </html>

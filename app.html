@@ -6,7 +6,7 @@
   <title>Unifyo | Aplikácia</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="mode-chooser">
   <div class="ambient ambient--one"></div>
   <div class="ambient ambient--two"></div>
 
@@ -121,9 +121,18 @@
             <span class="mode-card__cta">Otvoriť AI chat</span>
           </button>
         </div>
+        <div id="chooserDealMini" class="chooser-deal-mini" hidden>
+          <button id="chooserDealMiniClose" class="chooser-deal-mini__close" type="button" aria-label="Zavrieť">×</button>
+          <span class="chooser-deal-mini__label">Akciová cena</span>
+          <div class="chooser-deal-mini__price">
+            <span class="chooser-deal-mini__old">6,99 € / mesiac</span>
+            <strong class="chooser-deal-mini__current">1,99 € / mesiac</strong>
+          </div>
+          <p class="chooser-deal-mini__note">Čistenie kontaktov, kompresia súborov a AI asistent v jednom účte.</p>
+        </div>
       </section>
 
-      <main id="workspaceGrid" class="workspace-grid">
+      <main id="workspaceGrid" class="workspace-grid is-hidden">
         <div id="contactsWorkspace" class="workspace-main mode-panel mode-panel--contacts">
           <section id="import" class="card card--upload">
             <div class="section-head">
@@ -399,13 +408,13 @@
             <div id="pricingCard" class="pricing-card pricing-card--inline">
               <span class="pricing-card__label">Členský prístup</span>
               <div class="pricing-card__price-wrap">
-                <span class="pricing-card__price-old">4,99 € / mesiac</span>
+                <span class="pricing-card__price-old">6,99 € / mesiac</span>
                 <span class="pricing-card__deal">Akciová cena</span>
-                <strong class="pricing-card__price">0,99 € / mesiac</strong>
+                <strong class="pricing-card__price">1,99 € / mesiac</strong>
               </div>
               <p class="pricing-card__copy">Plný import vlastných súborov, audit duplicit a export do CSV aj XLSX v jednom účte.</p>
               <div class="toolbar toolbar--stack">
-                <button id="buyProBtn" class="button button--primary" type="button">Aktivovať za 0,99 € / mesiac</button>
+                <button id="buyProBtn" class="button button--primary" type="button">Aktivovať za 1,99 € / mesiac</button>
                 <button id="pricingCtaBtn" class="button button--ghost" type="button">Vyčistiť moje kontakty</button>
               </div>
             </div>
@@ -483,9 +492,9 @@
       <h2>Mesačný premium prístup je teraz v akcii</h2>
       <p class="modal__lead">Aktivuj členstvo a okamžite odomkni čistenie kontaktov aj kompresiu súborov v jednom účte.</p>
       <div class="promo-price">
-        <span class="promo-price__old">4,99 € / mesiac</span>
+        <span class="promo-price__old">6,99 € / mesiac</span>
         <span class="promo-price__deal">Premium prístup • limitovaná ponuka</span>
-        <strong class="promo-price__current">0,99 € / mesiac</strong>
+        <strong class="promo-price__current">1,99 € / mesiac</strong>
         <span class="promo-price__note">Cena platí iba teraz</span>
       </div>
       <div class="modal__promo-points">
@@ -495,7 +504,7 @@
       </div>
       <div class="modal__actions">
         <button id="promoModalAuth" class="button button--ghost" type="button">Vytvoriť účet</button>
-        <button id="promoModalStart" class="button button--primary" type="button">Aktivovať teraz za 0,99 €</button>
+        <button id="promoModalStart" class="button button--primary" type="button">Aktivovať teraz za 1,99 €</button>
       </div>
     </div>
   </div>
@@ -504,11 +513,10 @@
     <button id="stickyDealClose" class="sticky-deal__close" type="button" aria-label="Zavrieť ponuku">×</button>
     <div class="sticky-deal__text">
       <span class="sticky-deal__label">Premium prístup</span>
-      <span class="sticky-deal__old">4,99 € / mesiac</span>
-      <strong class="sticky-deal__current">0,99 € / mesiac</strong>
-      <span class="sticky-deal__note">Iba teraz • ušetríš 80 %</span>
+      <span class="sticky-deal__old">6,99 € / mesiac</span>
+      <strong class="sticky-deal__current">1,99 € / mesiac</strong>
+      <span class="sticky-deal__note">Iba teraz • kontakty + kompresia + AI</span>
     </div>
-    <button id="stickyDealBtn" class="button button--primary" type="button">Kúpiť premium</button>
   </div>
 
   <div id="authModal" class="modal" hidden>
