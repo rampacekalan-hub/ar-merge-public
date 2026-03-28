@@ -3348,17 +3348,51 @@ tbody tr:hover td {
 .compress-meta {
   width: 100%;
   max-width: 42ch;
-  min-height: 3.2em;
+  min-height: 2.8em;
   margin: 0;
   color: #60748d;
-  font-size: 0.92rem;
-  line-height: 1.6;
+  font-size: 0.9rem;
+  line-height: 1.5;
   text-align: center;
   text-wrap: balance;
 }
 
 #compressSelectBtn {
   margin-top: 2px;
+}
+
+.compress-timing {
+  width: min(100%, 440px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compress-timing__card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(18, 39, 67, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  text-align: left;
+}
+
+.compress-timing__card span {
+  display: block;
+  margin-bottom: 4px;
+  color: #6d8199;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compress-timing__card strong {
+  display: block;
+  color: var(--surface-dark);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .compress-controls {

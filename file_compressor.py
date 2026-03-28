@@ -31,15 +31,13 @@ PDF_MIME_TYPE = "application/pdf"
 PDF_SWIFT_SCRIPT = Path(__file__).with_name("pdf_compressor.swift")
 SWIFT_BINARY = shutil.which("swift")
 RESAMPLE_FILTER = (
-    Image.Resampling.LANCZOS
+    Image.Resampling.BILINEAR
     if Image is not None and hasattr(Image, "Resampling")
-    else (Image.LANCZOS if Image is not None else None)
+    else (Image.BILINEAR if Image is not None else None)
 )
 PDF_RENDER_PRESETS = [
-    (1.20, 76),
-    (0.92, 64),
-    (0.74, 54),
-    (0.58, 44),
+    (0.92, 62),
+    (0.68, 48),
 ]
 
 
@@ -185,7 +183,7 @@ def save_pixmap_as_jpeg(pixmap, quality):
     with Image.open(io.BytesIO(pixmap.tobytes("png"))) as image:
         image.load()
         buffer = io.BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=quality, optimize=True, progressive=True)
+        image.convert("RGB").save(buffer, format="JPEG", quality=quality, optimize=False, progressive=False)
         return buffer.getvalue()
 
 
@@ -269,9 +267,9 @@ def compress_image(file_name, file_bytes, target_bytes):
                 if candidate["size"] <= target_bytes:
                     if best_under_target is None or candidate["size"] > best_under_target["size"]:
                         best_under_target = candidate
-                    if candidate["size"] >= int(target_bytes * 0.82):
+                    if candidate["size"] >= int(target_bytes * 0.68):
                         break
-            if best_under_target and best_under_target["size"] >= int(target_bytes * 0.82):
+            if best_under_target and best_under_target["size"] >= int(target_bytes * 0.68):
                 break
         finally:
             if working_image is not image:
@@ -305,9 +303,9 @@ def compress_image(file_name, file_bytes, target_bytes):
 
 def iter_image_candidates(image, extension):
     has_alpha = image_has_alpha(image)
-    quality_steps = [82, 68, 54, 42]
-    webp_steps = [80, 64, 48, 36]
-    png_colors = [128, 64, 32]
+    quality_steps = [74, 56, 42]
+    webp_steps = [72, 54, 40]
+    png_colors = [64, 32]
 
     if extension in {"jpg", "jpeg"}:
         for quality in quality_steps:
@@ -348,12 +346,12 @@ def iter_image_candidates(image, extension):
 def build_image_scale_plan(original_bytes, target_bytes):
     ratio = original_bytes / max(target_bytes, 1)
     if ratio <= 1.4:
-        return [1.0, 0.9, 0.78]
+        return [1.0, 0.84]
     if ratio <= 2.2:
-        return [0.94, 0.82, 0.68, 0.56]
+        return [0.84, 0.66]
     if ratio <= 3.5:
-        return [0.86, 0.72, 0.58, 0.46]
-    return [0.76, 0.62, 0.50, 0.38]
+        return [0.72, 0.54]
+    return [0.62, 0.44]
 
 
 def save_as_jpeg(image, quality):
@@ -365,7 +363,7 @@ def save_as_jpeg(image, quality):
 def save_as_webp(image, quality):
     buffer = io.BytesIO()
     try:
-        image.save(buffer, format="WEBP", quality=quality, method=4)
+        image.save(buffer, format="WEBP", quality=quality, method=2)
     except Exception:
         return None
     return buffer.getvalue()

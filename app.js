@@ -150,6 +150,9 @@ const elements = {
   compressStateText: document.getElementById("compressStateText"),
   compressProgress: document.getElementById("compressProgress"),
   compressProgressBar: document.getElementById("compressProgressBar"),
+  compressTimingRow: document.getElementById("compressTimingRow"),
+  compressElapsedInfo: document.getElementById("compressElapsedInfo"),
+  compressEstimateInfo: document.getElementById("compressEstimateInfo"),
   compressEtaInfo: document.getElementById("compressEtaInfo"),
   compressSelectBtn: document.getElementById("compressSelectBtn"),
   compressForm: document.getElementById("compressForm"),
@@ -1667,7 +1670,10 @@ function renderCompressionUploadState() {
   let badge = "Pripravené";
   let text = "Vyber súbor a nastav cieľovú veľkosť.";
   let showProgress = false;
+  let showTiming = false;
   let etaText = "Čas a odhad sa zobrazia po spustení kompresie.";
+  let elapsedText = "—";
+  let estimateText = "—";
 
   if (!hasMembership) {
     badge = "Uzamknuté";
@@ -1676,25 +1682,44 @@ function renderCompressionUploadState() {
     badge = "Spracovanie";
     text = "Pripravujeme menšiu verziu súboru. Pri väčších súboroch to môže trvať dlhšie.";
     showProgress = true;
+    showTiming = true;
+    elapsedText = formatDuration(elapsedSeconds);
+    estimateText = isEstimateExceeded ? `>${formatDuration(estimateSeconds)}` : formatDuration(estimateSeconds || 0);
     etaText = isEstimateExceeded
-      ? `Prešlo ${formatDuration(elapsedSeconds)} • spracovanie trvá dlhšie než pôvodný odhad ${formatDuration(estimateSeconds)}.`
+      ? `Spracovanie trvá dlhšie než pôvodný odhad. Pokračujeme ďalej, kým nebude výstup pripravený.`
       : `Prešlo ${formatDuration(elapsedSeconds)} • odhad zostáva približne ${formatDuration(remainingSeconds)}.`;
   } else if (phase === "done") {
     badge = "Hotovo";
     text = "Výsledok je pripravený na stiahnutie.";
+    showTiming = true;
+    elapsedText = elapsedSeconds ? formatDuration(elapsedSeconds) : "—";
+    estimateText = "Dokončené";
     etaText = elapsedSeconds ? `Spracovanie trvalo približne ${formatDuration(elapsedSeconds)}.` : "Spracovanie je dokončené.";
   } else if (hasFile && state.compression.isOversize) {
     badge = "Limit online verzie";
     text = `${state.compression.file.name} je väčší než 100 MB, čo je nad limit aktuálnej online verzie.`;
+    showTiming = true;
+    estimateText = "Nad limit";
     etaText = "Pre väčšie súbory než 100 MB bude potrebné výkonnejšie spracovanie na pozadí.";
   } else if (hasFile) {
     badge = "Súbor pripravený";
     text = `${state.compression.file.name} čaká na kompresiu.`;
-    etaText = `Odhad spracovania: približne ${formatDuration(state.compression.estimateSeconds || estimateCompressionSeconds(state.compression.file, normalizeCompressionTarget()))}.`;
+    showTiming = true;
+    estimateText = formatDuration(state.compression.estimateSeconds || estimateCompressionSeconds(state.compression.file, normalizeCompressionTarget()));
+    etaText = `Odhad spracovania: približne ${estimateText}.`;
   }
 
   elements.compressStateBadge.textContent = badge;
   elements.compressStateText.textContent = text;
+  if (elements.compressTimingRow) {
+    elements.compressTimingRow.hidden = !showTiming;
+  }
+  if (elements.compressElapsedInfo) {
+    elements.compressElapsedInfo.textContent = elapsedText;
+  }
+  if (elements.compressEstimateInfo) {
+    elements.compressEstimateInfo.textContent = estimateText;
+  }
   if (elements.compressEtaInfo) {
     elements.compressEtaInfo.textContent = etaText;
   }
