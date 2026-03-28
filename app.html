@@ -75,7 +75,7 @@
 
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 
-    <div class="content-shell content-shell--workspace">
+    <div id="contentShell" class="content-shell content-shell--workspace">
       <header class="workspace-header card">
         <div class="hero__topbar">
           <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
@@ -85,10 +85,15 @@
           </div>
         </div>
 
-        <div class="workspace-header__main">
+        <div id="workspaceHeaderMain" class="workspace-header__main">
           <div>
             <p class="section-kicker">Aplikácia</p>
-            <h1>Vyber si režim: čistenie kontaktov alebo kompresia súborov</h1>
+            <h1>
+              Vyber si režim:
+              <button id="heroModeContactsBtn" class="hero-mode-link" type="button">čistenie kontaktov</button>
+              alebo
+              <button id="heroModeCompressBtn" class="hero-mode-link" type="button">kompresia súborov</button>
+            </h1>
             <p class="hero__lede">Jedna aplikácia, dve praktické funkcie. Kontakty vyčistíš bez duplicit a súbory zmenšíš na požadovanú veľkosť.</p>
           </div>
           <div class="workspace-header__aside">

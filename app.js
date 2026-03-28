@@ -58,7 +58,11 @@ const elements = {
   compressFeatureStatus: document.getElementById("compressFeatureStatus"),
   modeContactsBtn: document.getElementById("modeContactsBtn"),
   modeCompressBtn: document.getElementById("modeCompressBtn"),
+  heroModeContactsBtn: document.getElementById("heroModeContactsBtn"),
+  heroModeCompressBtn: document.getElementById("heroModeCompressBtn"),
   appModesSection: document.getElementById("aplikacia-mody"),
+  contentShell: document.getElementById("contentShell"),
+  workspaceHeaderMain: document.getElementById("workspaceHeaderMain"),
   workspaceGrid: document.getElementById("workspaceGrid"),
   contactsWorkspace: document.getElementById("contactsWorkspace"),
   compressWorkspace: document.getElementById("compressWorkspace"),
@@ -199,6 +203,8 @@ async function bootstrap() {
   elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
   elements.modeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.modeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
+  elements.heroModeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
+  elements.heroModeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.compressUploadBox?.addEventListener("click", handleCompressionUploadClick);
@@ -414,12 +420,18 @@ function renderMode() {
   const isContacts = state.mode === "contacts";
   const isCompress = state.mode === "compress";
 
+  document.body.classList.toggle("mode-chooser", isChooser);
+  document.body.classList.toggle("mode-contacts", isContacts);
+  document.body.classList.toggle("mode-compress", isCompress);
+
   elements.appModesSection?.classList.toggle("is-hidden", !isChooser);
   elements.workspaceGrid?.classList.toggle("is-hidden", isChooser);
   elements.contactsWorkspace?.classList.toggle("is-hidden", !isContacts);
   elements.compressWorkspace?.classList.toggle("is-hidden", !isCompress);
   elements.modeContactsBtn?.classList.toggle("is-active", isContacts);
   elements.modeCompressBtn?.classList.toggle("is-active", isCompress);
+  elements.heroModeContactsBtn?.classList.toggle("is-active", isContacts);
+  elements.heroModeCompressBtn?.classList.toggle("is-active", isCompress);
   elements.contactsNavLinks.forEach((link) => link.classList.toggle("is-hidden", !isContacts));
 
   if (elements.modeContactsBtn) {
@@ -427,6 +439,12 @@ function renderMode() {
   }
   if (elements.modeCompressBtn) {
     elements.modeCompressBtn.setAttribute("aria-pressed", String(isCompress));
+  }
+  if (elements.heroModeContactsBtn) {
+    elements.heroModeContactsBtn.setAttribute("aria-pressed", String(isContacts));
+  }
+  if (elements.heroModeCompressBtn) {
+    elements.heroModeCompressBtn.setAttribute("aria-pressed", String(isCompress));
   }
 }
 
