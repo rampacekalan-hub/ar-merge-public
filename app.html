@@ -36,11 +36,10 @@
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="work">
-            <a href="#aplikacia-mody" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Výber režimu</span></a>
-            <a href="#import" class="sidebar__link" data-mode-target="contacts"><span class="sidebar__link-icon"></span><span>Čistenie kontaktov</span></a>
-            <a href="#kompresia-panel" class="sidebar__link" data-mode-target="compress"><span class="sidebar__link-icon"></span><span>Kompresia súborov</span></a>
-            <a href="#vysledok" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Výsledok</span></a>
-            <a href="#audit" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Audit duplicit</span></a>
+            <a href="/app.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Výber režimu</span></a>
+            <a href="#import" class="sidebar__link js-contacts-link"><span class="sidebar__link-icon"></span><span>Čistenie kontaktov</span></a>
+            <a href="#vysledok" class="sidebar__link js-contacts-link"><span class="sidebar__link-icon"></span><span>Výsledok</span></a>
+            <a href="#audit" class="sidebar__link js-contacts-link"><span class="sidebar__link-icon"></span><span>Audit duplicit</span></a>
           </div>
         </div>
 
@@ -114,24 +113,26 @@
         <div class="section-head">
           <div>
             <p class="section-kicker">Režim aplikácie</p>
-            <h2>Čo chceš teraz spracovať?</h2>
+            <h2>Vyber si jednu možnosť</h2>
           </div>
         </div>
         <div class="app-modes__grid">
-          <button id="modeContactsBtn" class="mode-card is-active" type="button" data-mode="contacts" aria-pressed="true">
+          <button id="modeContactsBtn" class="mode-card" type="button" data-mode="contacts">
             <span class="mode-card__kicker">Kontakty</span>
             <strong>Čistenie databázy kontaktov</strong>
             <p>Nahraj CSV/XLSX/XLS, odstráň duplicity a stiahni čistý export pripravený na import.</p>
+            <span class="mode-card__cta">Otvoriť čistenie kontaktov</span>
           </button>
-          <button id="modeCompressBtn" class="mode-card" type="button" data-mode="compress" aria-pressed="false">
+          <button id="modeCompressBtn" class="mode-card" type="button" data-mode="compress">
             <span class="mode-card__kicker">Súbory</span>
             <strong>Kompresia PDF a obrázkov</strong>
             <p>Zmenši PDF, JPG, PNG alebo WEBP na cieľovú veľkosť bez zbytočných krokov navyše.</p>
+            <span class="mode-card__cta">Otvoriť kompresiu súborov</span>
           </button>
         </div>
       </section>
 
-      <main class="workspace-grid">
+      <main id="workspaceGrid" class="workspace-grid">
         <div id="contactsWorkspace" class="workspace-main mode-panel mode-panel--contacts">
           <section id="import" class="card card--upload">
             <div class="section-head">

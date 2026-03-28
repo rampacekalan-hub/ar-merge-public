@@ -2,7 +2,7 @@ const state = {
   user: null,
   account: null,
   admin: null,
-  mode: "contacts",
+  mode: "chooser",
   authMode: "register",
   files: [],
   datasets: [],
@@ -58,9 +58,11 @@ const elements = {
   compressFeatureStatus: document.getElementById("compressFeatureStatus"),
   modeContactsBtn: document.getElementById("modeContactsBtn"),
   modeCompressBtn: document.getElementById("modeCompressBtn"),
+  appModesSection: document.getElementById("aplikacia-mody"),
+  workspaceGrid: document.getElementById("workspaceGrid"),
   contactsWorkspace: document.getElementById("contactsWorkspace"),
   compressWorkspace: document.getElementById("compressWorkspace"),
-  modeTargetLinks: document.querySelectorAll("[data-mode-target]"),
+  contactsNavLinks: document.querySelectorAll(".js-contacts-link"),
   mergeBtn: document.getElementById("mergeBtn"),
   resetBtn: document.getElementById("resetBtn"),
   datasetList: document.getElementById("datasetList"),
@@ -162,6 +164,7 @@ bootstrap();
 
 async function bootstrap() {
   disableServiceWorkers();
+  state.mode = getModeFromUrl();
   await refreshCurrentUser();
   elements.fileInput.addEventListener("change", handleFileSelection);
   elements.uploadBox.addEventListener("click", handleUploadBoxClick);
@@ -194,16 +197,8 @@ async function bootstrap() {
   elements.buyProBtn.addEventListener("click", startCheckoutFlow);
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
   elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
-  elements.modeContactsBtn?.addEventListener("click", () => switchMode("contacts", { scroll: true }));
-  elements.modeCompressBtn?.addEventListener("click", () => switchMode("compress", { scroll: true }));
-  elements.modeTargetLinks.forEach((link) => {
-    link.addEventListener("click", (event) => {
-      const targetMode = event.currentTarget.dataset.modeTarget;
-      if (targetMode) {
-        switchMode(targetMode, { scroll: false });
-      }
-    });
-  });
+  elements.modeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
+  elements.modeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.compressUploadBox?.addEventListener("click", handleCompressionUploadClick);
@@ -256,7 +251,6 @@ async function bootstrap() {
   elements.sidebarLinks.forEach((link) => link.addEventListener("click", closeSidebar));
   elements.sidebarGroupToggles.forEach((toggle) => toggle.addEventListener("click", handleSidebarGroupToggle));
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
-  window.addEventListener("hashchange", syncModeWithHash);
   document.addEventListener("keydown", handleModalEscape);
   elements.downloadCsvBtn.addEventListener("click", () => {
     if (state.mergedContacts.length) {
@@ -276,7 +270,6 @@ async function bootstrap() {
   });
   maybeOpenPromoModal();
   syncSidebarCollapse();
-  syncModeWithHash();
   renderAccessState();
   renderUploadState();
   renderCompressionAccessState();
@@ -389,41 +382,51 @@ function renderAccessState() {
   renderStickyDealBar();
 }
 
-function syncModeWithHash() {
-  const hash = (window.location.hash || "").toLowerCase();
-  if (hash === "#kompresia-panel" || hash === "#kompresia") {
-    switchMode("compress", { scroll: false });
-    return;
+function getModeFromUrl() {
+  const view = new URL(window.location.href).searchParams.get("view");
+  if (view === "contacts" || view === "compress") {
+    return view;
   }
-  if (hash === "#import" || hash === "#vysledok" || hash === "#audit" || hash === "#aplikacia-mody" || !hash) {
-    switchMode("contacts", { scroll: false });
-  }
+  return "chooser";
 }
 
-function switchMode(mode, { scroll = false } = {}) {
-  if (mode !== "contacts" && mode !== "compress") {
+function setMode(mode) {
+  if (!["chooser", "contacts", "compress"].includes(mode)) {
     return;
   }
   state.mode = mode;
   renderMode();
-  if (!scroll) {
-    return;
+}
+
+function navigateToMode(mode) {
+  const nextMode = mode === "contacts" || mode === "compress" ? mode : "chooser";
+  const url = new URL(window.location.href);
+  if (nextMode === "chooser") {
+    url.searchParams.delete("view");
+  } else {
+    url.searchParams.set("view", nextMode);
   }
-  const targetId = mode === "compress" ? "kompresia-panel" : "import";
-  document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.location.href = `${url.pathname}${url.search}${url.hash}`;
 }
 
 function renderMode() {
-  const isContacts = state.mode !== "compress";
+  const isChooser = state.mode === "chooser";
+  const isContacts = state.mode === "contacts";
+  const isCompress = state.mode === "compress";
+
+  elements.appModesSection?.classList.toggle("is-hidden", !isChooser);
+  elements.workspaceGrid?.classList.toggle("is-hidden", isChooser);
   elements.contactsWorkspace?.classList.toggle("is-hidden", !isContacts);
-  elements.compressWorkspace?.classList.toggle("is-hidden", isContacts);
+  elements.compressWorkspace?.classList.toggle("is-hidden", !isCompress);
   elements.modeContactsBtn?.classList.toggle("is-active", isContacts);
-  elements.modeCompressBtn?.classList.toggle("is-active", !isContacts);
+  elements.modeCompressBtn?.classList.toggle("is-active", isCompress);
+  elements.contactsNavLinks.forEach((link) => link.classList.toggle("is-hidden", !isContacts));
+
   if (elements.modeContactsBtn) {
     elements.modeContactsBtn.setAttribute("aria-pressed", String(isContacts));
   }
   if (elements.modeCompressBtn) {
-    elements.modeCompressBtn.setAttribute("aria-pressed", String(!isContacts));
+    elements.modeCompressBtn.setAttribute("aria-pressed", String(isCompress));
   }
 }
 
@@ -590,6 +593,10 @@ function closeAuthModal() {
 }
 
 async function openAccountPanel() {
+  if (!state.user) {
+    openAuthModal("register");
+    return;
+  }
   elements.accountPanel.hidden = false;
   syncModalState();
   await fetchAccountPanel();
@@ -601,6 +608,10 @@ function closeAccountPanel() {
 }
 
 async function openAdminPanel() {
+  if (!state.user) {
+    openAuthModal("login");
+    return;
+  }
   if (!state.user?.is_admin) {
     window.alert("Administrácia je dostupná len pre správcu.");
     return;
@@ -694,10 +705,10 @@ async function fetchAccountPanel() {
     state.account = payload;
     renderAccountPanel();
   } catch (error) {
-    elements.accountPanelSummary.className = "account-summary empty-state";
-    elements.accountPanelSummary.textContent = error.message;
+    state.account = { user: state.user, activity: [] };
+    renderAccountPanel();
     elements.accountActivityList.className = "empty-state";
-    elements.accountActivityList.textContent = error.message;
+    elements.accountActivityList.textContent = `Aktivita sa nepodarila načítať: ${error.message}`;
   }
 }
 
@@ -806,25 +817,63 @@ function renderAccountPanel() {
 }
 
 function renderActivityList(target, items) {
-  if (!items.length) {
+  const collapsed = collapseActivityFeed(items);
+  if (!collapsed.length) {
     target.className = "empty-state";
     target.textContent = "Zatiaľ bez aktivity.";
     return;
   }
   target.className = "activity-list";
-  target.innerHTML = items.map((item) => `
+  target.innerHTML = collapsed.map((item) => `
     <article class="activity-card">
       <div class="activity-card__head">
-        <strong>${escapeHtml(item.event_label || item.event_type || "Aktivita")}</strong>
-        <span>${escapeHtml(formatDateTime(item.created_at))}</span>
+        <strong>${escapeHtml(item.label)}</strong>
+        <span>${escapeHtml(formatDateTime(item.last_at))}</span>
       </div>
       <div class="activity-card__meta">
-        ${item.user_name || item.user_email ? `<span>${escapeHtml(item.user_name || item.user_email)}</span>` : ""}
-        ${item.meta?.files ? `<span>${escapeHtml(String(item.meta.files))} súbory</span>` : ""}
-        ${item.meta?.status ? `<span>${escapeHtml(item.meta.status)}</span>` : ""}
+        ${item.actor ? `<span>${escapeHtml(item.actor)}</span>` : ""}
+        ${item.count > 1 ? `<span>${escapeHtml(String(item.count))}×</span>` : ""}
+        ${item.files ? `<span>${escapeHtml(String(item.files))} súbory</span>` : ""}
+        ${item.status ? `<span>${escapeHtml(item.status)}</span>` : ""}
       </div>
     </article>
   `).join("");
+}
+
+function collapseActivityFeed(items, limit = 12) {
+  if (!Array.isArray(items) || !items.length) {
+    return [];
+  }
+  const buckets = [];
+  const bucketMap = new Map();
+  for (const item of items) {
+    const dayKey = formatDate(item.created_at);
+    const typeKey = item.event_type || item.event_label || "activity";
+    const actorKey = item.user_email || item.user_name || "";
+    const key = `${typeKey}|${actorKey}|${dayKey}`;
+    const files = Number(item.meta?.files || 0);
+    if (bucketMap.has(key)) {
+      const bucket = bucketMap.get(key);
+      bucket.count += 1;
+      bucket.files += files;
+      bucket.last_at = bucket.last_at && bucket.last_at > item.created_at ? bucket.last_at : item.created_at;
+      continue;
+    }
+    const bucket = {
+      label: item.event_label || item.event_type || "Aktivita",
+      actor: item.user_name || item.user_email || "",
+      count: 1,
+      files,
+      status: item.meta?.status || "",
+      last_at: item.created_at || "",
+    };
+    buckets.push(bucket);
+    bucketMap.set(key, bucket);
+    if (buckets.length >= limit) {
+      break;
+    }
+  }
+  return buckets;
 }
 
 function renderAdminPanel() {
@@ -1332,6 +1381,10 @@ async function startCheckoutFlow() {
     return;
   }
   if (state.user.membership_active) {
+    if (state.mode === "chooser") {
+      navigateToMode("contacts");
+      return;
+    }
     if (state.mode === "compress" && elements.compressFileInput) {
       elements.compressFileInput.click();
       return;
@@ -1354,15 +1407,7 @@ function handleUnlockUploadAction() {
 }
 
 function handleOpenCompressorAction() {
-  switchMode("compress", { scroll: true });
-  if (state.user?.membership_active) {
-    return;
-  }
-  if (!state.user) {
-    openAuthModal("register");
-    return;
-  }
-  startCheckoutFlow();
+  navigateToMode("compress");
 }
 
 async function startProCheckout() {
@@ -1541,7 +1586,8 @@ function requestCompressionAccess() {
   if (state.user?.membership_active) {
     return true;
   }
-  switchMode("compress", { scroll: true });
+  setMode("compress");
+  document.getElementById("kompresia-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (!state.user) {
     openAuthModal("register");
     return false;
@@ -1557,6 +1603,7 @@ function handleCompressionUploadClick(event) {
   }
   if (event) {
     event.preventDefault();
+    event.stopPropagation();
   }
   if (!requestCompressionAccess()) {
     return;
