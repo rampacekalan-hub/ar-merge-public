@@ -36,10 +36,11 @@
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="work">
-            <a href="#import" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Import</span></a>
+            <a href="#aplikacia-mody" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Výber režimu</span></a>
+            <a href="#import" class="sidebar__link" data-mode-target="contacts"><span class="sidebar__link-icon"></span><span>Čistenie kontaktov</span></a>
+            <a href="#kompresia-panel" class="sidebar__link" data-mode-target="compress"><span class="sidebar__link-icon"></span><span>Kompresia súborov</span></a>
             <a href="#vysledok" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Výsledok</span></a>
             <a href="#audit" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Audit duplicit</span></a>
-            <a href="/compress.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Kompresia súborov</span></a>
           </div>
         </div>
 
@@ -88,8 +89,8 @@
         <div class="workspace-header__main">
           <div>
             <p class="section-kicker">Aplikácia</p>
-            <h1>Nahraj súbory a vyčisti kontakty bez duplicít</h1>
-            <p class="hero__lede">Jedno miesto pre import, automatické čistenie, audit odstránených duplicit a finálny export.</p>
+            <h1>Vyber si režim: čistenie kontaktov alebo kompresia súborov</h1>
+            <p class="hero__lede">Jedna aplikácia, dve praktické funkcie. Kontakty vyčistíš bez duplicit a súbory zmenšíš na požadovanú veľkosť.</p>
           </div>
           <div class="workspace-header__aside">
             <article id="premiumHeroCard" class="premium-hero" aria-label="Premium prístup">
@@ -109,8 +110,29 @@
         </div>
       </header>
 
+      <section id="aplikacia-mody" class="card app-modes">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">Režim aplikácie</p>
+            <h2>Čo chceš teraz spracovať?</h2>
+          </div>
+        </div>
+        <div class="app-modes__grid">
+          <button id="modeContactsBtn" class="mode-card is-active" type="button" data-mode="contacts" aria-pressed="true">
+            <span class="mode-card__kicker">Kontakty</span>
+            <strong>Čistenie databázy kontaktov</strong>
+            <p>Nahraj CSV/XLSX/XLS, odstráň duplicity a stiahni čistý export pripravený na import.</p>
+          </button>
+          <button id="modeCompressBtn" class="mode-card" type="button" data-mode="compress" aria-pressed="false">
+            <span class="mode-card__kicker">Súbory</span>
+            <strong>Kompresia PDF a obrázkov</strong>
+            <p>Zmenši PDF, JPG, PNG alebo WEBP na cieľovú veľkosť bez zbytočných krokov navyše.</p>
+          </button>
+        </div>
+      </section>
+
       <main class="workspace-grid">
-        <div class="workspace-main">
+        <div id="contactsWorkspace" class="workspace-main mode-panel mode-panel--contacts">
           <section id="import" class="card card--upload">
             <div class="section-head">
               <div>
@@ -201,6 +223,67 @@
           </section>
         </div>
 
+        <div id="compressWorkspace" class="workspace-main mode-panel mode-panel--compress is-hidden">
+          <section id="kompresia-panel" class="card card--upload">
+            <div class="section-head">
+              <div>
+                <p class="section-kicker">Kompresia</p>
+                <h2>Kompresia súborov v rámci aplikácie</h2>
+              </div>
+            </div>
+            <p class="section-copy">Nahraj PDF, JPG, PNG alebo WEBP súbor, nastav cieľovú veľkosť a stiahni zmenšený výstup.</p>
+
+            <div id="compressUploadBox" class="upload upload--locked" role="button" tabindex="0">
+              <input id="compressFileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
+              <div class="upload__inner">
+                <div class="upload__statusbar">
+                  <span id="compressStateBadge" class="upload__badge">Pripravené</span>
+                  <span id="compressStateText" class="upload__state-text">Vyber súbor na kompresiu</span>
+                </div>
+                <div class="upload__title">Sem nahraj PDF alebo obrázok</div>
+                <p class="upload__subtitle">Podporované formáty: PDF, JPG, JPEG, PNG, WEBP.</p>
+                <div id="compressProgress" class="upload__progress" hidden>
+                  <div id="compressProgressBar" class="upload__progress-bar"></div>
+                </div>
+                <button id="compressSelectBtn" class="button button--primary" type="button">Vybrať súbor</button>
+              </div>
+            </div>
+
+            <form id="compressForm" class="auth-form compress-form">
+              <div class="compress-controls">
+                <label class="auth-field">
+                  <span>Cieľová veľkosť (MB)</span>
+                  <input id="compressTargetInput" type="number" min="0.05" max="250" step="0.01" value="0.50" required>
+                </label>
+                <div class="compress-actions">
+                  <button id="compressRunBtn" class="button button--primary" type="submit" disabled>Spustiť kompresiu</button>
+                  <button id="compressResetBtn" class="button button--ghost" type="button">Vymazať</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="summary-grid summary-grid--compress">
+              <article class="summary-card">
+                <span>Pôvodná veľkosť</span>
+                <strong id="compressOriginal">0 MB</strong>
+              </article>
+              <article class="summary-card">
+                <span>Výsledná veľkosť</span>
+                <strong id="compressFinal">0 MB</strong>
+              </article>
+              <article class="summary-card">
+                <span>Stav</span>
+                <strong id="compressStatus">Čaká na spracovanie</strong>
+              </article>
+            </div>
+
+            <div id="compressResultMessage" class="empty-state">Zatiaľ bez výsledku. Nahraj súbor a spusti kompresiu.</div>
+            <div class="toolbar toolbar--compact">
+              <button id="compressDownloadBtn" class="button button--primary" type="button" disabled>Stiahnuť zmenšený súbor</button>
+            </div>
+          </section>
+        </div>
+
         <aside class="workspace-side">
           <section class="card sticky-card">
             <div class="section-head">
@@ -252,13 +335,13 @@
           <section id="kompresia" class="card">
             <div class="section-head">
               <div>
-                <p class="section-kicker">Bonus funkcia</p>
-                <h2>Kompresia PDF a obrázkov</h2>
+                <p class="section-kicker">Rýchla voľba režimu</p>
+                <h2>Kompresia súborov</h2>
               </div>
             </div>
             <p id="compressFeatureStatus" class="section-copy">Dostupné po prihlásení a aktivácii členstva.</p>
             <div class="toolbar toolbar--stack">
-              <button id="openCompressorBtn" class="button button--ghost" type="button">Otvoriť kompresiu súborov</button>
+              <button id="openCompressorBtn" class="button button--ghost" type="button">Prepnúť na kompresiu</button>
             </div>
           </section>
         </aside>
@@ -293,11 +376,11 @@
     <div class="modal__dialog modal__dialog--promo">
       <button id="promoModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
       <p class="section-kicker">Členstvo</p>
-      <h2>Odomkni plný import vlastných databáz</h2>
-      <p class="modal__lead">Vytvor si účet, aktivuj mesačné členstvo a spracuj CSV, XLSX alebo XLS súbory bez duplicitných záznamov.</p>
+      <h2>Mesačný premium prístup je teraz v akcii</h2>
+      <p class="modal__lead">Aktivuj členstvo a okamžite odomkni čistenie kontaktov aj kompresiu súborov v jednom účte.</p>
       <div class="promo-price">
         <span class="promo-price__old">4,99 € / mesiac</span>
-        <span class="promo-price__deal">Premium prístup • limitovaná akcia</span>
+        <span class="promo-price__deal">Premium prístup • limitovaná ponuka</span>
         <strong class="promo-price__current">0,99 € / mesiac</strong>
         <span class="promo-price__note">Cena platí iba teraz</span>
       </div>
@@ -308,9 +391,20 @@
       </div>
       <div class="modal__actions">
         <button id="promoModalAuth" class="button button--ghost" type="button">Vytvoriť účet</button>
-        <button id="promoModalStart" class="button button--primary" type="button">Chcem premium prístup</button>
+        <button id="promoModalStart" class="button button--primary" type="button">Aktivovať teraz za 0,99 €</button>
       </div>
     </div>
+  </div>
+
+  <div id="stickyDealBar" class="sticky-deal" hidden>
+    <button id="stickyDealClose" class="sticky-deal__close" type="button" aria-label="Zavrieť ponuku">×</button>
+    <div class="sticky-deal__text">
+      <span class="sticky-deal__label">Premium prístup</span>
+      <span class="sticky-deal__old">4,99 € / mesiac</span>
+      <strong class="sticky-deal__current">0,99 € / mesiac</strong>
+      <span class="sticky-deal__note">Iba teraz • ušetríš 80 %</span>
+    </div>
+    <button id="stickyDealBtn" class="button button--primary" type="button">Kúpiť premium</button>
   </div>
 
   <div id="authModal" class="modal" hidden>

@@ -2,6 +2,7 @@ const state = {
   user: null,
   account: null,
   admin: null,
+  mode: "contacts",
   authMode: "register",
   files: [],
   datasets: [],
@@ -17,6 +18,16 @@ const state = {
     phase: "idle",
     progress: 0,
     progressTimer: null,
+  },
+  compression: {
+    file: null,
+    result: null,
+    isBusy: false,
+    uploadUi: {
+      phase: "idle",
+      progress: 0,
+      progressTimer: null,
+    },
   },
 };
 
@@ -45,6 +56,11 @@ const elements = {
   pricingCtaBtn: document.getElementById("pricingCtaBtn"),
   openCompressorBtn: document.getElementById("openCompressorBtn"),
   compressFeatureStatus: document.getElementById("compressFeatureStatus"),
+  modeContactsBtn: document.getElementById("modeContactsBtn"),
+  modeCompressBtn: document.getElementById("modeCompressBtn"),
+  contactsWorkspace: document.getElementById("contactsWorkspace"),
+  compressWorkspace: document.getElementById("compressWorkspace"),
+  modeTargetLinks: document.querySelectorAll("[data-mode-target]"),
   mergeBtn: document.getElementById("mergeBtn"),
   resetBtn: document.getElementById("resetBtn"),
   datasetList: document.getElementById("datasetList"),
@@ -117,9 +133,30 @@ const elements = {
   sidebarBackdrop: document.getElementById("sidebarBackdrop"),
   sidebarLinks: document.querySelectorAll(".sidebar__link"),
   sidebarGroupToggles: document.querySelectorAll(".sidebar-group__toggle"),
+  compressFileInput: document.getElementById("compressFileInput"),
+  compressUploadBox: document.getElementById("compressUploadBox"),
+  compressStateBadge: document.getElementById("compressStateBadge"),
+  compressStateText: document.getElementById("compressStateText"),
+  compressProgress: document.getElementById("compressProgress"),
+  compressProgressBar: document.getElementById("compressProgressBar"),
+  compressSelectBtn: document.getElementById("compressSelectBtn"),
+  compressForm: document.getElementById("compressForm"),
+  compressTargetInput: document.getElementById("compressTargetInput"),
+  compressRunBtn: document.getElementById("compressRunBtn"),
+  compressResetBtn: document.getElementById("compressResetBtn"),
+  compressOriginal: document.getElementById("compressOriginal"),
+  compressFinal: document.getElementById("compressFinal"),
+  compressStatus: document.getElementById("compressStatus"),
+  compressResultMessage: document.getElementById("compressResultMessage"),
+  compressDownloadBtn: document.getElementById("compressDownloadBtn"),
+  stickyDealBar: document.getElementById("stickyDealBar"),
+  stickyDealBtn: document.getElementById("stickyDealBtn"),
+  stickyDealClose: document.getElementById("stickyDealClose"),
 };
 
 const SIDEBAR_COLLAPSED_KEY = "unifyo_sidebar_collapsed";
+const STICKY_DEAL_DISMISSED_KEY = "unifyo_sticky_deal_dismissed";
+const COMPRESS_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp"]);
 
 bootstrap();
 
@@ -157,8 +194,31 @@ async function bootstrap() {
   elements.buyProBtn.addEventListener("click", startCheckoutFlow);
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
   elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
+  elements.modeContactsBtn?.addEventListener("click", () => switchMode("contacts", { scroll: true }));
+  elements.modeCompressBtn?.addEventListener("click", () => switchMode("compress", { scroll: true }));
+  elements.modeTargetLinks.forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const targetMode = event.currentTarget.dataset.modeTarget;
+      if (targetMode) {
+        switchMode(targetMode, { scroll: false });
+      }
+    });
+  });
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
+  elements.compressUploadBox?.addEventListener("click", handleCompressionUploadClick);
+  elements.compressUploadBox?.addEventListener("keydown", handleCompressionUploadKeydown);
+  elements.compressUploadBox?.addEventListener("dragover", handleCompressionDragOver);
+  elements.compressUploadBox?.addEventListener("dragleave", handleCompressionDragLeave);
+  elements.compressUploadBox?.addEventListener("drop", handleCompressionDrop);
+  elements.compressFileInput?.addEventListener("change", handleCompressionFileSelection);
+  elements.compressSelectBtn?.addEventListener("click", handleCompressionUploadClick);
+  elements.compressForm?.addEventListener("submit", handleCompressionSubmit);
+  elements.compressResetBtn?.addEventListener("click", resetCompressionState);
+  elements.compressDownloadBtn?.addEventListener("click", handleCompressionDownload);
+  elements.compressTargetInput?.addEventListener("input", renderCompressionResult);
+  elements.stickyDealBtn?.addEventListener("click", startCheckoutFlow);
+  elements.stickyDealClose?.addEventListener("click", dismissStickyDealBar);
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
   elements.promoModalAuth.addEventListener("click", () => {
@@ -195,6 +255,8 @@ async function bootstrap() {
   elements.sidebarBackdrop?.addEventListener("click", closeSidebar);
   elements.sidebarLinks.forEach((link) => link.addEventListener("click", closeSidebar));
   elements.sidebarGroupToggles.forEach((toggle) => toggle.addEventListener("click", handleSidebarGroupToggle));
+  window.addEventListener("scroll", handleWindowScroll, { passive: true });
+  window.addEventListener("hashchange", syncModeWithHash);
   document.addEventListener("keydown", handleModalEscape);
   elements.downloadCsvBtn.addEventListener("click", () => {
     if (state.mergedContacts.length) {
@@ -214,8 +276,12 @@ async function bootstrap() {
   });
   maybeOpenPromoModal();
   syncSidebarCollapse();
+  syncModeWithHash();
   renderAccessState();
   renderUploadState();
+  renderCompressionAccessState();
+  renderCompressionResult();
+  renderStickyDealBar();
 }
 
 function renderAccessState() {
@@ -251,7 +317,7 @@ function renderAccessState() {
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
-      ? "Otvoriť kompresiu súborov"
+      ? "Prepnúť na kompresiu"
       : isLoggedIn
         ? "Aktivovať členstvo pre kompresiu"
         : "Prihlásiť sa a odomknúť kompresiu";
@@ -318,6 +384,47 @@ function renderAccessState() {
   }
   renderAccountSummary();
   renderUploadState();
+  renderCompressionAccessState();
+  renderMode();
+  renderStickyDealBar();
+}
+
+function syncModeWithHash() {
+  const hash = (window.location.hash || "").toLowerCase();
+  if (hash === "#kompresia-panel" || hash === "#kompresia") {
+    switchMode("compress", { scroll: false });
+    return;
+  }
+  if (hash === "#import" || hash === "#vysledok" || hash === "#audit" || hash === "#aplikacia-mody" || !hash) {
+    switchMode("contacts", { scroll: false });
+  }
+}
+
+function switchMode(mode, { scroll = false } = {}) {
+  if (mode !== "contacts" && mode !== "compress") {
+    return;
+  }
+  state.mode = mode;
+  renderMode();
+  if (!scroll) {
+    return;
+  }
+  const targetId = mode === "compress" ? "kompresia-panel" : "import";
+  document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderMode() {
+  const isContacts = state.mode !== "compress";
+  elements.contactsWorkspace?.classList.toggle("is-hidden", !isContacts);
+  elements.compressWorkspace?.classList.toggle("is-hidden", isContacts);
+  elements.modeContactsBtn?.classList.toggle("is-active", isContacts);
+  elements.modeCompressBtn?.classList.toggle("is-active", !isContacts);
+  if (elements.modeContactsBtn) {
+    elements.modeContactsBtn.setAttribute("aria-pressed", String(isContacts));
+  }
+  if (elements.modeCompressBtn) {
+    elements.modeCompressBtn.setAttribute("aria-pressed", String(!isContacts));
+  }
 }
 
 function setUploadPhase(phase, progress = state.uploadUi.progress) {
@@ -1220,15 +1327,21 @@ async function handleResetPasswordSubmit(event) {
 
 async function startCheckoutFlow() {
   if (!state.user) {
+    await playDiscountEffect();
     openAuthModal("register");
     return;
   }
   if (state.user.membership_active) {
+    if (state.mode === "compress" && elements.compressFileInput) {
+      elements.compressFileInput.click();
+      return;
+    }
     if (elements.fileInput) {
       elements.fileInput.click();
     }
     return;
   }
+  await playDiscountEffect();
   await startProCheckout();
 }
 
@@ -1241,8 +1354,8 @@ function handleUnlockUploadAction() {
 }
 
 function handleOpenCompressorAction() {
+  switchMode("compress", { scroll: true });
   if (state.user?.membership_active) {
-    window.location.href = "/compress.html";
     return;
   }
   if (!state.user) {
@@ -1266,6 +1379,38 @@ async function startProCheckout() {
   } catch (error) {
     window.alert(error.message);
   }
+}
+
+function playDiscountEffect() {
+  document.body.classList.remove("discount-effect");
+  void document.body.offsetWidth;
+  document.body.classList.add("discount-effect");
+  window.setTimeout(() => {
+    document.body.classList.remove("discount-effect");
+  }, 760);
+  return new Promise((resolve) => window.setTimeout(resolve, 420));
+}
+
+function handleWindowScroll() {
+  renderStickyDealBar();
+}
+
+function dismissStickyDealBar() {
+  window.sessionStorage.setItem(STICKY_DEAL_DISMISSED_KEY, "1");
+  renderStickyDealBar();
+}
+
+function renderStickyDealBar() {
+  if (!elements.stickyDealBar) {
+    return;
+  }
+  const dismissed = window.sessionStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
+  const shouldShow =
+    !dismissed &&
+    !state.user?.membership_active &&
+    window.scrollY > 280 &&
+    state.mode === "contacts";
+  elements.stickyDealBar.hidden = !shouldShow;
 }
 
 function handleUploadBoxClick(event) {
@@ -1308,6 +1453,292 @@ function handleUploadDrop(event) {
   setUploadPhase("ready", 0);
   renderSelectedFiles();
   renderAccessState();
+}
+
+function renderCompressionAccessState() {
+  const hasMembership = Boolean(state.user?.membership_active);
+  const hasFile = Boolean(state.compression.file);
+
+  if (elements.compressFileInput) {
+    elements.compressFileInput.disabled = !hasMembership;
+  }
+  if (elements.compressSelectBtn) {
+    elements.compressSelectBtn.textContent = hasMembership ? (hasFile ? "Vybrať iný súbor" : "Vybrať súbor") : "Aktivovať členstvo";
+  }
+  if (elements.compressRunBtn) {
+    elements.compressRunBtn.disabled = !hasMembership || !hasFile || state.compression.isBusy;
+  }
+  renderCompressionUploadState();
+}
+
+function setCompressionUploadPhase(phase, progress = state.compression.uploadUi.progress) {
+  if (state.compression.uploadUi.progressTimer) {
+    window.clearInterval(state.compression.uploadUi.progressTimer);
+    state.compression.uploadUi.progressTimer = null;
+  }
+  state.compression.uploadUi.phase = phase;
+  state.compression.uploadUi.progress = progress;
+  renderCompressionUploadState();
+}
+
+function startCompressionProgressLoop() {
+  setCompressionUploadPhase("processing", 12);
+  state.compression.uploadUi.progressTimer = window.setInterval(() => {
+    if (state.compression.uploadUi.progress >= 84) {
+      return;
+    }
+    state.compression.uploadUi.progress += Math.random() > 0.5 ? 10 : 7;
+    renderCompressionUploadState();
+  }, 280);
+}
+
+function renderCompressionUploadState() {
+  if (
+    !elements.compressUploadBox ||
+    !elements.compressStateBadge ||
+    !elements.compressStateText ||
+    !elements.compressProgress ||
+    !elements.compressProgressBar
+  ) {
+    return;
+  }
+
+  const hasMembership = Boolean(state.user?.membership_active);
+  const hasFile = Boolean(state.compression.file);
+  const { phase, progress } = state.compression.uploadUi;
+
+  elements.compressUploadBox.classList.toggle("upload--locked", !hasMembership);
+  elements.compressUploadBox.classList.toggle("upload--ready", hasMembership && hasFile && phase !== "processing");
+  elements.compressUploadBox.classList.toggle("upload--processing", phase === "processing");
+  elements.compressUploadBox.classList.toggle("upload--done", phase === "done");
+
+  let badge = "Pripravené";
+  let text = "Vyber súbor a nastav cieľovú veľkosť.";
+  let showProgress = false;
+
+  if (!hasMembership) {
+    badge = "Uzamknuté";
+    text = "Kompresia je dostupná po aktivácii členstva.";
+  } else if (phase === "processing") {
+    badge = "Spracovanie";
+    text = "Pripravujeme menšiu verziu súboru.";
+    showProgress = true;
+  } else if (phase === "done") {
+    badge = "Hotovo";
+    text = "Výsledok je pripravený na stiahnutie.";
+  } else if (hasFile) {
+    badge = "Súbor pripravený";
+    text = `${state.compression.file.name} čaká na kompresiu.`;
+  }
+
+  elements.compressStateBadge.textContent = badge;
+  elements.compressStateText.textContent = text;
+  elements.compressProgress.hidden = !showProgress;
+  elements.compressProgressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+}
+
+function requestCompressionAccess() {
+  if (state.user?.membership_active) {
+    return true;
+  }
+  switchMode("compress", { scroll: true });
+  if (!state.user) {
+    openAuthModal("register");
+    return false;
+  }
+  window.alert("Na kompresiu súborov potrebuješ aktívne členstvo. Otváram aktiváciu.");
+  startCheckoutFlow();
+  return false;
+}
+
+function handleCompressionUploadClick(event) {
+  if (event?.currentTarget === elements.compressUploadBox && event.target.closest("button")) {
+    return;
+  }
+  if (event) {
+    event.preventDefault();
+  }
+  if (!requestCompressionAccess()) {
+    return;
+  }
+  elements.compressFileInput?.click();
+}
+
+function handleCompressionUploadKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+  event.preventDefault();
+  handleCompressionUploadClick();
+}
+
+function handleCompressionDragOver(event) {
+  event.preventDefault();
+  if (!state.user?.membership_active) {
+    return;
+  }
+  elements.compressUploadBox?.classList.add("is-dragover");
+}
+
+function handleCompressionDragLeave(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    elements.compressUploadBox?.classList.remove("is-dragover");
+  }
+}
+
+function handleCompressionDrop(event) {
+  event.preventDefault();
+  elements.compressUploadBox?.classList.remove("is-dragover");
+  if (!requestCompressionAccess()) {
+    return;
+  }
+  const file = event.dataTransfer?.files?.[0];
+  if (file) {
+    setCompressionFile(file);
+  }
+}
+
+function handleCompressionFileSelection(event) {
+  if (!requestCompressionAccess()) {
+    return;
+  }
+  const file = event.target.files?.[0];
+  if (file) {
+    setCompressionFile(file);
+  }
+  if (elements.compressFileInput) {
+    elements.compressFileInput.value = "";
+  }
+}
+
+function setCompressionFile(file) {
+  const extension = getFileExtension(file.name).toLowerCase();
+  if (!COMPRESS_EXTENSIONS.has(extension)) {
+    window.alert("Podporované sú len PDF, JPG, JPEG, PNG a WEBP.");
+    return;
+  }
+  state.compression.file = file;
+  state.compression.result = null;
+  setCompressionUploadPhase("idle", 0);
+  renderCompressionAccessState();
+  renderCompressionResult();
+}
+
+async function handleCompressionSubmit(event) {
+  event.preventDefault();
+  if (!requestCompressionAccess()) {
+    return;
+  }
+  if (!state.compression.file || state.compression.isBusy) {
+    return;
+  }
+
+  const targetMb = normalizeCompressionTarget();
+  if (!targetMb) {
+    window.alert("Zadaj platnú cieľovú veľkosť medzi 0,05 MB a 250 MB.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", state.compression.file);
+  formData.append("target_mb", targetMb);
+
+  state.compression.isBusy = true;
+  state.compression.result = null;
+  startCompressionProgressLoop();
+  renderCompressionAccessState();
+  renderCompressionResult();
+
+  try {
+    const response = await fetch("/api/compress-file", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let message = "Kompresia zlyhala.";
+      try {
+        const payload = await response.json();
+        message = payload.error || message;
+      } catch (_error) {
+        // keep fallback message
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    state.compression.result = {
+      blob,
+      compressedBytes: parseNumericHeader(response.headers.get("X-Compression-Compressed-Bytes")),
+      fileName: parseFileName(response.headers.get("Content-Disposition")) || "subor-zmenseny",
+      originalBytes: parseNumericHeader(response.headers.get("X-Compression-Original-Bytes")),
+      reachedTarget: response.headers.get("X-Compression-Reached-Target") === "1",
+      status: response.headers.get("X-Compression-Status") || "compressed",
+      targetBytes: parseNumericHeader(response.headers.get("X-Compression-Target-Bytes")),
+    };
+    setCompressionUploadPhase("done", 100);
+  } catch (error) {
+    state.compression.result = { error: error.message };
+    setCompressionUploadPhase("idle", 0);
+  } finally {
+    state.compression.isBusy = false;
+    renderCompressionAccessState();
+    renderCompressionResult();
+  }
+}
+
+function renderCompressionResult() {
+  if (!elements.compressOriginal || !elements.compressFinal || !elements.compressStatus || !elements.compressResultMessage || !elements.compressDownloadBtn) {
+    return;
+  }
+
+  if (!state.compression.result) {
+    elements.compressOriginal.textContent = state.compression.file ? formatMegabytes(state.compression.file.size) : "0 MB";
+    elements.compressFinal.textContent = "0 MB";
+    elements.compressStatus.textContent = "Čaká na spracovanie";
+    elements.compressResultMessage.className = "empty-state";
+    elements.compressResultMessage.textContent = "Zatiaľ bez výsledku. Nahraj súbor a spusti kompresiu.";
+    elements.compressDownloadBtn.disabled = true;
+    return;
+  }
+
+  const result = state.compression.result;
+  if (result.error) {
+    elements.compressOriginal.textContent = state.compression.file ? formatMegabytes(state.compression.file.size) : "0 MB";
+    elements.compressFinal.textContent = "—";
+    elements.compressStatus.textContent = "Chyba";
+    elements.compressResultMessage.className = "auth-message auth-message--error compress-message";
+    elements.compressResultMessage.textContent = result.error;
+    elements.compressDownloadBtn.disabled = true;
+    return;
+  }
+
+  elements.compressOriginal.textContent = formatMegabytes(result.originalBytes);
+  elements.compressFinal.textContent = formatMegabytes(result.compressedBytes);
+  elements.compressStatus.textContent = formatCompressionStatus(result.status, result.reachedTarget);
+  elements.compressResultMessage.className = "compress-message";
+  elements.compressResultMessage.textContent = buildCompressionMessage(result);
+  elements.compressDownloadBtn.disabled = false;
+}
+
+function handleCompressionDownload() {
+  const result = state.compression.result;
+  if (!result || result.error || !result.blob) {
+    return;
+  }
+  triggerDownload(result.blob, result.fileName || "subor-zmenseny");
+}
+
+function resetCompressionState() {
+  state.compression.file = null;
+  state.compression.result = null;
+  state.compression.isBusy = false;
+  setCompressionUploadPhase("idle", 0);
+  if (elements.compressFileInput) {
+    elements.compressFileInput.value = "";
+  }
+  renderCompressionAccessState();
+  renderCompressionResult();
 }
 
 function formatDateTime(value) {
@@ -1521,6 +1952,7 @@ function resetApp() {
   elements.resultTable.textContent = "Zatiaľ bez výsledkov.";
   elements.duplicatesAudit.className = "empty-state";
   elements.duplicatesAudit.textContent = "Zatiaľ bez odstránených duplicitných záznamov.";
+  resetCompressionState();
   renderAccessState();
   elements.downloadCsvBtn.disabled = true;
   elements.downloadXlsxBtn.disabled = true;
@@ -1637,4 +2069,62 @@ function escapeHtml(value) {
 function getFileExtension(fileName) {
   const parts = String(fileName || "").split(".");
   return parts.length > 1 ? parts.pop() : "";
+}
+
+function parseFileName(contentDisposition) {
+  if (!contentDisposition) {
+    return "";
+  }
+  const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch) {
+    try {
+      return decodeURIComponent(utfMatch[1]);
+    } catch (_error) {
+      return utfMatch[1];
+    }
+  }
+  const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+  return plainMatch ? plainMatch[1] : "";
+}
+
+function parseNumericHeader(value) {
+  const parsed = Number.parseInt(value || "0", 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeCompressionTarget() {
+  const raw = String(elements.compressTargetInput?.value || "").trim().replace(",", ".");
+  const parsed = Number.parseFloat(raw);
+  if (!Number.isFinite(parsed) || parsed < 0.05 || parsed > 250) {
+    return "";
+  }
+  return parsed.toFixed(2);
+}
+
+function formatMegabytes(bytes) {
+  const safeValue = Number(bytes) || 0;
+  return `${(safeValue / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatCompressionStatus(status, reachedTarget) {
+  if (status === "already-small-enough") {
+    return "Už spĺňa cieľ";
+  }
+  if (status === "already-optimized") {
+    return "Bez ďalšieho zisku";
+  }
+  return reachedTarget ? "Cieľ splnený" : "Best effort";
+}
+
+function buildCompressionMessage(result) {
+  if (result.status === "already-small-enough") {
+    return `Súbor už bol menší než cieľ ${formatMegabytes(result.targetBytes)}, preto ostal bez zmeny.`;
+  }
+  if (result.status === "already-optimized") {
+    return `Súbor sa nepodarilo zmenšiť pod ${formatMegabytes(result.targetBytes)} bez zhoršenia kvality.`;
+  }
+  if (result.reachedTarget) {
+    return `Súbor sa zmenšil z ${formatMegabytes(result.originalBytes)} na ${formatMegabytes(result.compressedBytes)} pri cieli ${formatMegabytes(result.targetBytes)}.`;
+  }
+  return `Súbor sa zmenšil z ${formatMegabytes(result.originalBytes)} na ${formatMegabytes(result.compressedBytes)}. Cieľ ${formatMegabytes(result.targetBytes)} sa nepodarilo úplne dosiahnuť.`;
 }
