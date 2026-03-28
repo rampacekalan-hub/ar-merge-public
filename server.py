@@ -25,6 +25,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from contact_importer import OUTPUT_HEADERS, process_uploads
+from file_compressor import compress_upload
 
 
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -165,6 +166,10 @@ def parse_positive_int(value, default=0):
 
 def is_admin_email(email):
     return normalize_email(email) in ADMIN_EMAILS
+
+
+def can_manage_admin_tools(user_row):
+    return bool(user_row) and user_row["role"] == "admin" and is_admin_email(user_row["email"])
 
 
 def hash_password(password, salt):
@@ -404,6 +409,7 @@ def user_payload(connection, user_row):
             "email": user_row["email"],
             "role": user_row["role"],
             "is_admin": user_row["role"] == "admin",
+            "can_manage_admin_tools": can_manage_admin_tools(user_row),
             "created_at": user_row["created_at"],
             "membership_active": is_membership_active(membership),
             "membership_status": membership.get("status") if membership else "inactive",
@@ -743,6 +749,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/parse":
             self.handle_parse()
             return
+        if self.path == "/api/compress-file":
+            self.handle_compress_file()
+            return
         if self.path == "/api/export-xlsx":
             self.handle_export_xlsx()
             return
@@ -975,8 +984,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             salt, password_hash = create_password_hash(password)
             now = format_timestamp(utc_now())
-            user_count = connection.execute("SELECT COUNT(*) AS total FROM users").fetchone()["total"]
-            role = "admin" if is_admin_email(email) or user_count == 0 else "user"
+            role = "admin" if is_admin_email(email) else "user"
             cursor = connection.execute(
                 """
                 INSERT INTO users (name, email, password_hash, password_salt, role, created_at, updated_at)
@@ -1161,7 +1169,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Tento e-mail už používa iný účet."}, status=HTTPStatus.CONFLICT)
                 return
 
-            role = "admin" if (user["role"] == "admin" or is_admin_email(email)) else "user"
+            role = user["role"]
             connection.execute(
                 "UPDATE users SET name = ?, email = ?, role = ?, updated_at = ? WHERE id = ?",
                 (name, email, role, format_timestamp(utc_now()), user["id"]),
@@ -1275,8 +1283,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not admin_user:
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
+            admin_user = ensure_admin_role(connection, admin_user)
             if admin_user["role"] != "admin":
                 self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+            if not can_manage_admin_tools(admin_user):
+                self.write_json({"error": "Len hlavný správca môže meniť členstvá používateľov."}, status=HTTPStatus.FORBIDDEN)
                 return
 
             payload = require_json(self)
@@ -1340,6 +1352,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             if admin_user["role"] != "admin":
                 self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
                 return
+            if not can_manage_admin_tools(admin_user):
+                self.write_json({"error": "Len hlavný správca môže meniť roly používateľov."}, status=HTTPStatus.FORBIDDEN)
+                return
 
             payload = require_json(self)
             user_id = parse_positive_int(payload.get("user_id"), 0)
@@ -1354,6 +1369,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             if target_user["id"] == admin_user["id"] and role != "admin":
                 self.write_json({"error": "Nemôžete odobrať admin práva sami sebe."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            if role == "user" and is_admin_email(target_user["email"]):
+                self.write_json({"error": "E-mail správcu je rezervovaný pre administrátorský účet."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
             connection.execute(
@@ -1404,7 +1422,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         finally:
             connection.close()
 
-    def require_active_membership(self):
+    def require_active_membership(self, membership_error_message="Na nahranie vlastných súborov je potrebné aktívne členstvo."):
         connection = get_db()
         try:
             user = get_session_user(connection, self.headers)
@@ -1414,7 +1432,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             membership = get_membership(connection, user["id"])
             if not is_membership_active(membership):
-                self.write_json({"error": "Na nahranie vlastných súborov je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                self.write_json({"error": membership_error_message}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return None
             return user
         finally:
@@ -1490,6 +1508,71 @@ class AppHandler(SimpleHTTPRequestHandler):
         finally:
             connection.close()
         self.write_json(payload)
+
+    def handle_compress_file(self):
+        user = self.require_active_membership("Na použitie kompresie súborov je potrebné aktívne členstvo.")
+        if not user:
+            return
+
+        try:
+            form = parse_multipart_form(self.headers, self.read_request_body())
+        except Exception as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        file_items = form.get("file", [])
+        if not file_items:
+            self.write_json({"error": "Súbor nebol prijatý."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        target_items = form.get("target_mb", [])
+        target_mb = ""
+        if target_items:
+            target_mb = (target_items[0].get("content", b"") or b"").decode("utf-8", "ignore").strip()
+
+        file_item = file_items[0]
+        file_name = file_item.get("filename") or "upload"
+        file_bytes = file_item.get("content", b"")
+
+        try:
+            result = compress_upload(file_name, file_bytes, target_mb)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        except RuntimeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        except Exception:
+            self.write_json({"error": "Kompresia súboru zlyhala."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        connection = get_db()
+        try:
+            log_activity(
+                connection,
+                "file_compressed",
+                "Používateľ zmenšil súbor.",
+                user["id"],
+                file=file_name,
+                original_bytes=result.original_bytes,
+                compressed_bytes=result.compressed_bytes,
+                target_bytes=result.target_bytes,
+                status=result.status,
+            )
+        finally:
+            connection.close()
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", result.content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{result.file_name}"')
+        self.send_header("Content-Length", str(len(result.data)))
+        self.send_header("X-Compression-Original-Bytes", str(result.original_bytes))
+        self.send_header("X-Compression-Compressed-Bytes", str(result.compressed_bytes))
+        self.send_header("X-Compression-Target-Bytes", str(result.target_bytes))
+        self.send_header("X-Compression-Status", result.status)
+        self.send_header("X-Compression-Reached-Target", "1" if result.reached_target else "0")
+        self.end_headers()
+        self.wfile.write(result.data)
 
     def handle_export_xlsx(self):
         user = self.require_active_membership()

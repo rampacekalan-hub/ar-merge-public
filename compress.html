@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unifyo | Kompresia súborov</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient--one"></div>
+  <div class="ambient ambient--two"></div>
+
+  <div class="app-shell app-shell--dashboard">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar__brand sidebar__brand--wordmark">
+        <span class="sidebar__wordmark">Unifyo</span>
+      </div>
+
+      <nav class="sidebar__nav" aria-label="Navigácia">
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="pages" aria-expanded="true">
+            <span>Prehľad</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content" data-sidebar-group-content="pages">
+            <a href="/index.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Domov</span></a>
+            <a href="/app.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Aplikácia</span></a>
+            <a href="/compress.html" class="sidebar__link" aria-current="page"><span class="sidebar__link-icon"></span><span>Kompresia súborov</span></a>
+            <a href="/pricing.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cenník</span></a>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="work" aria-expanded="true">
+            <span>Spracovanie</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content" data-sidebar-group-content="work">
+            <a href="#compress" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Nahratie</span></a>
+            <a href="#result" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Výsledok</span></a>
+            <a href="#tips" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Tipy</span></a>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="account" aria-expanded="true">
+            <span>Účet a nastavenia</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content" data-sidebar-group-content="account">
+            <a href="/app.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Účet a členstvo</span></a>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="trust" aria-expanded="false">
+            <span>Dôvera a podmienky</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content is-collapsed" data-sidebar-group-content="trust">
+            <a href="/privacy.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ochrana súkromia</span></a>
+            <a href="/terms.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Podmienky používania</span></a>
+            <a href="/cookie-policy.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cookies</span></a>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar__footer">
+        <span>Bezpečné spracovanie</span>
+        <span>PDF / JPG / PNG / WEBP</span>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
+
+    <div class="content-shell">
+      <header class="hero">
+        <div class="hero__content">
+          <div class="hero__topbar">
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
+            <div class="toolbar toolbar--compact">
+              <button id="accountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
+              <button id="openAppBtn" class="button button--ghost" type="button">Otvoriť aplikáciu</button>
+            </div>
+          </div>
+          <p class="hero__eyebrow">Kompresia súborov</p>
+          <h1>Zmenši PDF a obrázky na požadovanú veľkosť.</h1>
+          <p class="hero__lede">Nahraj jeden súbor, nastav cieľ v MB a stiahni menšiu verziu pripravenú na odoslanie, prílohu alebo ďalší upload.</p>
+          <p id="accountStatus" class="hero__account-status">Prihlás sa a aktivuj členstvo, potom môžeš zmenšiť PDF, JPG, PNG alebo WEBP.</p>
+          <div class="hero__actions">
+            <button id="compressHeroBtn" class="button button--primary" type="button">Vybrať súbor</button>
+            <button id="membershipBtn" class="button button--ghost" type="button">Účet a členstvo</button>
+          </div>
+          <div class="hero__flow">
+            <span>Nahraj súbor</span>
+            <span>Nastav cieľ v MB</span>
+            <span>Stiahni výsledok</span>
+          </div>
+          <div class="hero__meta">
+            <span class="hero__meta-label">Podpora</span>
+            <span class="hero__meta-text">PDF, JPG, PNG, WEBP</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section id="compress" class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Nahratie</p>
+              <h2>Vyber súbor a nastav cieľovú veľkosť</h2>
+            </div>
+          </div>
+          <p class="section-copy">Kompresia beží samostatne popri hlavnej appke. Nezasahuje do čistenia kontaktov a používa vlastný endpoint len pre zmenšovanie súborov.</p>
+
+          <div id="uploadBox" class="upload upload--locked" role="button" tabindex="0">
+            <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
+            <div class="upload__statusbar">
+              <span id="uploadStateBadge" class="upload__badge">Uzamknuté</span>
+              <span id="uploadStateText" class="upload__state-text">Prihlás sa a aktivuj členstvo, potom môžeš nahrať súbor.</span>
+            </div>
+            <div id="uploadProgress" class="upload__progress" hidden>
+              <div id="uploadProgressBar" class="upload__progress-bar"></div>
+            </div>
+            <div>
+              <div class="upload__title">Nahraj súbor na zmenšenie</div>
+              <p class="upload__subtitle">Po aktívnom členstve vyberieš PDF alebo obrázok a Unifyo pripraví menšiu verziu na stiahnutie.</p>
+              <button id="pickFileBtn" class="button button--primary" type="button">Otvoriť účet v aplikácii</button>
+            </div>
+          </div>
+
+          <div id="selectedFileSummary" class="account-summary empty-state">Zatiaľ nie je vybraný žiadny súbor.</div>
+
+          <form id="compressForm" class="auth-form compress-form">
+            <div class="compress-controls">
+              <label class="auth-field">
+                <span>Cieľová veľkosť v MB</span>
+                <input id="targetSizeInput" type="number" min="0.05" step="0.05" value="0.50" inputmode="decimal" required>
+              </label>
+              <div class="compress-actions">
+                <button id="compressBtn" class="button button--primary" type="submit" disabled>Zmenšiť súbor</button>
+                <button id="resetBtn" class="button button--ghost" type="button">Vymazať</button>
+              </div>
+            </div>
+          </form>
+
+          <p class="section-note">Pri PDF ide o best-effort kompresiu. Pri niektorých dokumentoch sa cieľ nemusí dosiahnuť presne, ale systém vyberie najbližší vhodný výsledok.</p>
+        </section>
+
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Účet</p>
+              <h2>Tvoj účet a členstvo</h2>
+            </div>
+          </div>
+
+          <div id="accountSummary" class="account-summary empty-state">Načítavam stav účtu...</div>
+
+          <div class="pricing-card pricing-card--pro">
+            <span class="pricing-card__label">Členský prístup</span>
+            <p class="pricing-card__intro">Jedno členstvo ti odomkne čistenie kontaktov aj zmenšovanie PDF a obrázkov v tom istom účte.</p>
+            <div class="pricing-card__price-wrap">
+              <span class="pricing-card__price-old">4,99 € / mesiac</span>
+              <span class="pricing-card__deal">Akciová cena</span>
+              <strong class="pricing-card__price">0,99 € / mesiac</strong>
+            </div>
+            <p class="pricing-card__copy">Ak už máš aktívne členstvo, táto stránka je pripravená hneď. Ak nie, otvor aplikáciu a aktivuj si prístup cez Stripe.</p>
+            <div class="toolbar">
+              <button id="pricingBtn" class="button button--primary" type="button">Otvoriť účet a členstvo</button>
+              <button id="appShortcutBtn" class="button button--ghost" type="button">Prejsť do aplikácie</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="result" class="card card--wide card--results">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Výsledok</p>
+              <h2>Pripravený menší súbor na stiahnutie</h2>
+            </div>
+            <div class="toolbar toolbar--compact">
+              <button id="downloadBtn" class="button button--primary" type="button" disabled>Stiahnuť výsledok</button>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <article class="summary-card">
+              <span>Pôvodná veľkosť</span>
+              <strong id="originalSize">0 MB</strong>
+            </article>
+            <article class="summary-card">
+              <span>Cieľ</span>
+              <strong id="targetSize">0.50 MB</strong>
+            </article>
+            <article class="summary-card">
+              <span>Výsledná veľkosť</span>
+              <strong id="compressedSize">0 MB</strong>
+            </article>
+            <article class="summary-card summary-card--status">
+              <span>Stav</span>
+              <strong id="resultStatus">Čaká na spracovanie</strong>
+            </article>
+          </div>
+
+          <div class="results-grid">
+            <section class="result-card result-card--wide">
+              <div class="result-card__head">
+                <div>
+                  <h3>Výstup kompresie</h3>
+                  <p>Súbor zostane pripravený na okamžité stiahnutie priamo v prehliadači.</p>
+                </div>
+              </div>
+              <div id="resultMessage" class="empty-state">Zatiaľ bez výsledku. Nahraj súbor a spusti kompresiu.</div>
+            </section>
+
+            <section id="tips" class="result-card result-card--wide">
+              <div class="result-card__head">
+                <div>
+                  <h3>Tipy a limity</h3>
+                  <p>Pre čo najlepší výsledok sa oplatí poznať pár detailov dopredu.</p>
+                </div>
+              </div>
+              <ul class="tip-list">
+                <li>Podporované formáty sú <code>PDF</code>, <code>JPG</code>, <code>JPEG</code>, <code>PNG</code> a <code>WEBP</code>.</li>
+                <li>Ak je súbor už menší než cieľ, zostane bez zmeny a len ho dostaneš späť pripravený na stiahnutie.</li>
+                <li>Pri PDF sa niekedy cieľ nedá trafiť úplne presne. Vtedy Unifyo vyberie najlepší dosiahnuteľný menší variant.</li>
+                <li>Pri obrázkoch môže systém podľa potreby zmeniť rozlíšenie alebo výstupný formát, aby sa čo najlepšie priblížil cieľu.</li>
+              </ul>
+            </section>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <a href="/index.html">Domov</a>
+        <a href="/app.html">Aplikácia</a>
+        <a href="/pricing.html">Cenník</a>
+        <a href="/privacy.html">Ochrana súkromia</a>
+        <a href="/terms.html">Podmienky používania</a>
+        <a href="/cookie-policy.html">Cookies</a>
+        <a href="mailto:info@unifyo.online">Kontakt</a>
+      </footer>
+    </div>
+  </div>
+
+  <script src="compressor.js"></script>
+</body>
+</html>
