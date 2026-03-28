@@ -92,12 +92,15 @@
       authEntryLinks.forEach((link) => {
         const guestHref = link.dataset.guestHref || "/app.html";
         const authHref = link.dataset.authHref || "/app.html";
+        const guestLabel = link.dataset.guestLabel || "Prihlásenie";
+        const authLabel = link.dataset.authLabel || "Aplikácia";
+        const labelTarget = link.querySelector("[data-auth-entry-label]") || link;
         if (isAuthenticated) {
           link.setAttribute("href", authHref);
-          link.textContent = "Aplikácia";
+          labelTarget.textContent = authLabel;
         } else {
           link.setAttribute("href", guestHref);
-          link.textContent = "Prihlásenie";
+          labelTarget.textContent = guestLabel;
         }
       });
       window.dispatchEvent(new CustomEvent("unifyo-auth-ready", { detail: { user } }));
@@ -105,8 +108,10 @@
       window.unifyoCurrentUser = null;
       authEntryLinks.forEach((link) => {
         const guestHref = link.dataset.guestHref || "/app.html";
+        const guestLabel = link.dataset.guestLabel || "Prihlásenie";
+        const labelTarget = link.querySelector("[data-auth-entry-label]") || link;
         link.setAttribute("href", guestHref);
-        link.textContent = "Prihlásenie";
+        labelTarget.textContent = guestLabel;
       });
       window.dispatchEvent(new CustomEvent("unifyo-auth-ready", { detail: { user: null } }));
     }

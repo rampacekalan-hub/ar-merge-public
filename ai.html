@@ -6,114 +6,91 @@
   <title>Unifyo AI | Asistent pre finančných sprostredkovateľov</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="ai-page">
+<body class="ai-page ai-page--workspace">
   <div class="ambient ambient--one"></div>
   <div class="ambient ambient--two"></div>
+  <div id="aiSidebarBackdrop" class="ai-sidebar-backdrop"></div>
 
-  <div class="ai-shell ai-shell--chat">
-    <header class="ai-topbar card">
-      <div class="ai-topbar__brand">
-        <a href="/index.html" class="ai-wordmark">Unifyo <span class="ai-wordmark__badge">AI</span></a>
-        <p class="ai-topbar__caption">Pracovný asistent pre slovenských sprostredkovateľov</p>
+  <div class="ai-shell ai-shell--workspace">
+    <aside id="aiSidebar" class="ai-sidebar">
+      <div class="ai-sidebar__top">
+        <a href="/index.html" class="ai-sidebar__brand">
+          <span class="ai-sidebar__brand-mark">U</span>
+          <span class="ai-sidebar__brand-text">Unifyo AI</span>
+        </a>
+        <button id="aiNewThreadBtn" class="button button--primary ai-sidebar__new" type="button">+ Nový chat</button>
       </div>
-      <nav class="ai-topbar__nav" aria-label="Sekcie">
-        <a href="/index.html">Domov</a>
+
+      <div class="ai-sidebar__section">
+        <div class="ai-sidebar__label-row">
+          <span class="ai-sidebar__label">Konverzácie</span>
+          <span id="aiThreadCount" class="ai-sidebar__meta">0</span>
+        </div>
+        <div id="aiThreadList" class="ai-thread-list empty-state">Načítavam históriu chatov...</div>
+      </div>
+
+      <div class="ai-sidebar__section ai-sidebar__section--prompts">
+        <span class="ai-sidebar__label">Rýchly štart</span>
+        <div class="ai-prompt-stack">
+          <button class="ai-prompt-card js-ai-prompt" type="button" data-prompt="Priprav mi plán dňa ako finančný sprostredkovateľ na Slovensku. Zoraď priority, follow-upy, telefonáty a stretnutia.">
+            <strong>Plán dňa</strong>
+            <span>Priority a poradie úloh</span>
+          </button>
+          <button class="ai-prompt-card js-ai-prompt" type="button" data-prompt="Napíš mi profesionálny follow-up e-mail klientovi po stretnutí. Buď stručný, prirodzený a predajný.">
+            <strong>Follow-up e-mail</strong>
+            <span>Hotový text pre klienta</span>
+          </button>
+          <button class="ai-prompt-card js-ai-prompt" type="button" data-prompt="Pomôž mi pripraviť call script pre klienta, ktorému sa dnes potrebujem ozvať.">
+            <strong>Call script</strong>
+            <span>Telefonát bez improvizácie</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="ai-sidebar__footer">
         <a href="/app.html">Aplikácia</a>
         <a href="/pricing.html">Cenník</a>
-      </nav>
-      <div class="ai-topbar__actions">
-        <button id="aiAccountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
-        <button id="aiLogoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
+        <a href="/contact.html">Kontakt</a>
       </div>
-    </header>
+    </aside>
 
-    <main class="ai-layout ai-layout--chat">
-      <aside class="ai-rail card">
-        <section class="ai-rail__section">
-          <p class="section-kicker">Rýchle štarty</p>
-          <div class="ai-tool-list">
-            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi plán dňa ako finančný sprostredkovateľ na Slovensku. Zoradí priority, follow-upy, telefonáty a stretnutia.">
-              <span class="ai-tool__icon">01</span>
-              <div>
-                <strong>Plán dňa</strong>
-                <p>Denné priority</p>
-              </div>
-            </button>
-            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Napíš mi profesionálny follow-up e-mail klientovi po stretnutí. Buď stručný, profesionálny a predajný.">
-              <span class="ai-tool__icon">02</span>
-              <div>
-                <strong>Follow-up</strong>
-                <p>Mail / správa</p>
-              </div>
-            </button>
-            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi call script pre klienta, ktorému sa dnes potrebujem ozvať. Chcem profesionálny a prirodzený priebeh hovoru.">
-              <span class="ai-tool__icon">03</span>
-              <div>
-                <strong>Call script</strong>
-                <p>Scenár telefonátu</p>
-              </div>
-            </button>
-            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Pomôž mi zoradiť rozpracovaných klientov a povedz mi, kto má byť dnes priorita a prečo.">
-              <span class="ai-tool__icon">04</span>
-              <div>
-                <strong>Priority</strong>
-                <p>Kto má byť prvý</p>
-              </div>
-            </button>
-            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Napíš mi krátku profesionálnu správu klientovi, ktorý prestal reagovať a potrebujem ho znovu aktivovať.">
-              <span class="ai-tool__icon">05</span>
-              <div>
-                <strong>Reaktivácia</strong>
-                <p>Obnovenie kontaktu</p>
-              </div>
-            </button>
-            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi checklist na stretnutie s klientom a otázky, ktoré si mám pripraviť ako finančný sprostredkovateľ.">
-              <span class="ai-tool__icon">06</span>
-              <div>
-                <strong>Stretnutie</strong>
-                <p>Agenda + checklist</p>
-              </div>
-            </button>
+    <main class="ai-workspace">
+      <header class="ai-workspace__topbar">
+        <div class="ai-workspace__summary">
+          <div class="ai-workspace__summary-row">
+            <button id="aiSidebarToggle" class="ai-sidebar-toggle" type="button" aria-label="Otvoriť históriu chatov">☰</button>
+            <p class="ai-workspace__eyebrow">AI pre sprostredkovateľov</p>
           </div>
-        </section>
-
-      </aside>
-
-      <section class="ai-chat card">
-        <div class="ai-chat__header">
-          <div class="ai-chat__header-main">
-            <h1 id="aiChatHeadline">Unifyo AI</h1>
-            <p class="ai-chat__subtitle">Prirodzený, praktický asistent pre dennú prácu vo finančnom sprostredkovaní</p>
-          </div>
+          <h1 id="aiChatHeadline">Praktický chat pre každodennú prácu</h1>
+        </div>
+        <div class="ai-workspace__actions">
           <span id="aiMembershipPill" class="pill">Načítavam</span>
+          <button id="aiAccountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
+          <button id="aiLogoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
         </div>
+      </header>
 
-        <div id="aiLockedState" class="ai-locked is-hidden">
-          <div class="ai-locked__card">
-            <span class="pill">Premium prístup</span>
-            <h3 id="aiLockedTitle">Prihlás sa a odomkni Unifyo AI</h3>
-            <p id="aiLockedText">Verejný AI chat sa odomkne po prihlásení a aktivácii členstva.</p>
-            <div class="toolbar toolbar--workspace">
-              <a id="aiLoginLink" href="/app.html" class="button button--ghost">Prihlásiť sa</a>
-              <button id="aiCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
-            </div>
+      <section id="aiLockedState" class="ai-locked-card is-hidden">
+        <span class="pill">Premium</span>
+        <h2 id="aiLockedTitle">Prihlás sa a odomkni Unifyo AI</h2>
+        <p id="aiLockedText">AI chat je dostupný po prihlásení a aktivácii členstva.</p>
+        <div class="toolbar toolbar--compact">
+          <a id="aiLoginLink" href="/app.html" class="button button--ghost">Prihlásiť sa</a>
+          <button id="aiCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
+        </div>
+      </section>
+
+      <section id="aiChatReady" class="ai-chatboard is-hidden">
+        <div id="aiChatFeed" class="ai-chatboard__feed empty-state">AI asistent je pripravený. Začni prvou otázkou.</div>
+
+        <form id="aiChatForm" class="ai-chatboard__composer">
+          <label class="sr-only" for="aiChatInput">Tvoja správa</label>
+          <div class="ai-chatboard__composer-shell">
+            <textarea id="aiChatInput" rows="1" placeholder="Napíš otázku, situáciu alebo úlohu..." required></textarea>
+            <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
           </div>
-        </div>
-
-        <div id="aiChatReady" class="ai-chat__body is-hidden">
-          <div id="aiChatFeed" class="ai-chat-feed empty-state">
-            AI asistent je pripravený. Začni jednou otázkou.
-          </div>
-
-          <form id="aiChatForm" class="ai-composer">
-            <label class="sr-only" for="aiChatInput">Tvoja správa</label>
-            <textarea id="aiChatInput" rows="1" placeholder="Napíš otázku alebo úlohu..." required></textarea>
-            <div class="ai-composer__actions">
-              <p id="aiChatMessage" class="auth-message" hidden></p>
-              <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
-            </div>
-          </form>
-        </div>
+          <p id="aiChatMessage" class="auth-message" hidden></p>
+        </form>
       </section>
     </main>
   </div>
