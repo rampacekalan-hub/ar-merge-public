@@ -856,6 +856,24 @@ function formatDate(value) {
   }).format(parsed);
 }
 
+function formatReviewStatus(value) {
+  if (value === "approved") {
+    return "Schválené";
+  }
+  if (value === "needs_review") {
+    return "Na kontrolu";
+  }
+  return "Bez kontroly";
+}
+
+function truncateText(value, length = 60) {
+  const text = String(value || "").trim();
+  if (text.length <= length) {
+    return text;
+  }
+  return `${text.slice(0, length - 1).trimEnd()}…`;
+}
+
 function renderAccountSummary() {
   if (!elements.accountSummary) {
     return;
@@ -876,8 +894,14 @@ function renderAccountSummary() {
       <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(state.user.membership_active ? "Aktívne" : "Neaktívne")}</span></div>
       <div class="account-card__row"><strong>Členstvo od</strong><span>${escapeHtml(formatDate(state.user.membership_started_at))}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(state.user.membership_valid_until))}</span></div>
+      ${state.user.membership_active ? "" : `
+        <div class="account-card__cta">
+          <button id="accountSummaryCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo za 1,99 €</button>
+        </div>
+      `}
     </article>
   `;
+  document.getElementById("accountSummaryCheckoutBtn")?.addEventListener("click", startCheckoutFlow);
 }
 
 function renderAccountPanel() {
@@ -897,8 +921,14 @@ function renderAccountPanel() {
       <div class="account-card__row"><strong>Členstvo od</strong><span>${escapeHtml(formatDate(user.membership_started_at))}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
       <div class="account-card__row"><strong>Rola</strong><span>${escapeHtml(user.is_admin ? "Admin" : "Používateľ")}</span></div>
+      ${user.membership_active ? "" : `
+        <div class="account-card__cta">
+          <button id="accountPanelCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo za 1,99 €</button>
+        </div>
+      `}
     </article>
   `;
+  document.getElementById("accountPanelCheckoutBtn")?.addEventListener("click", startCheckoutFlow);
   if (elements.accountNameInput) {
     elements.accountNameInput.value = user.name || "";
   }
@@ -1113,14 +1143,18 @@ async function handleAdminAction(event) {
   }
 }
 
-async function openAdminUserDetail(userId) {
+async function openAdminUserDetail(userId, threadId = 0) {
   if (!elements.adminUserDetail) {
     return;
   }
   elements.adminUserDetail.className = "panel-card empty-state";
   elements.adminUserDetail.textContent = "Načítavam detail používateľa...";
   try {
-    const response = await fetch(`/api/admin/user-detail?user_id=${encodeURIComponent(String(userId))}`);
+    const query = new URLSearchParams({ user_id: String(userId) });
+    if (threadId) {
+      query.set("thread_id", String(threadId));
+    }
+    const response = await fetch(`/api/admin/user-detail?${query.toString()}`);
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || "Detail používateľa sa nepodarilo načítať.");
@@ -1135,6 +1169,10 @@ async function openAdminUserDetail(userId) {
 function renderAdminUserDetail(payload) {
   const user = payload.user;
   const activity = payload.activity || [];
+  const aiThreads = payload.ai_threads || [];
+  const aiMessages = payload.ai_messages || [];
+  const aiActiveThread = payload.ai_active_thread || null;
+  const activeThreadId = Number(aiActiveThread?.id || 0);
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   elements.adminUserDetail.className = "panel-card";
   elements.adminUserDetail.innerHTML = `
@@ -1169,6 +1207,14 @@ function renderAdminUserDetail(payload) {
       </div>
     </div>
     <div id="adminUserActivity" class="activity-list"></div>
+    <div class="section-head section-head--tight">
+      <div>
+        <p class="section-kicker">AI chaty</p>
+        <h3>História konverzácií</h3>
+      </div>
+    </div>
+    <div id="adminAssistantThreads" class="admin-thread-list"></div>
+    <div id="adminAssistantMessages" class="admin-assistant-feed"></div>
   `;
 
   const membershipForm = document.getElementById("adminMembershipForm");
@@ -1177,6 +1223,8 @@ function renderAdminUserDetail(payload) {
   const roleBtn = document.getElementById("adminRoleBtn");
   const messageEl = document.getElementById("adminUserMessage");
   renderActivityList(document.getElementById("adminUserActivity"), activity);
+  renderAdminAssistantThreads(document.getElementById("adminAssistantThreads"), aiThreads, aiActiveThread);
+  renderAdminAssistantMessages(document.getElementById("adminAssistantMessages"), aiMessages, user.id, activeThreadId);
 
   membershipForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1191,6 +1239,98 @@ function renderAdminUserDetail(payload) {
   roleBtn?.addEventListener("click", async () => {
     await submitAdminRoleUpdate(user.id, user.role === "admin" ? "user" : "admin", messageEl);
   });
+  document.getElementById("adminAssistantThreads")?.querySelectorAll("[data-admin-thread-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await openAdminUserDetail(user.id, Number(button.dataset.adminThreadId || 0));
+    });
+  });
+  document.getElementById("adminAssistantMessages")?.querySelectorAll("[data-review-status]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await submitAdminAssistantReview(
+        user.id,
+        Number(button.dataset.messageId || 0),
+        button.dataset.reviewStatus,
+        Number(button.dataset.threadId || activeThreadId || 0),
+        messageEl
+      );
+    });
+  });
+}
+
+function renderAdminAssistantThreads(target, threads, activeThread) {
+  if (!target) {
+    return;
+  }
+  if (!threads.length) {
+    target.className = "empty-state";
+    target.textContent = "Používateľ zatiaľ nemá AI konverzácie.";
+    return;
+  }
+  target.className = "admin-thread-list";
+  target.innerHTML = threads.map((thread) => `
+    <button
+      class="admin-thread-item${Number(thread.id) === Number(activeThread?.id || 0) ? " is-active" : ""}"
+      type="button"
+      data-admin-thread-id="${thread.id}"
+    >
+      <strong>${escapeHtml(thread.title || "Nový chat")}</strong>
+      <span>${escapeHtml(thread.last_message ? truncateText(thread.last_message, 110) : "Bez správ")}</span>
+    </button>
+  `).join("");
+}
+
+function renderAdminAssistantMessages(target, messages, userId, activeThreadId = 0) {
+  if (!target) {
+    return;
+  }
+  if (!messages.length) {
+    target.className = "empty-state";
+    target.textContent = "Vo vybranom AI chate zatiaľ nie sú správy.";
+    return;
+  }
+  target.className = "admin-assistant-feed";
+  target.innerHTML = messages.map((message) => `
+    <article class="admin-assistant-message admin-assistant-message--${escapeHtml(message.role || "assistant")}">
+      <div class="admin-assistant-message__head">
+        <strong>${escapeHtml(message.role === "user" ? "Používateľ" : "AI asistent")}</strong>
+        <span>${escapeHtml(formatDateTime(message.created_at))}</span>
+        ${message.role === "assistant" ? `<span class="pill pill--small">${escapeHtml(formatReviewStatus(message.review_status))}</span>` : ""}
+      </div>
+      <div class="admin-assistant-message__body">${formatMessageHtml(message.content || "")}</div>
+      ${message.role === "assistant" ? `
+        <div class="admin-actions">
+          <button class="button button--ghost" type="button" data-message-id="${message.id}" data-thread-id="${activeThreadId}" data-review-status="approved">Schváliť</button>
+          <button class="button button--ghost" type="button" data-message-id="${message.id}" data-thread-id="${activeThreadId}" data-review-status="needs_review">Označiť na kontrolu</button>
+        </div>
+      ` : ""}
+    </article>
+  `).join("");
+}
+
+async function submitAdminAssistantReview(userId, messageId, reviewStatus, threadId, messageEl) {
+  try {
+    const response = await fetch("/api/admin/assistant-review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, message_id: messageId, review_status: reviewStatus }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "AI review sa nepodarilo uložiť.");
+    }
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = "AI odpoveď bola aktualizovaná.";
+      messageEl.classList.remove("auth-message--error");
+    }
+    await openAdminUserDetail(userId, Number(threadId || 0));
+  } catch (error) {
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = error.message;
+      messageEl.classList.add("auth-message--error");
+    }
+  }
 }
 
 async function submitAdminMembershipAction(userId, action, { days = 0, messageEl } = {}) {

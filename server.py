@@ -179,13 +179,28 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS assistant_threads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL DEFAULT 'Nový chat',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS assistant_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
+                thread_id INTEGER,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
+                review_status TEXT NOT NULL DEFAULT 'unreviewed',
+                reviewed_by INTEGER,
+                reviewed_at TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (thread_id) REFERENCES assistant_threads(id) ON DELETE CASCADE,
+                FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
             );
             """
         )
@@ -194,6 +209,45 @@ def init_db():
             connection.execute("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''")
         if "role" not in columns:
             connection.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+        assistant_message_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(assistant_messages)").fetchall()
+        }
+        if "thread_id" not in assistant_message_columns:
+            connection.execute("ALTER TABLE assistant_messages ADD COLUMN thread_id INTEGER")
+        if "review_status" not in assistant_message_columns:
+            connection.execute("ALTER TABLE assistant_messages ADD COLUMN review_status TEXT NOT NULL DEFAULT 'unreviewed'")
+        if "reviewed_by" not in assistant_message_columns:
+            connection.execute("ALTER TABLE assistant_messages ADD COLUMN reviewed_by INTEGER")
+        if "reviewed_at" not in assistant_message_columns:
+            connection.execute("ALTER TABLE assistant_messages ADD COLUMN reviewed_at TEXT NOT NULL DEFAULT ''")
+
+        orphan_user_ids = [
+            row["user_id"]
+            for row in connection.execute(
+                """
+                SELECT DISTINCT user_id
+                FROM assistant_messages
+                WHERE thread_id IS NULL OR thread_id = 0
+                """
+            ).fetchall()
+        ]
+        for user_id in orphan_user_ids:
+            now_value = format_timestamp(utc_now())
+            cursor = connection.execute(
+                """
+                INSERT INTO assistant_threads (user_id, title, created_at, updated_at)
+                VALUES (?, 'Starší chat', ?, ?)
+                """,
+                (user_id, now_value, now_value),
+            )
+            connection.execute(
+                """
+                UPDATE assistant_messages
+                SET thread_id = ?
+                WHERE user_id = ? AND (thread_id IS NULL OR thread_id = 0)
+                """,
+                (cursor.lastrowid, user_id),
+            )
         connection.commit()
     finally:
         connection.close()
@@ -276,6 +330,46 @@ Pre nastavenie nového hesla otvorte tento odkaz:
 Platnosť odkazu je 30 minút.
 
 Ak ste o obnovu hesla nežiadali, tento e-mail môžete ignorovať.
+"""
+    )
+
+    if SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+            smtp.send_message(message)
+        return
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.send_message(message)
+
+
+def send_contact_email(sender_name, sender_email, subject, message_text):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
+        raise RuntimeError("SMTP nie je nakonfigurované pre kontaktný formulár.")
+
+    message = EmailMessage()
+    message["Subject"] = f"Unifyo kontakt: {subject}"
+    message["From"] = SMTP_FROM_EMAIL
+    message["To"] = SMTP_FROM_EMAIL
+    message["Reply-To"] = sender_email
+    message.set_content(
+        f"""Nová správa z kontaktného formulára Unifyo
+
+Meno / kontakt:
+{sender_name}
+
+E-mail:
+{sender_email}
+
+Predmet:
+{subject}
+
+Správa:
+{message_text}
 """
     )
 
@@ -557,39 +651,178 @@ def get_assistant_profile(connection, user_id):
     }
 
 
-def get_assistant_messages(connection, user_id, limit=24):
+def build_thread_title(message):
+    text = " ".join(str(message or "").strip().split())
+    if not text:
+        return "Nový chat"
+    return text[:72].rstrip(" .,;:-")
+
+
+def create_assistant_thread(connection, user_id, title="Nový chat"):
+    now_value = format_timestamp(utc_now())
+    cursor = connection.execute(
+        """
+        INSERT INTO assistant_threads (user_id, title, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, title or "Nový chat", now_value, now_value),
+    )
+    connection.commit()
+    return cursor.lastrowid
+
+
+def get_assistant_threads(connection, user_id, limit=40):
+    rows = connection.execute(
+        """
+        SELECT
+            assistant_threads.*,
+            (
+                SELECT COUNT(*)
+                FROM assistant_messages
+                WHERE assistant_messages.thread_id = assistant_threads.id
+            ) AS message_count,
+            (
+                SELECT content
+                FROM assistant_messages
+                WHERE assistant_messages.thread_id = assistant_threads.id
+                ORDER BY assistant_messages.id DESC
+                LIMIT 1
+            ) AS last_message,
+            (
+                SELECT created_at
+                FROM assistant_messages
+                WHERE assistant_messages.thread_id = assistant_threads.id
+                ORDER BY assistant_messages.id DESC
+                LIMIT 1
+            ) AS last_message_at
+        FROM assistant_threads
+        WHERE user_id = ?
+        ORDER BY updated_at DESC, id DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "title": row["title"] or "Nový chat",
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "message_count": row["message_count"] or 0,
+            "last_message": row["last_message"] or "",
+            "last_message_at": row["last_message_at"] or "",
+        }
+        for row in rows
+    ]
+
+
+def get_latest_assistant_thread(connection, user_id):
+    row = connection.execute(
+        """
+        SELECT *
+        FROM assistant_threads
+        WHERE user_id = ?
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+        """,
+        (user_id,),
+    ).fetchone()
+    return row
+
+
+def resolve_assistant_thread(connection, user_id, thread_id):
+    if thread_id:
+        row = connection.execute(
+            "SELECT * FROM assistant_threads WHERE id = ? AND user_id = ?",
+            (thread_id, user_id),
+        ).fetchone()
+        if row:
+            return row
+    return get_latest_assistant_thread(connection, user_id)
+
+
+def get_assistant_messages(connection, user_id, thread_id=None, limit=24):
+    resolved_thread = resolve_assistant_thread(connection, user_id, thread_id)
+    if not resolved_thread:
+        return []
     rows = connection.execute(
         """
         SELECT *
         FROM assistant_messages
-        WHERE user_id = ?
+        WHERE user_id = ? AND thread_id = ?
         ORDER BY id DESC
         LIMIT ?
         """,
-        (user_id, limit),
+        (user_id, resolved_thread["id"], limit),
     ).fetchall()
     messages = []
     for row in reversed(rows):
         messages.append(
             {
                 "id": row["id"],
+                "thread_id": row["thread_id"],
                 "role": row["role"],
                 "content": row["content"],
+                "review_status": row["review_status"] or "unreviewed",
+                "reviewed_by": row["reviewed_by"] or 0,
+                "reviewed_at": row["reviewed_at"] or "",
                 "created_at": row["created_at"],
             }
         )
     return messages
 
 
-def save_assistant_message(connection, user_id, role, content):
-    connection.execute(
+def touch_assistant_thread(connection, thread_id, title=None):
+    now_value = format_timestamp(utc_now())
+    if title:
+        connection.execute(
+            "UPDATE assistant_threads SET title = ?, updated_at = ? WHERE id = ?",
+            (title, now_value, thread_id),
+        )
+    else:
+        connection.execute(
+            "UPDATE assistant_threads SET updated_at = ? WHERE id = ?",
+            (now_value, thread_id),
+        )
+
+
+def save_assistant_message(connection, user_id, thread_id, role, content):
+    review_status = "approved" if role == "user" else "unreviewed"
+    cursor = connection.execute(
         """
-        INSERT INTO assistant_messages (user_id, role, content, created_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO assistant_messages (user_id, thread_id, role, content, review_status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (user_id, role, content, format_timestamp(utc_now())),
+        (user_id, thread_id, role, content, review_status, format_timestamp(utc_now())),
     )
+    if role == "user":
+        thread_row = connection.execute("SELECT title FROM assistant_threads WHERE id = ?", (thread_id,)).fetchone()
+        current_title = (thread_row["title"] if thread_row else "") or "Nový chat"
+        next_title = build_thread_title(content)
+        touch_assistant_thread(
+            connection,
+            thread_id,
+            title=next_title if current_title in {"", "Nový chat", "Starší chat"} else None,
+        )
+    else:
+        touch_assistant_thread(connection, thread_id)
     connection.commit()
+    return cursor.lastrowid
+
+
+def get_admin_assistant_thread_detail(connection, user_id, thread_id=None, limit=80):
+    thread_row = resolve_assistant_thread(connection, user_id, thread_id)
+    if not thread_row:
+        return {"thread": None, "messages": []}
+    return {
+        "thread": {
+            "id": thread_row["id"],
+            "title": thread_row["title"] or "Nový chat",
+            "created_at": thread_row["created_at"],
+            "updated_at": thread_row["updated_at"],
+        },
+        "messages": get_assistant_messages(connection, user_id, thread_row["id"], limit=limit),
+    }
 
 
 def extract_openai_response_text(payload):
@@ -727,10 +960,6 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
 
-    assistant_model = OPENAI_MODEL
-    if assistant_model.lower().startswith("gpt-5"):
-        assistant_model = "gpt-4.1-mini"
-
     input_messages = []
     for message in history_messages[-10:]:
         input_messages.append(
@@ -747,7 +976,7 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     )
 
     payload_base = {
-        "model": assistant_model,
+        "model": OPENAI_MODEL,
         "instructions": build_assistant_system_prompt(user_row, profile),
         "input": input_messages,
         "max_output_tokens": 500,
@@ -1149,11 +1378,17 @@ class AppHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
+        if self.path == "/ads.txt":
+            self.handle_ads_txt()
+            return
         if self.path.startswith("/api/me"):
             self.handle_me()
             return
         if self.path.startswith("/api/account"):
             self.handle_account()
+            return
+        if self.path.startswith("/api/contact-status"):
+            self.handle_contact_status()
             return
         if self.path.startswith("/api/assistant"):
             self.handle_assistant()
@@ -1191,6 +1426,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/account/change-password":
             self.handle_account_change_password()
             return
+        if self.path == "/api/contact":
+            self.handle_contact()
+            return
+        if self.path == "/api/assistant/thread":
+            self.handle_assistant_thread()
+            return
         if self.path == "/api/assistant/chat":
             self.handle_assistant_chat()
             return
@@ -1199,6 +1440,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/assistant/tasks":
             self.handle_assistant_tasks()
+            return
+        if self.path == "/api/admin/assistant-review":
+            self.handle_admin_assistant_review()
             return
         if self.path == "/api/create-checkout-session":
             self.handle_create_checkout_session()
@@ -1245,6 +1489,19 @@ class AppHandler(SimpleHTTPRequestHandler):
         if cookie_headers:
             for value in cookie_headers:
                 self.send_header("Set-Cookie", value)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def handle_ads_txt(self):
+        ads_path = os.path.join(BASE_DIR, "public", "ads.txt")
+        if not os.path.exists(ads_path):
+            self.send_error(HTTPStatus.NOT_FOUND, "ads.txt neexistuje.")
+            return
+        with open(ads_path, "rb") as handle:
+            body = handle.read()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
@@ -1318,6 +1575,59 @@ class AppHandler(SimpleHTTPRequestHandler):
         finally:
             connection.close()
 
+    def handle_contact_status(self):
+        self.write_json(
+            {
+                "configured": bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL),
+                "reply_to": SMTP_FROM_EMAIL or "",
+            }
+        )
+
+    def handle_contact(self):
+        try:
+            payload = require_json(self)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        contact_name = str(payload.get("contact_name") or "").strip()
+        contact_email = normalize_email(payload.get("contact_email"))
+        subject = str(payload.get("subject") or "").strip()
+        message_text = str(payload.get("message") or "").strip()
+
+        if len(contact_name) < 2:
+            self.write_json({"error": "Zadajte meno alebo kontakt."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if not contact_email or "@" not in contact_email:
+            self.write_json({"error": "Zadajte platný e-mail."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if len(subject) < 3:
+            self.write_json({"error": "Zadajte predmet správy."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if len(message_text) < 10:
+            self.write_json({"error": "Správa je príliš krátka."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            send_contact_email(contact_name, contact_email, subject, message_text)
+            log_activity(
+                connection,
+                "contact_form_sent",
+                "Používateľ odoslal kontaktný formulár.",
+                user["id"] if user else None,
+                contact_email=contact_email,
+                subject=subject,
+            )
+            self.write_json({"ok": True})
+        except RuntimeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        except smtplib.SMTPException:
+            self.write_json({"error": "Kontaktnú správu sa nepodarilo odoslať."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        finally:
+            connection.close()
+
     def handle_assistant(self):
         connection = get_db()
         try:
@@ -1330,10 +1640,17 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
+            params = parse_qs(urlparse(self.path).query)
+            requested_thread_id = parse_positive_int((params.get("thread_id") or ["0"])[0], 0)
+            active_thread = resolve_assistant_thread(connection, user["id"], requested_thread_id)
+            threads = get_assistant_threads(connection, user["id"], limit=50)
+
             self.write_json(
                 {
                     "profile": get_assistant_profile(connection, user["id"]),
-                    "messages": get_assistant_messages(connection, user["id"], limit=24),
+                    "threads": threads,
+                    "active_thread_id": active_thread["id"] if active_thread else 0,
+                    "messages": get_assistant_messages(connection, user["id"], active_thread["id"], limit=80) if active_thread else [],
                 }
             )
         finally:
@@ -1417,6 +1734,11 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
                 return
 
+            params = parse_qs(urlparse(self.path).query)
+            requested_thread_id = parse_positive_int((params.get("thread_id") or ["0"])[0], 0)
+            ai_threads = get_assistant_threads(connection, row["id"], limit=50)
+            ai_thread_detail = get_admin_assistant_thread_detail(connection, row["id"], requested_thread_id, limit=80) if ai_threads else {"thread": None, "messages": []}
+
             self.write_json(
                 {
                     "user": {
@@ -1429,6 +1751,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "membership_valid_until": row["membership_valid_until"] or "",
                     },
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
+                    "ai_threads": ai_threads,
+                    "ai_active_thread": ai_thread_detail["thread"],
+                    "ai_messages": ai_thread_detail["messages"],
                 }
             )
         finally:
@@ -1721,24 +2046,43 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
-            payload = require_json(self)
-            focus = str(payload.get("focus") or "").strip()
-            notes = str(payload.get("notes") or "").strip()
-            now_value = format_timestamp(utc_now())
-            connection.execute(
-                """
-                INSERT INTO assistant_profiles (user_id, focus, notes, updated_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    focus = excluded.focus,
-                    notes = excluded.notes,
-                    updated_at = excluded.updated_at
-                """,
-                (user["id"], focus, notes, now_value),
-            )
-            connection.commit()
-            log_activity(connection, "assistant_profile_updated", "Používateľ upravil pamäť AI asistenta.", user["id"])
+            log_activity(connection, "assistant_profile_checked", "Používateľ otvoril nastavenie AI profilu.", user["id"])
             self.write_json({"ok": True, "profile": get_assistant_profile(connection, user["id"])})
+        finally:
+            connection.close()
+
+    def handle_assistant_thread(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return
+
+            payload = require_json(self)
+            title = build_thread_title(payload.get("title") or "Nový chat")
+            thread_id = create_assistant_thread(connection, user["id"], title)
+            active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
+            log_activity(connection, "assistant_thread_created", "Používateľ založil nový AI chat.", user["id"], thread_id=thread_id)
+            self.write_json(
+                {
+                    "ok": True,
+                    "thread": {
+                        "id": active_thread["id"],
+                        "title": active_thread["title"] or "Nový chat",
+                        "created_at": active_thread["created_at"],
+                        "updated_at": active_thread["updated_at"],
+                    },
+                    "threads": get_assistant_threads(connection, user["id"], limit=50),
+                    "messages": [],
+                }
+            )
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:
             connection.close()
 
@@ -1756,20 +2100,33 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             payload = require_json(self)
             message = str(payload.get("message") or "").strip()
+            thread_id = parse_positive_int(payload.get("thread_id"), 0)
             if len(message) < 2:
                 self.write_json({"error": "Napíšte správu pre AI asistenta."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
+            active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
+            if not active_thread:
+                new_thread_id = create_assistant_thread(connection, user["id"], build_thread_title(message))
+                active_thread = resolve_assistant_thread(connection, user["id"], new_thread_id)
             profile = get_assistant_profile(connection, user["id"])
-            history_messages = get_assistant_messages(connection, user["id"], limit=24)
-            save_assistant_message(connection, user["id"], "user", message)
+            history_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
+            save_assistant_message(connection, user["id"], active_thread["id"], "user", message)
             reply = call_openai_assistant(user, profile, history_messages, message)
-            save_assistant_message(connection, user["id"], "assistant", reply)
-            log_activity(connection, "assistant_chat_message", "Používateľ komunikoval s AI asistentom.", user["id"])
+            save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply)
+            log_activity(
+                connection,
+                "assistant_chat_message",
+                "Používateľ komunikoval s AI asistentom.",
+                user["id"],
+                thread_id=active_thread["id"],
+            )
             self.write_json(
                 {
                     "ok": True,
-                    "messages": get_assistant_messages(connection, user["id"], limit=24),
+                    "threads": get_assistant_threads(connection, user["id"], limit=50),
+                    "active_thread_id": active_thread["id"],
+                    "messages": get_assistant_messages(connection, user["id"], active_thread["id"], limit=80),
                     "profile": profile,
                 }
             )
@@ -2036,6 +2393,60 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             connection.commit()
             log_activity(connection, "admin_role_update", f"Admin zmenil rolu používateľa na {role}.", admin_user["id"], target_user_id=user_id, role=role)
+            self.write_json({"ok": True})
+        finally:
+            connection.close()
+
+    def handle_admin_assistant_review(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            user_id = parse_positive_int(payload.get("user_id"), 0)
+            message_id = parse_positive_int(payload.get("message_id"), 0)
+            review_status = str(payload.get("review_status") or "").strip().lower()
+            if not user_id or not message_id or review_status not in {"approved", "needs_review"}:
+                self.write_json({"error": "Neplatná AI review akcia."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            message_row = connection.execute(
+                """
+                SELECT *
+                FROM assistant_messages
+                WHERE id = ? AND user_id = ? AND role = 'assistant'
+                """,
+                (message_id, user_id),
+            ).fetchone()
+            if not message_row:
+                self.write_json({"error": "AI odpoveď sa nenašla."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            connection.execute(
+                """
+                UPDATE assistant_messages
+                SET review_status = ?, reviewed_by = ?, reviewed_at = ?
+                WHERE id = ?
+                """,
+                (review_status, admin_user["id"], format_timestamp(utc_now()), message_id),
+            )
+            connection.commit()
+            log_activity(
+                connection,
+                "assistant_review_updated",
+                "Admin zmenil stav AI odpovede.",
+                admin_user["id"],
+                target_user_id=user_id,
+                message_id=message_id,
+                review_status=review_status,
+            )
             self.write_json({"ok": True})
         finally:
             connection.close()

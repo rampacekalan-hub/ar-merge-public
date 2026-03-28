@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unifyo | Aplikácia</title>
+  <script>
+    (function () {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("view") === "assistant") {
+          window.location.replace("/ai.html");
+        }
+      } catch (_error) {
+        // ignore and continue rendering app.html
+      }
+    }());
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="mode-chooser">
@@ -437,13 +449,13 @@
         </aside>
       </main>
 
-      <footer class="site-footer">
+      <footer class="site-footer site-footer--solid">
         <a href="/index.html">Domov</a>
         <a href="/pricing.html">Cenník</a>
         <a href="/privacy.html">Ochrana súkromia</a>
         <a href="/terms.html">Podmienky používania</a>
         <a href="/cookie-policy.html">Cookies</a>
-        <a href="mailto:info@unifyo.online">Kontakt</a>
+        <a href="/contact.html">Kontakt</a>
       </footer>
     </div>
   </div>
