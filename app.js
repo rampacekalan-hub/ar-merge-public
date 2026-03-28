@@ -40,6 +40,8 @@ const elements = {
   buyToolbarBtn: document.getElementById("buyToolbarBtn"),
   buyProBtn: document.getElementById("buyProBtn"),
   pricingCtaBtn: document.getElementById("pricingCtaBtn"),
+  openCompressorBtn: document.getElementById("openCompressorBtn"),
+  compressFeatureStatus: document.getElementById("compressFeatureStatus"),
   mergeBtn: document.getElementById("mergeBtn"),
   resetBtn: document.getElementById("resetBtn"),
   datasetList: document.getElementById("datasetList"),
@@ -151,6 +153,7 @@ async function bootstrap() {
   elements.buyToolbarBtn.addEventListener("click", startCheckoutFlow);
   elements.buyProBtn.addEventListener("click", startCheckoutFlow);
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
+  elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
@@ -242,6 +245,20 @@ function renderAccessState() {
   if (elements.pricingCtaBtn) {
     elements.pricingCtaBtn.textContent = hasMembership ? "Nahrať a vyčistiť" : "Vyčistiť moje kontakty";
     elements.pricingCtaBtn.disabled = false;
+  }
+  if (elements.openCompressorBtn) {
+    elements.openCompressorBtn.textContent = hasMembership
+      ? "Otvoriť kompresiu súborov"
+      : isLoggedIn
+        ? "Aktivovať členstvo pre kompresiu"
+        : "Prihlásiť sa a odomknúť kompresiu";
+  }
+  if (elements.compressFeatureStatus) {
+    elements.compressFeatureStatus.textContent = hasMembership
+      ? "Funkcia je odomknutá. Môžeš pokračovať do kompresie PDF a obrázkov."
+      : isLoggedIn
+        ? "Kompresia sa odomkne hneď po aktivácii členstva."
+        : "Dostupné po prihlásení a aktivácii členstva.";
   }
   if (elements.fileInput) {
     elements.fileInput.disabled = !hasMembership;
@@ -1204,6 +1221,18 @@ async function startCheckoutFlow() {
 function handleUnlockUploadAction() {
   if (state.user?.membership_active) {
     elements.fileInput.click();
+    return;
+  }
+  startCheckoutFlow();
+}
+
+function handleOpenCompressorAction() {
+  if (state.user?.membership_active) {
+    window.location.href = "/compressor.html";
+    return;
+  }
+  if (!state.user) {
+    openAuthModal("register");
     return;
   }
   startCheckoutFlow();

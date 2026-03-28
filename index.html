@@ -93,17 +93,21 @@
             <aside class="hero-preview" aria-label="Ukážka výstupu">
               <div class="hero-preview__window">
                 <div class="hero-preview__header">
-                  <span class="hero-preview__tag hero-preview__tag--muted">Vstup</span>
+                  <span class="hero-preview__tag hero-preview__tag--muted">Vstup (3 riadky)</span>
                   <span class="hero-preview__status hero-preview__status--danger">2 duplicity</span>
                 </div>
                 <div class="hero-preview__rows">
                   <div class="hero-preview__row hero-preview__row--duplicate">
                     <strong>Jana Nováková</strong>
-                    <span>jana.novakova@example.com</span>
+                    <span>jana.novakova@example.com · +421 905 123 456</span>
+                  </div>
+                  <div class="hero-preview__row hero-preview__row--duplicate">
+                    <strong>JANA NOVAKOVA</strong>
+                    <span>JANA.NOVAKOVA@example.com · 0905 123 456</span>
                   </div>
                   <div class="hero-preview__row hero-preview__row--duplicate">
                     <strong>Jana Nováková</strong>
-                    <span> JANA.NOVAKOVA@example.com </span>
+                    <span>jana.novakova@example.com · +421905123456</span>
                   </div>
                 </div>
                 <div class="hero-preview__divider"></div>
@@ -114,7 +118,7 @@
                 <div class="hero-preview__rows">
                   <div class="hero-preview__row hero-preview__row--clean">
                     <strong>Jana Nováková</strong>
-                    <span>+421 905 123 456</span>
+                    <span>jana.novakova@example.com · +421905123456</span>
                   </div>
                   <div class="hero-preview__row hero-preview__row--neutral">
                     <strong>Pripravené na import</strong>
@@ -174,15 +178,21 @@
                   <tbody>
                     <tr class="preview-row preview-row--duplicate">
                       <td>Jana</td>
-                      <td>Jana</td>
-                      <td class="mono"> JANA.NOVAKOVA@example.com </td>
+                      <td>Nováková</td>
+                      <td class="mono">JANA.NOVAKOVA@example.com</td>
                       <td class="mono">0905 123 456</td>
                     </tr>
                     <tr class="preview-row preview-row--duplicate">
                       <td>Jana</td>
                       <td>Nováková</td>
                       <td class="mono">jana.novakova@example.com</td>
-                      <td class="mono"></td>
+                      <td class="mono">+421 905 123 456</td>
+                    </tr>
+                    <tr class="preview-row preview-row--duplicate">
+                      <td>JANA</td>
+                      <td>NOVAKOVA</td>
+                      <td class="mono">jana.novakova@example.com</td>
+                      <td class="mono">+421905123456</td>
                     </tr>
                   </tbody>
                 </table>
@@ -209,13 +219,7 @@
                       <td>Jana</td>
                       <td>Nováková</td>
                       <td class="mono">jana.novakova@example.com</td>
-                      <td class="mono">+421 905 123 456</td>
-                    </tr>
-                    <tr class="preview-row preview-row--clean">
-                      <td>Peter</td>
-                      <td>Mravec</td>
-                      <td class="mono">peter.mravec@example.com</td>
-                      <td class="mono">+421 907 555 210</td>
+                      <td class="mono">+421905123456</td>
                     </tr>
                   </tbody>
                 </table>
@@ -298,17 +302,17 @@
     <div class="modal__dialog modal__dialog--promo modal__dialog--landing-promo">
       <button id="landingPromoClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
       <p class="section-kicker">Limitovaná cena</p>
-      <h2>Aktivuj mesačný prístup za 0,99 €</h2>
-      <p class="modal__lead">Získaj plný prístup k importu vlastných databáz, auditu duplicit a finálnemu exportu pripravenému na ďalší systém.</p>
+      <h2>Získaj mesačný prístup teraz za 0,99 €</h2>
+      <p class="modal__lead">Odomkni plný import vlastných databáz, audit duplicit aj finálny export pripravený na ďalší systém. Cena je platná iba teraz.</p>
       <div class="promo-price promo-price--featured">
         <span class="promo-price__old">4,99 € / mesiac</span>
-        <span class="promo-price__deal">Teraz len 0,99 € / mesiac</span>
-        <strong class="promo-price__current">Mesačný prístup v akcii</strong>
+        <span class="promo-price__deal">Len teraz 0,99 € / mesiac</span>
+        <strong class="promo-price__current">Cena platí iba teraz</strong>
       </div>
       <div class="modal__promo-points landing-promo__points">
         <span>Import vlastných súborov</span>
         <span>Audit odstránených duplicit</span>
-        <span>Export do CSV aj XLSX</span>
+        <span>Export do CSV aj XLSX + kompresia súborov</span>
       </div>
       <div class="modal__actions">
         <a class="button button--ghost" href="/pricing.html">Pozrieť podrobnosti</a>
