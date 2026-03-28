@@ -336,7 +336,16 @@ function autoResizeTextarea(textarea) {
 }
 
 function formatMessageHtml(text) {
-  return escapeHtml(text).replace(/\n/g, "<br>");
+  let formatted = escapeHtml(text).replace(/\n/g, "<br>");
+  formatted = formatted.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_match, label, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`
+  );
+  formatted = formatted.replace(
+    /(^|[\s>])(https?:\/\/[^\s<]+)/g,
+    (_match, prefix, url) => `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+  );
+  return formatted;
 }
 
 function escapeHtml(value) {
