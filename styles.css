@@ -3338,6 +3338,14 @@ tbody tr:hover td {
   margin-top: 18px;
 }
 
+.compress-meta {
+  margin: 10px 0 0;
+  color: #60748d;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
 .compress-controls {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;

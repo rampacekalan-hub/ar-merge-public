@@ -230,6 +230,7 @@
                 <div id="compressProgress" class="upload__progress" hidden>
                   <div id="compressProgressBar" class="upload__progress-bar"></div>
                 </div>
+                <p id="compressEtaInfo" class="compress-meta">Čas a odhad sa zobrazia po spustení kompresie.</p>
                 <label id="compressSelectBtn" class="button button--primary" for="compressFileInput" role="button" tabindex="0">Vybrať súbor</label>
               </div>
             </div>
@@ -259,6 +260,10 @@
               <article class="summary-card">
                 <span>Stav</span>
                 <strong id="compressStatus">Čaká na spracovanie</strong>
+              </article>
+              <article class="summary-card">
+                <span>Čas spracovania</span>
+                <strong id="compressTime">—</strong>
               </article>
             </div>
 

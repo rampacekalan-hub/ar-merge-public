@@ -23,6 +23,10 @@ const state = {
     file: null,
     result: null,
     isBusy: false,
+    isOversize: false,
+    estimateSeconds: 0,
+    startedAt: 0,
+    timingTimer: null,
     uploadUi: {
       phase: "idle",
       progress: 0,
@@ -146,6 +150,7 @@ const elements = {
   compressStateText: document.getElementById("compressStateText"),
   compressProgress: document.getElementById("compressProgress"),
   compressProgressBar: document.getElementById("compressProgressBar"),
+  compressEtaInfo: document.getElementById("compressEtaInfo"),
   compressSelectBtn: document.getElementById("compressSelectBtn"),
   compressForm: document.getElementById("compressForm"),
   compressTargetInput: document.getElementById("compressTargetInput"),
@@ -154,6 +159,7 @@ const elements = {
   compressOriginal: document.getElementById("compressOriginal"),
   compressFinal: document.getElementById("compressFinal"),
   compressStatus: document.getElementById("compressStatus"),
+  compressTime: document.getElementById("compressTime"),
   compressResultMessage: document.getElementById("compressResultMessage"),
   compressDownloadBtn: document.getElementById("compressDownloadBtn"),
   stickyDealBar: document.getElementById("stickyDealBar"),
@@ -164,6 +170,7 @@ const elements = {
 const SIDEBAR_COLLAPSED_KEY = "unifyo_sidebar_collapsed";
 const STICKY_DEAL_DISMISSED_KEY = "unifyo_sticky_deal_dismissed";
 const COMPRESS_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp"]);
+const ONLINE_COMPRESS_UI_LIMIT_BYTES = 12 * 1024 * 1024;
 
 bootstrap();
 
@@ -1560,9 +1567,44 @@ function renderCompressionAccessState() {
     elements.compressSelectBtn.textContent = hasMembership ? (hasFile ? "Vybrať iný súbor" : "Vybrať súbor") : "Aktivovať členstvo";
   }
   if (elements.compressRunBtn) {
-    elements.compressRunBtn.disabled = !hasMembership || !hasFile || state.compression.isBusy;
+    elements.compressRunBtn.disabled = !hasMembership || !hasFile || state.compression.isBusy || state.compression.isOversize;
   }
   renderCompressionUploadState();
+}
+
+function estimateCompressionSeconds(file, targetMb) {
+  const sizeMb = (file?.size || 0) / (1024 * 1024);
+  const target = Math.max(Number.parseFloat(targetMb || "0.5") || 0.5, 0.05);
+  const ratio = sizeMb / target;
+  const extension = getFileExtension(file?.name || "").toLowerCase();
+
+  let seconds = 4 + sizeMb * 1.8;
+  if (extension === "pdf") {
+    seconds += sizeMb * 1.2;
+  }
+  if (extension === "png") {
+    seconds += sizeMb * 1.8;
+  }
+  if (ratio > 2) {
+    seconds += ratio * 2.5;
+  }
+  return Math.max(4, Math.min(180, Math.round(seconds)));
+}
+
+function stopCompressionTimingLoop() {
+  if (state.compression.timingTimer) {
+    window.clearInterval(state.compression.timingTimer);
+    state.compression.timingTimer = null;
+  }
+}
+
+function startCompressionTimingLoop() {
+  stopCompressionTimingLoop();
+  state.compression.startedAt = Date.now();
+  state.compression.timingTimer = window.setInterval(() => {
+    renderCompressionUploadState();
+    renderCompressionResult();
+  }, 1000);
 }
 
 function setCompressionUploadPhase(phase, progress = state.compression.uploadUi.progress) {
@@ -1570,18 +1612,30 @@ function setCompressionUploadPhase(phase, progress = state.compression.uploadUi.
     window.clearInterval(state.compression.uploadUi.progressTimer);
     state.compression.uploadUi.progressTimer = null;
   }
+  if (phase !== "processing") {
+    stopCompressionTimingLoop();
+  }
   state.compression.uploadUi.phase = phase;
   state.compression.uploadUi.progress = progress;
   renderCompressionUploadState();
 }
 
 function startCompressionProgressLoop() {
+  startCompressionTimingLoop();
   setCompressionUploadPhase("processing", 12);
   state.compression.uploadUi.progressTimer = window.setInterval(() => {
-    if (state.compression.uploadUi.progress >= 84) {
+    const elapsedSeconds = state.compression.startedAt ? Math.round((Date.now() - state.compression.startedAt) / 1000) : 0;
+    const estimate = Math.max(state.compression.estimateSeconds || 10, 1);
+    const projected = Math.min(92, Math.round((elapsedSeconds / estimate) * 100));
+    if (projected > state.compression.uploadUi.progress) {
+      state.compression.uploadUi.progress = projected;
+      renderCompressionUploadState();
       return;
     }
-    state.compression.uploadUi.progress += Math.random() > 0.5 ? 10 : 7;
+    if (state.compression.uploadUi.progress >= 92) {
+      return;
+    }
+    state.compression.uploadUi.progress += Math.random() > 0.5 ? 4 : 3;
     renderCompressionUploadState();
   }, 280);
 }
@@ -1600,6 +1654,8 @@ function renderCompressionUploadState() {
   const hasMembership = Boolean(state.user?.membership_active);
   const hasFile = Boolean(state.compression.file);
   const { phase, progress } = state.compression.uploadUi;
+  const elapsedSeconds = state.compression.startedAt ? Math.round((Date.now() - state.compression.startedAt) / 1000) : 0;
+  const remainingSeconds = Math.max(0, (state.compression.estimateSeconds || 0) - elapsedSeconds);
 
   elements.compressUploadBox.classList.toggle("upload--locked", !hasMembership);
   elements.compressUploadBox.classList.toggle("upload--ready", hasMembership && hasFile && phase !== "processing");
@@ -1609,24 +1665,35 @@ function renderCompressionUploadState() {
   let badge = "Pripravené";
   let text = "Vyber súbor a nastav cieľovú veľkosť.";
   let showProgress = false;
+  let etaText = "Čas a odhad sa zobrazia po spustení kompresie.";
 
   if (!hasMembership) {
     badge = "Uzamknuté";
     text = "Kompresia je dostupná po aktivácii členstva.";
   } else if (phase === "processing") {
     badge = "Spracovanie";
-    text = "Pripravujeme menšiu verziu súboru.";
+    text = "Pripravujeme menšiu verziu súboru. Pri väčších súboroch to môže trvať dlhšie.";
     showProgress = true;
+    etaText = `Prešlo ${formatDuration(elapsedSeconds)} • odhad zostáva približne ${formatDuration(remainingSeconds)}.`;
   } else if (phase === "done") {
     badge = "Hotovo";
     text = "Výsledok je pripravený na stiahnutie.";
+    etaText = elapsedSeconds ? `Spracovanie trvalo približne ${formatDuration(elapsedSeconds)}.` : "Spracovanie je dokončené.";
+  } else if (hasFile && state.compression.isOversize) {
+    badge = "Limit online verzie";
+    text = `${state.compression.file.name} je väčší, než aktuálna online verzia bezpečne zvládne.`;
+    etaText = "Pre výrazne väčšie súbory bude potrebné výkonnejšie spracovanie na pozadí.";
   } else if (hasFile) {
     badge = "Súbor pripravený";
     text = `${state.compression.file.name} čaká na kompresiu.`;
+    etaText = `Odhad spracovania: približne ${formatDuration(state.compression.estimateSeconds || estimateCompressionSeconds(state.compression.file, normalizeCompressionTarget()))}.`;
   }
 
   elements.compressStateBadge.textContent = badge;
   elements.compressStateText.textContent = text;
+  if (elements.compressEtaInfo) {
+    elements.compressEtaInfo.textContent = etaText;
+  }
   elements.compressProgress.hidden = !showProgress;
   elements.compressProgressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
 }
@@ -1714,7 +1781,14 @@ function setCompressionFile(file) {
     return;
   }
   state.compression.file = file;
-  state.compression.result = null;
+  state.compression.isOversize = file.size > ONLINE_COMPRESS_UI_LIMIT_BYTES;
+  state.compression.result = state.compression.isOversize
+    ? {
+        error: "Tento súbor je na aktuálnu online verziu príliš veľký. Pre väčšie súbory budeme potrebovať výkonnejší server a streamované spracovanie na pozadí.",
+      }
+    : null;
+  state.compression.estimateSeconds = estimateCompressionSeconds(file, normalizeCompressionTarget());
+  state.compression.startedAt = 0;
   setCompressionUploadPhase("idle", 0);
   renderCompressionAccessState();
   renderCompressionResult();
@@ -1726,6 +1800,9 @@ async function handleCompressionSubmit(event) {
     return;
   }
   if (!state.compression.file || state.compression.isBusy) {
+    return;
+  }
+  if (state.compression.isOversize) {
     return;
   }
 
@@ -1741,6 +1818,7 @@ async function handleCompressionSubmit(event) {
 
   state.compression.isBusy = true;
   state.compression.result = null;
+  state.compression.estimateSeconds = estimateCompressionSeconds(state.compression.file, targetMb);
   startCompressionProgressLoop();
   renderCompressionAccessState();
   renderCompressionResult();
@@ -1782,6 +1860,7 @@ async function handleCompressionSubmit(event) {
       reachedTarget: response.headers.get("X-Compression-Reached-Target") === "1",
       status: response.headers.get("X-Compression-Status") || "compressed",
       targetBytes: parseNumericHeader(response.headers.get("X-Compression-Target-Bytes")),
+      elapsedSeconds: state.compression.startedAt ? Math.round((Date.now() - state.compression.startedAt) / 1000) : 0,
     };
     setCompressionUploadPhase("done", 100);
   } catch (error) {
@@ -1790,6 +1869,7 @@ async function handleCompressionSubmit(event) {
       error: message.includes("Failed to fetch")
         ? "Server pri kompresii neodpovedal. Skús to prosím ešte raz."
         : message,
+      elapsedSeconds: state.compression.startedAt ? Math.round((Date.now() - state.compression.startedAt) / 1000) : 0,
     };
     setCompressionUploadPhase("idle", 0);
   } finally {
@@ -1808,6 +1888,9 @@ function renderCompressionResult() {
     elements.compressOriginal.textContent = state.compression.file ? formatMegabytes(state.compression.file.size) : "0 MB";
     elements.compressFinal.textContent = "0 MB";
     elements.compressStatus.textContent = "Čaká na spracovanie";
+    if (elements.compressTime) {
+      elements.compressTime.textContent = state.compression.file ? formatDuration(state.compression.estimateSeconds || 0) : "—";
+    }
     elements.compressResultMessage.className = "empty-state";
     elements.compressResultMessage.textContent = "Zatiaľ bez výsledku. Nahraj súbor a spusti kompresiu.";
     elements.compressDownloadBtn.disabled = true;
@@ -1819,6 +1902,9 @@ function renderCompressionResult() {
     elements.compressOriginal.textContent = state.compression.file ? formatMegabytes(state.compression.file.size) : "0 MB";
     elements.compressFinal.textContent = "—";
     elements.compressStatus.textContent = "Chyba";
+    if (elements.compressTime) {
+      elements.compressTime.textContent = result.elapsedSeconds ? formatDuration(result.elapsedSeconds) : "—";
+    }
     elements.compressResultMessage.className = "auth-message auth-message--error compress-message";
     elements.compressResultMessage.textContent = result.error;
     elements.compressDownloadBtn.disabled = true;
@@ -1828,6 +1914,9 @@ function renderCompressionResult() {
   elements.compressOriginal.textContent = formatMegabytes(result.originalBytes);
   elements.compressFinal.textContent = formatMegabytes(result.compressedBytes);
   elements.compressStatus.textContent = formatCompressionStatus(result.status, result.reachedTarget);
+  if (elements.compressTime) {
+    elements.compressTime.textContent = result.elapsedSeconds ? formatDuration(result.elapsedSeconds) : "—";
+  }
   elements.compressResultMessage.className = "compress-message";
   elements.compressResultMessage.textContent = buildCompressionMessage(result);
   elements.compressDownloadBtn.disabled = false;
@@ -1845,6 +1934,10 @@ function resetCompressionState() {
   state.compression.file = null;
   state.compression.result = null;
   state.compression.isBusy = false;
+  state.compression.isOversize = false;
+  state.compression.estimateSeconds = 0;
+  state.compression.startedAt = 0;
+  stopCompressionTimingLoop();
   setCompressionUploadPhase("idle", 0);
   if (elements.compressFileInput) {
     elements.compressFileInput.value = "";
@@ -2216,6 +2309,22 @@ function normalizeCompressionTarget() {
 function formatMegabytes(bytes) {
   const safeValue = Number(bytes) || 0;
   return `${(safeValue / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  if (!safeSeconds) {
+    return "menej než 1 s";
+  }
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  if (!minutes) {
+    return `${seconds} s`;
+  }
+  if (!seconds) {
+    return `${minutes} min`;
+  }
+  return `${minutes} min ${seconds} s`;
 }
 
 function formatCompressionStatus(status, reachedTarget) {
