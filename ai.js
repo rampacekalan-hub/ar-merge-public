@@ -8,6 +8,14 @@ const aiState = {
   renaming: false,
 };
 
+function getCurrentLang() {
+  return window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
+}
+
+function tr(sk, en) {
+  return getCurrentLang() === "en" ? en : sk;
+}
+
 const aiElements = {
   sidebar: document.getElementById("aiSidebar"),
   sidebarBackdrop: document.getElementById("aiSidebarBackdrop"),
@@ -104,7 +112,7 @@ function renderNowPill() {
     return;
   }
   const now = new Date();
-  aiElements.nowPill.textContent = new Intl.DateTimeFormat("sk-SK", {
+  aiElements.nowPill.textContent = new Intl.DateTimeFormat(getCurrentLang() === "en" ? "en-GB" : "sk-SK", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -149,7 +157,7 @@ function renderAiState() {
   const hasMembership = Boolean(user?.membership_active);
 
   if (aiElements.accountBtn) {
-    aiElements.accountBtn.textContent = isLoggedIn ? (user.name?.trim() || user.email || "Účet") : "Prihlásiť sa";
+    aiElements.accountBtn.textContent = isLoggedIn ? (user.name?.trim() || user.email || tr("Účet", "Account")) : tr("Prihlásiť sa", "Sign in");
   }
   if (aiElements.logoutBtn) {
     aiElements.logoutBtn.classList.toggle("is-hidden", !isLoggedIn);
@@ -159,10 +167,10 @@ function renderAiState() {
   }
   if (aiElements.membershipPill) {
     aiElements.membershipPill.textContent = hasMembership
-      ? `Aktívne do ${formatDate(user.membership_valid_until)}`
+      ? tr(`Aktívne do ${formatDate(user.membership_valid_until)}`, `Active until ${formatDate(user.membership_valid_until)}`)
       : isLoggedIn
-        ? "Bez aktívneho členstva"
-        : "Vyžaduje prihlásenie";
+        ? tr("Bez aktívneho členstva", "No active membership")
+        : tr("Vyžaduje prihlásenie", "Login required");
   }
   if (aiElements.lockedState) {
     aiElements.lockedState.classList.toggle("is-hidden", hasMembership);
@@ -172,19 +180,19 @@ function renderAiState() {
   }
   if (aiElements.lockedTitle) {
     aiElements.lockedTitle.textContent = !isLoggedIn
-      ? "Prihlás sa a otvor si Unifyo AI"
-      : "Aktivuj členstvo a začni AI chat";
+      ? tr("Prihlás sa a otvor si Unifyo AI", "Sign in and unlock Unifyo AI")
+      : tr("Aktivuj členstvo a začni AI chat", "Activate membership and start the AI chat");
   }
   if (aiElements.lockedText) {
     aiElements.lockedText.textContent = !isLoggedIn
-      ? "Po prihlásení získaš pracovný AI chat pre slovenského finančného sprostredkovateľa."
-      : "Po aktivácii členstva môžeš používať AI chat, kontakty aj kompresiu v jednom účte.";
+      ? tr("Po prihlásení získaš pracovný AI chat pre slovenského finančného sprostredkovateľa.", "After signing in, you get a working AI chat built for Slovak financial intermediaries.")
+      : tr("Po aktivácii členstva môžeš používať AI chat, kontakty aj kompresiu v jednom účte.", "After activating membership, you can use AI chat, contact cleanup and compression in one account.");
   }
   if (aiElements.checkoutBtn) {
     aiElements.checkoutBtn.classList.toggle("is-hidden", !isLoggedIn || hasMembership);
   }
   if (aiElements.loginLink) {
-    aiElements.loginLink.textContent = isLoggedIn ? "Prejsť do aplikácie" : "Prihlásiť sa / Registrovať";
+    aiElements.loginLink.textContent = isLoggedIn ? tr("Prejsť do aplikácie", "Go to app") : tr("Prihlásiť sa / Registrovať", "Sign in / Register");
   }
   if (aiElements.newThreadBtn) {
     aiElements.newThreadBtn.disabled = !hasMembership;
@@ -229,7 +237,7 @@ async function loadAssistant(threadId = 0) {
 function renderAssistantData() {
   const activeThread = getActiveThread();
   if (aiElements.chatHeadline) {
-    aiElements.chatHeadline.textContent = activeThread?.title || "Nový chat";
+    aiElements.chatHeadline.textContent = formatThreadTitle(activeThread?.title || "");
   }
   if (aiElements.renameInput && activeThread) {
     aiElements.renameInput.value = activeThread.title || "";
@@ -256,12 +264,12 @@ function renderThreadList() {
   }
   if (!aiState.user?.membership_active) {
     aiElements.threadList.className = "ai-thread-list empty-state";
-    aiElements.threadList.textContent = "História chatov sa zobrazí po aktivácii členstva.";
+    aiElements.threadList.textContent = tr("História chatov sa zobrazí po aktivácii členstva.", "Conversation history will appear after membership activation.");
     return;
   }
   if (!aiState.threads.length) {
     aiElements.threadList.className = "ai-thread-list empty-state";
-    aiElements.threadList.textContent = "Zatiaľ bez chatov. Začni nový.";
+    aiElements.threadList.textContent = tr("Zatiaľ bez chatov. Začni nový.", "No chats yet. Start a new one.");
     return;
   }
   aiElements.threadList.className = "ai-thread-list";
@@ -271,8 +279,8 @@ function renderThreadList() {
       type="button"
       data-thread-id="${thread.id}"
     >
-      <strong>${escapeHtml(thread.title || "Nový chat")}</strong>
-      <span>${escapeHtml(thread.last_message ? truncateText(thread.last_message, 70) : "Pripravené na pokračovanie")}</span>
+      <strong>${escapeHtml(formatThreadTitle(thread.title || ""))}</strong>
+      <span>${escapeHtml(thread.last_message ? truncateText(thread.last_message, 70) : tr("Pripravené na pokračovanie", "Ready to continue"))}</span>
       <small>${escapeHtml(thread.last_message_at ? formatDateTime(thread.last_message_at) : formatDate(thread.created_at))}</small>
     </button>
   `).join("");
@@ -290,12 +298,13 @@ function renderMessages() {
       <div class="ai-message__row ai-message__row--${escapeHtml(message.role || "assistant")}">
         <div class="ai-message__bubble">
           <div class="ai-message__meta">
-            <span>${escapeHtml(message.role === "user" ? "Ty" : "Unifyo AI")}</span>
+            <span>${escapeHtml(message.role === "user" ? tr("Ty", "You") : "Unifyo AI")}</span>
             <span>${escapeHtml(formatDateTime(message.created_at))}</span>
             ${message.role === "assistant" ? `<span class="ai-review-pill ai-review-pill--${escapeHtml(message.review_status || "unreviewed")}">${escapeHtml(formatReviewStatus(message.review_status))}</span>` : ""}
-            ${message.role === "assistant" ? '<button class="ai-copy-btn js-ai-copy" type="button">Kopírovať</button>' : ""}
+            ${message.role === "assistant" ? `<button class="ai-copy-btn js-ai-copy" type="button">${escapeHtml(tr("Kopírovať", "Copy"))}</button>` : ""}
           </div>
           <div class="ai-message__content">${formatMessageHtml(message.content || "")}</div>
+          ${renderMessageAttachment(message)}
         </div>
       </div>
     </article>
@@ -310,7 +319,7 @@ function renderMessages() {
             <div class="ai-message__bubble ai-message__bubble--typing">
               <div class="ai-message__meta">
                 <span>Unifyo AI</span>
-                <span>práve teraz</span>
+                <span>${escapeHtml(tr("práve teraz", "right now"))}</span>
               </div>
               <div class="ai-message__typing"><span></span><span></span><span></span></div>
             </div>
@@ -335,8 +344,11 @@ function renderAttachmentBar() {
   aiElements.attachmentBar.classList.remove("is-hidden");
   aiElements.attachmentBar.innerHTML = `
     <div class="ai-attachment-chip">
-      <span class="ai-attachment-chip__label">Obrázok</span>
-      <strong>${escapeHtml(aiState.attachment.name)}</strong>
+      <img class="ai-attachment-chip__preview" src="${escapeHtml(aiState.attachment.previewUrl || "")}" alt="${escapeHtml(aiState.attachment.name)}">
+      <div class="ai-attachment-chip__copy">
+        <span class="ai-attachment-chip__label">${escapeHtml(tr("Obrázok", "Image"))}</span>
+        <strong>${escapeHtml(aiState.attachment.name)}</strong>
+      </div>
       <button class="ai-attachment-chip__remove" type="button" data-action="remove-attachment">×</button>
     </div>
   `;
@@ -352,9 +364,9 @@ function renderEmptyChat(message = "", isError = false) {
   aiElements.chatFeed.className = "ai-chatboard__feed empty-state";
   aiElements.chatFeed.innerHTML = `
     <div class="ai-empty-state">
-      <span class="pill">Nový chat</span>
-      <h3>Začni prvou otázkou</h3>
-      <p>Napíš situáciu z praxe, pridaj obrázok alebo screenshot a dostaneš stručnú, praktickú odpoveď s ďalším krokom.</p>
+      <span class="pill">${escapeHtml(tr("Nový chat", "New chat"))}</span>
+      <h3>${escapeHtml(tr("Začni prvou otázkou", "Start with your first question"))}</h3>
+      <p>${escapeHtml(tr("Napíš situáciu z praxe, pridaj obrázok alebo screenshot a dostaneš stručnú, praktickú odpoveď s ďalším krokom.", "Describe the situation, add an image or screenshot, and get a concise practical answer with the next step."))}</p>
     </div>
   `;
 }
@@ -379,12 +391,12 @@ async function handleChatFeedClick(event) {
   try {
     await navigator.clipboard.writeText(String(message.content));
     const previousLabel = button.textContent;
-    button.textContent = "Skopírované";
+    button.textContent = tr("Skopírované", "Copied");
     setTimeout(() => {
       button.textContent = previousLabel;
     }, 1400);
   } catch (_error) {
-    setInlineMessage(aiElements.chatMessage, "Kopírovanie sa nepodarilo. Skús to znova.", true);
+    setInlineMessage(aiElements.chatMessage, tr("Kopírovanie sa nepodarilo. Skús to znova.", "Copy failed. Try again."), true);
   }
 }
 
@@ -414,17 +426,23 @@ function setAttachment(file) {
     return;
   }
   if (!String(file.type || "").startsWith("image/")) {
-    setInlineMessage(aiElements.chatMessage, "AI aktuálne podporuje iba obrázky.", true);
+    setInlineMessage(aiElements.chatMessage, tr("AI aktuálne podporuje iba obrázky.", "AI currently supports images only."), true);
     return;
   }
-  aiState.attachment = file;
+  clearAttachment(false);
+  aiState.attachment = {
+    file,
+    name: file.name,
+    type: file.type,
+    previewUrl: URL.createObjectURL(file),
+  };
   renderAttachmentBar();
   setInlineMessage(aiElements.chatMessage, "", false, true);
 }
 
-function clearAttachment() {
+function clearAttachment(resetInput = true) {
   aiState.attachment = null;
-  if (aiElements.imageInput) {
+  if (resetInput && aiElements.imageInput) {
     aiElements.imageInput.value = "";
   }
   renderAttachmentBar();
@@ -480,7 +498,7 @@ async function handleRenameThreadSubmit(event) {
   const activeThread = getActiveThread();
   const title = aiElements.renameInput?.value.trim() || "";
   if (!activeThread || title.length < 2) {
-    setInlineMessage(aiElements.chatMessage, "Zadaj názov chatu.", true);
+    setInlineMessage(aiElements.chatMessage, tr("Zadaj názov chatu.", "Enter a chat title."), true);
     return;
   }
   try {
@@ -495,7 +513,7 @@ async function handleRenameThreadSubmit(event) {
     });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.error || "Názov chatu sa nepodarilo uložiť.");
+      throw new Error(payload.error || tr("Názov chatu sa nepodarilo uložiť.", "Could not save the chat title."));
     }
     aiState.threads = payload.threads || aiState.threads;
     aiState.activeThreadId = Number(payload.thread?.id || aiState.activeThreadId || 0);
@@ -520,7 +538,7 @@ async function handleNewThreadClick() {
     });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.error || "Nový chat sa nepodarilo vytvoriť.");
+      throw new Error(payload.error || tr("Nový chat sa nepodarilo vytvoriť.", "Could not create a new chat."));
     }
     aiState.threads = payload.threads || [];
     aiState.activeThreadId = Number(payload.thread?.id || 0);
@@ -563,7 +581,7 @@ async function handleChatSubmit(event) {
 
   const message = aiElements.chatInput?.value.trim() || "";
   if (message.length < 2 && !aiState.attachment) {
-    setInlineMessage(aiElements.chatMessage, "Napíš správu alebo prilož obrázok pre AI asistenta.", true);
+    setInlineMessage(aiElements.chatMessage, tr("Napíš správu alebo prilož obrázok pre AI asistenta.", "Write a message or attach an image for the AI assistant."), true);
     return;
   }
 
@@ -577,23 +595,25 @@ async function handleChatSubmit(event) {
     ...aiState.messages,
     {
       role: "user",
-      content: aiState.attachment ? `${message || "Vyhodnoť prosím priložený obrázok."}\n\n[Priložený obrázok: ${aiState.attachment.name}]` : message,
+      content: message || (aiState.attachment ? tr("Vyhodnoť prosím priložený obrázok.", "Please evaluate the attached image.") : ""),
       created_at: new Date().toISOString(),
       review_status: "approved",
-      meta: aiState.attachment ? { attachment_name: aiState.attachment.name } : {},
+      meta: aiState.attachment
+        ? { attachment_name: aiState.attachment.name, attachment_preview: aiState.attachment.previewUrl }
+        : {},
     },
   ];
   renderMessages();
   aiElements.chatForm.reset();
   autoResizeTextarea(aiElements.chatInput);
   aiElements.chatSubmit.disabled = true;
-  aiElements.chatSubmit.textContent = "Posielam...";
+  aiElements.chatSubmit.textContent = tr("Posielam...", "Sending...");
 
   try {
     const response = await sendAssistantMessage(message);
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.error || "AI asistent neodpovedal.");
+      throw new Error(payload.error || tr("AI asistent neodpovedal.", "AI did not answer."));
     }
     aiState.threads = payload.threads || aiState.threads;
     aiState.activeThreadId = Number(payload.active_thread_id || aiState.activeThreadId || 0);
@@ -605,7 +625,7 @@ async function handleChatSubmit(event) {
     clearAttachment();
     aiState.typing = false;
     aiElements.chatSubmit.disabled = false;
-    aiElements.chatSubmit.textContent = "Odoslať";
+    aiElements.chatSubmit.textContent = tr("Odoslať", "Send");
     renderAssistantData();
   }
 }
@@ -615,7 +635,7 @@ async function sendAssistantMessage(message) {
     const formData = new FormData();
     formData.append("message", message);
     formData.append("thread_id", String(aiState.activeThreadId || 0));
-    formData.append("attachment", aiState.attachment);
+    formData.append("attachment", aiState.attachment.file);
     return fetch("/api/assistant/chat", {
       method: "POST",
       body: formData,
@@ -650,12 +670,12 @@ async function startCheckoutFlow() {
     const response = await fetch("/api/create-checkout-session", { method: "POST" });
     const payload = await response.json();
     if (!response.ok) {
-      window.alert(payload.error || "Stripe checkout sa nepodarilo spustiť.");
+      window.alert(payload.error || tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout could not be started."));
       return;
     }
     window.location.href = payload.url;
   } catch (_error) {
-    window.alert("Stripe checkout sa nepodarilo spustiť.");
+    window.alert(tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout could not be started."));
   }
 }
 
@@ -702,7 +722,7 @@ function formatMessageHtml(text) {
     }
     const headingMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
     const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
-    const numberedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    const numberedMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
     if (headingMatch) {
       flushList();
       blocks.push(`<p><strong>${formatInlineText(headingMatch[1])}</strong></p>`);
@@ -737,12 +757,12 @@ function formatInlineText(value) {
 
 function formatReviewStatus(value) {
   if (value === "approved") {
-    return "Schválené";
+    return tr("Schválené", "Approved");
   }
   if (value === "needs_review") {
-    return "Na kontrolu";
+    return tr("Na kontrolu", "Needs review");
   }
-  return "Bez kontroly";
+  return tr("Bez kontroly", "Unchecked");
 }
 
 function truncateText(value, length = 60) {
@@ -770,7 +790,7 @@ function formatDate(value) {
   if (Number.isNaN(parsed.getTime())) {
     return "—";
   }
-  return new Intl.DateTimeFormat("sk-SK", {
+  return new Intl.DateTimeFormat(getCurrentLang() === "en" ? "en-GB" : "sk-SK", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -779,18 +799,43 @@ function formatDate(value) {
 
 function formatDateTime(value) {
   if (!value) {
-    return "práve teraz";
+    return tr("práve teraz", "right now");
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "práve teraz";
+    return tr("práve teraz", "right now");
   }
-  return new Intl.DateTimeFormat("sk-SK", {
+  return new Intl.DateTimeFormat(getCurrentLang() === "en" ? "en-GB" : "sk-SK", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
+}
+
+function formatThreadTitle(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized || normalized === "Nový chat" || normalized === "New chat") {
+    return tr("Nový chat", "New chat");
+  }
+  return normalized;
+}
+
+function renderMessageAttachment(message) {
+  const attachmentName = String(message?.meta?.attachment_name || "").trim();
+  const attachmentPreview = String(message?.meta?.attachment_preview || "").trim();
+  if (!attachmentName || !attachmentPreview) {
+    return "";
+  }
+  return `
+    <div class="ai-message__attachment">
+      <img src="${escapeHtml(attachmentPreview)}" alt="${escapeHtml(attachmentName)}">
+      <div class="ai-message__attachment-copy">
+        <span>${escapeHtml(tr("Priložený obrázok", "Attached image"))}</span>
+        <strong>${escapeHtml(attachmentName)}</strong>
+      </div>
+    </div>
+  `;
 }
 
 async function disableServiceWorkers() {
@@ -804,3 +849,9 @@ async function disableServiceWorkers() {
     await Promise.all(keys.map((key) => caches.delete(key)));
   }
 }
+
+window.addEventListener("unifyo-language-change", () => {
+  renderNowPill();
+  renderAiState();
+  renderAssistantData();
+});

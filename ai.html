@@ -47,19 +47,6 @@
         </div>
       </div>
 
-      <div class="ai-sidebar__section ai-sidebar__section--tips">
-        <span class="ai-sidebar__label">Možnosti</span>
-        <div class="ai-sidebar__mini-card">
-          <strong>Aktuálny čas, web a obrázky</strong>
-          <span>AI pozná aktuálny dátum a čas, pri časovo citlivých témach vie overiť web a vie vyhodnotiť aj priložený screenshot alebo fotku.</span>
-        </div>
-      </div>
-
-      <div class="ai-sidebar__footer">
-        <a href="/app.html">Aplikácia</a>
-        <a href="/pricing.html">Cenník</a>
-        <a href="/contact.html">Kontakt</a>
-      </div>
     </aside>
 
     <main class="ai-workspace">
@@ -80,7 +67,7 @@
             <button id="aiRenameCancelBtn" class="button button--ghost" type="button">Zrušiť</button>
           </form>
         </div>
-        <div class="ai-workspace__actions">
+        <div class="ai-workspace__actions" data-lang-switch-host>
           <span id="aiNowPill" class="pill pill--subtle">Načítavam čas…</span>
           <span id="aiMembershipPill" class="pill">Načítavam</span>
           <a id="aiAdminBtn" class="button button--ghost is-hidden" href="/app.html?openAdmin=1">AI admin</a>
@@ -125,15 +112,22 @@
       { selector: "#aiNewThreadBtn", text: { sk: "+ Nový chat", en: "+ New chat" } },
       { selector: ".ai-sidebar__section:first-of-type .ai-sidebar__label", text: { sk: "Konverzácie", en: "Conversations" } },
       { selector: ".ai-sidebar__section--prompts .ai-sidebar__label", text: { sk: "Rýchly štart", en: "Quick start" } },
-      { selector: ".ai-sidebar__section--tips .ai-sidebar__label", text: { sk: "Možnosti", en: "Capabilities" } },
-      { selector: ".ai-sidebar__mini-card strong", text: { sk: "Aktuálny čas, web a obrázky", en: "Current time, web and images" } },
-      { selector: ".ai-sidebar__mini-card span", text: { sk: "AI pozná aktuálny dátum a čas, pri časovo citlivých témach vie overiť web a vie vyhodnotiť aj priložený screenshot alebo fotku.", en: "AI knows the current date and time, can verify the web for time-sensitive topics, and can evaluate an attached screenshot or photo." } },
+      { selector: ".ai-prompt-card:nth-of-type(1) strong", text: { sk: "Plán dňa", en: "Day plan" } },
+      { selector: ".ai-prompt-card:nth-of-type(1) span", text: { sk: "Priority a poradie úloh", en: "Priorities and task order" } },
+      { selector: ".ai-prompt-card:nth-of-type(2) strong", text: { sk: "Follow-up e-mail", en: "Follow-up e-mail" } },
+      { selector: ".ai-prompt-card:nth-of-type(2) span", text: { sk: "Hotový text pre klienta", en: "Ready text for the client" } },
+      { selector: ".ai-prompt-card:nth-of-type(3) strong", text: { sk: "Call script", en: "Call script" } },
+      { selector: ".ai-prompt-card:nth-of-type(3) span", text: { sk: "Telefonát bez improvizácie", en: "A call without improvising" } },
       { selector: ".ai-workspace__eyebrow", text: { sk: "AI pre sprostredkovateľov", en: "AI for intermediaries" } },
       { selector: ".ai-workspace__microcopy", text: { sk: "Píš prirodzene. AI odpovie po slovensky, prakticky a v kontexte slovenského trhu.", en: "Write naturally. AI responds in a practical, professional way and adapts to the Slovak market context." } },
       { selector: "#aiRenameThreadBtn", text: { sk: "Premenovať", en: "Rename" } },
       { selector: "#aiRenameInput", attr: "placeholder", values: { sk: "Nový názov chatu", en: "New chat title" } },
       { selector: "#aiChatInput", attr: "placeholder", values: { sk: "Napíš otázku, situáciu alebo úlohu...", en: "Write your question, situation or task..." } },
       { selector: "#aiChatSubmit", text: { sk: "Odoslať", en: "Send" } },
+      { selector: "#aiLockedState .pill", text: { sk: "Premium", en: "Premium" } },
+      { selector: "#aiLoginLink", text: { sk: "Prihlásiť sa", en: "Sign in" } },
+      { selector: "#aiCheckoutBtn", text: { sk: "Aktivovať členstvo", en: "Activate membership" } },
+      { selector: "#aiLogoutBtn", text: { sk: "Odhlásiť sa", en: "Sign out" } },
       { selector: "#aiAdminBtn", text: { sk: "AI admin", en: "AI admin" } }
     ];
   </script>

@@ -6,6 +6,7 @@ import hmac
 import io
 import json
 import os
+import re
 import secrets
 import sqlite3
 import smtplib
@@ -671,7 +672,28 @@ def build_thread_title(message):
     text = " ".join(str(message or "").strip().split())
     if not text:
         return "Nový chat"
-    return text[:72].rstrip(" .,;:-")
+    text = re.sub(r"\[priložený obrázok:[^\]]+\]", "", text, flags=re.IGNORECASE).strip()
+    if not text:
+        return "Nový chat"
+    first_sentence = re.split(r"[.!?\n]", text, maxsplit=1)[0].strip()
+    first_sentence = re.sub(
+        r"^(prosím|prosim|ahoj|dobrý deň|dobry den|čau|cau|hello|hi)\s*[,:-]*\s*",
+        "",
+        first_sentence,
+        flags=re.IGNORECASE,
+    ).strip()
+    first_sentence = re.sub(
+        r"^(priprav mi|napíš mi|napis mi|pomôž mi|pomoz mi|vyhodnoť|vyhodnot)\s+",
+        "",
+        first_sentence,
+        flags=re.IGNORECASE,
+    ).strip()
+    first_sentence = first_sentence.rstrip(" .,;:-")
+    generic_titles = {"", "ahoj", "dobrý deň", "dobry den", "čau", "cau", "hello", "hi"}
+    if first_sentence.lower() in generic_titles or len(first_sentence) < 4:
+        return "Nový chat"
+    normalized = first_sentence[0].upper() + first_sentence[1:]
+    return normalized[:72].rstrip(" .,;:-")
 
 
 def create_assistant_thread(connection, user_id, title="Nový chat"):
@@ -968,6 +990,7 @@ def build_assistant_system_prompt(user_row, _profile):
         "Ak je vhodné odporučiť zdroj, preferuj oficiálne a dôveryhodné weby: nbs.sk, slov-lex.sk, "
         "oficiálne stránky finančných inštitúcií, prípadne podľa kontextu alanrampacek.sk a prosight.sk. "
         f"Aktuálny referenčný dátum a čas sú {today_value} {time_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
+        "Ak sa používateľ pýta priamo na aktuálny dátum alebo čas, odpovedz priamo z tohto referenčného dátumu a času a netvrď, že k nim nemáš prístup. "
         "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
         "Nevymýšľaj si fakty. Ak si neistý, povedz to prirodzene a navrhni overenie. "
         "Nedávaj záväzné právne, daňové ani regulované investičné odporúčania; pri takých otázkach "
@@ -989,27 +1012,41 @@ def should_use_openai_web_search(user_message):
         return False
     time_sensitive_markers = (
         "dnes",
+        "today",
         "aktuálne",
         "aktualne",
+        "current",
         "najnov",
+        "latest",
         "novinka",
         "novinky",
+        "news",
         "zmena",
         "zmeny",
+        "update",
+        "updates",
         "platí",
         "plati",
         "od kedy",
+        "since when",
         "sadzb",
+        "rate",
+        "rates",
         "nbs",
         "legislat",
+        "law",
+        "legal",
         "zákon",
         "zakon",
         "regul",
+        "regulation",
         "vyhlášk",
         "vyhlask",
         "trh",
+        "market",
         "úrok",
         "urok",
+        "interest",
     )
     return any(marker in text for marker in time_sensitive_markers)
 
@@ -2264,10 +2301,11 @@ class AppHandler(SimpleHTTPRequestHandler):
             user_meta = {}
             if attachment:
                 base_user_message = message or "Vyhodnoť prosím priložený obrázok."
-                user_message_content = f"{base_user_message}\n\n[Priložený obrázok: {attachment['filename']}]"
+                user_message_content = base_user_message
                 user_meta = {
                     "attachment_name": attachment["filename"],
                     "attachment_type": attachment["content_type"],
+                    "attachment_preview": attachment["data_url"],
                 }
             save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta)
             reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment)

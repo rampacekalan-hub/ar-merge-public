@@ -227,6 +227,17 @@
     </div>
   </div>
 
+  <div id="landingMiniCta" class="landing-mini-cta" hidden>
+    <button id="landingMiniCtaClose" class="landing-mini-cta__close" type="button" aria-label="Zavrieť">×</button>
+    <span class="landing-mini-cta__eyebrow">Akciová cena</span>
+    <div class="landing-mini-cta__price">
+      <strong>1,99 € / mesiac</strong>
+      <span>6,99 € / mesiac</span>
+    </div>
+    <p>Kontakty, kompresia aj AI v jednom účte. Aktivácia len počas aktuálnej akcie.</p>
+    <a class="button button--primary" href="/pricing.html">Kúpiť teraz</a>
+  </div>
+
   <script src="consent.js"></script>
   <script>
     window.UNIFYO_PAGE_I18N = [
@@ -258,7 +269,24 @@
       { selector: ".site-footer a:nth-of-type(2)", text: { sk: "Ochrana súkromia", en: "Privacy" } },
       { selector: ".site-footer a:nth-of-type(3)", text: { sk: "Podmienky používania", en: "Terms" } },
       { selector: ".site-footer a:nth-of-type(4)", text: { sk: "Cookies", en: "Cookies" } },
-      { selector: ".site-footer a:nth-of-type(5)", text: { sk: "Kontakt", en: "Contact" } }
+      { selector: ".site-footer a:nth-of-type(5)", text: { sk: "Kontakt", en: "Contact" } },
+      { selector: "#landingPromoModal .section-kicker", text: { sk: "Limitovaná cena", en: "Limited price" } },
+      { selector: "#landingPromoModal h2", text: { sk: "Premium prístup k aplikácii za cenu, ktorá sa už nemusí zopakovať", en: "Premium app access at a price that may not return" } },
+      { selector: "#landingPromoModal .modal__lead", text: { sk: "Aktivuj si členstvo a odomkni plný import vlastných databáz, audit duplicit aj finálny export pripravený na ďalší systém. Začni teraz a ušetri výrazne oproti štandardnej cene.", en: "Activate membership and unlock full database import, duplicate audit and final export ready for your next system. Start now and save significantly versus the standard price." } },
+      { selector: "#landingPromoModal .promo-price__old", text: { sk: "6,99 € / mesiac", en: "€6.99 / month" } },
+      { selector: "#landingPromoModal .promo-price__deal", text: { sk: "Kompletný balík služieb • limitovaná akcia", en: "Full service bundle • limited offer" } },
+      { selector: "#landingPromoModal .promo-price__current", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
+      { selector: "#landingPromoModal .promo-price__note", text: { sk: "Platí iba teraz • ušetríš 71%", en: "Valid now only • save 71%" } },
+      { selector: "#landingPromoModal .modal__promo-points span:nth-of-type(1)", text: { sk: "Čistenie kontaktov + audit duplicit", en: "Contact cleanup + duplicate audit" } },
+      { selector: "#landingPromoModal .modal__promo-points span:nth-of-type(2)", text: { sk: "Kompresia PDF a obrázkov", en: "PDF and image compression" } },
+      { selector: "#landingPromoModal .modal__promo-points span:nth-of-type(3)", text: { sk: "AI asistent pre slovenský finančný trh", en: "AI assistant for the Slovak financial market" } },
+      { selector: "#landingPromoModal .modal__actions .button--ghost", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: "#landingPromoModal .modal__actions .button--primary", text: { sk: "Prihlásenie", en: "Sign in" } },
+      { selector: "#landingMiniCta .landing-mini-cta__eyebrow", text: { sk: "Akciová cena", en: "Special price" } },
+      { selector: "#landingMiniCta .landing-mini-cta__price strong", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
+      { selector: "#landingMiniCta .landing-mini-cta__price span", text: { sk: "6,99 € / mesiac", en: "€6.99 / month" } },
+      { selector: "#landingMiniCta p", text: { sk: "Kontakty, kompresia aj AI v jednom účte. Aktivácia len počas aktuálnej akcie.", en: "Contacts, compression and AI in one account. Activation available only during the current offer." } },
+      { selector: "#landingMiniCta .button", text: { sk: "Kúpiť teraz", en: "Buy now" } }
     ];
   </script>
   <script src="lang-switch.js"></script>
@@ -268,32 +296,74 @@
       const modal = document.getElementById("landingPromoModal");
       const backdrop = document.getElementById("landingPromoBackdrop");
       const closeButton = document.getElementById("landingPromoClose");
+      const miniCta = document.getElementById("landingMiniCta");
+      const miniCtaClose = document.getElementById("landingMiniCtaClose");
       const storageKey = "unifyo_landing_promo_seen";
+      const miniCtaDismissedKey = "unifyo_landing_mini_cta_dismissed";
 
       if (!modal || sessionStorage.getItem(storageKey) === "1") {
-        return;
+        if (miniCta && sessionStorage.getItem(miniCtaDismissedKey) !== "1") {
+          miniCta.hidden = false;
+        }
+      }
+
+      function shouldHideMiniForMember() {
+        return Boolean(window.unifyoCurrentUser && window.unifyoCurrentUser.membership_active);
+      }
+
+      function hideMiniCta() {
+        if (miniCta) {
+          miniCta.hidden = true;
+        }
+      }
+
+      function showMiniCta() {
+        if (!miniCta || sessionStorage.getItem(miniCtaDismissedKey) === "1" || shouldHideMiniForMember()) {
+          return;
+        }
+        miniCta.hidden = false;
       }
 
       function closeModal() {
         modal.hidden = true;
         document.body.classList.remove("modal-open");
+        showMiniCta();
       }
 
       function openModal() {
+        if (shouldHideMiniForMember()) {
+          return;
+        }
         modal.hidden = false;
+        hideMiniCta();
         document.body.classList.add("modal-open");
         sessionStorage.setItem(storageKey, "1");
       }
 
       closeButton?.addEventListener("click", closeModal);
       backdrop?.addEventListener("click", closeModal);
+      miniCtaClose?.addEventListener("click", () => {
+        hideMiniCta();
+        sessionStorage.setItem(miniCtaDismissedKey, "1");
+      });
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
           closeModal();
         }
       });
 
-      window.setTimeout(openModal, 700);
+      window.addEventListener("unifyo-auth-ready", (event) => {
+        if (event.detail?.user?.membership_active) {
+          closeModal();
+          hideMiniCta();
+        }
+      });
+
+      if (!sessionStorage.getItem(storageKey)) {
+        window.setTimeout(openModal, 700);
+      } else {
+        showMiniCta();
+      }
     }());
 
   </script>
