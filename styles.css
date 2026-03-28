@@ -295,6 +295,7 @@ body.sidebar-open .sidebar-backdrop {
 .brand-lockup {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0;
   margin-bottom: 18px;
   width: fit-content;
@@ -447,6 +448,7 @@ h3 {
 
 .hero__main {
   min-width: 0;
+  display: grid;
 }
 
 .hero__panel {

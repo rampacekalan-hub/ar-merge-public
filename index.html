@@ -11,12 +11,8 @@
   <div class="ambient ambient--two"></div>
   <div class="app-shell app-shell--dashboard">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar__brand">
-        <img class="sidebar__logo" src="icons/merge-mark.svg" alt="Unifyo logo">
-        <div>
-          <strong>Unifyo</strong>
-          <span>unifyo.online</span>
-        </div>
+      <div class="sidebar__brand sidebar__brand--wordmark">
+        <img class="sidebar__logo" src="icons/unifyo-logo-clean.svg" alt="Unifyo logo">
       </div>
 
       <nav class="sidebar__nav" aria-label="Navigácia">
@@ -59,83 +55,89 @@
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
           </div>
-          <div class="brand-lockup">
-            <img class="brand-lockup__logo" src="icons/merge-mark.svg" alt="Unifyo logo">
-          </div>
-          <p class="hero__eyebrow">Uprac svoje kontakty za pár sekúnd</p>
-          <h1>Vyčisti databázu kontaktov za pár sekúnd.</h1>
-          <p class="hero__lede">Odstráň duplicity okamžite. Nahraj súbor, vyčisti dáta a stiahni si hotový výsledok bez chaosu, neporiadku a straty času.</p>
-          <p class="hero__text">
-            Unifyo je produkt pre CRM importy, mailing listy a kontaktné databázy, ktoré potrebujú
-            jeden čistý výsledok len so stĺpcami <strong>meno</strong>, <strong>priezvisko</strong>,
-            <strong>email</strong> a <strong>telefón</strong>.
-          </p>
-          <div class="hero__actions">
-            <a class="button button--primary" href="/app.html">Prejsť do aplikácie</a>
-            <a class="button button--ghost" href="/pricing.html">Pozrieť cenník</a>
-          </div>
-          <div class="hero__flow">
-            <span>Nahraj súbor</span>
-            <span>Vyčisti automaticky</span>
-            <span>Stiahni výsledok</span>
-          </div>
-          <div class="hero__meta">
-            <span class="hero__meta-label">Výstup</span>
-            <span class="hero__meta-text">meno, priezvisko, email, telefón</span>
+          <div class="hero__grid">
+            <div class="hero__main">
+              <div class="brand-lockup">
+                <img class="brand-lockup__logo" src="icons/unifyo-logo-clean.svg" alt="Unifyo logo">
+              </div>
+              <h1>Odstráň duplicity z kontaktov za pár sekúnd</h1>
+              <p class="hero__lede">Nahraj súbor, automaticky ho vyčisti a stiahni hotový zoznam bez duplicít.</p>
+              <div class="hero__actions">
+                <a class="button button--primary" href="/app.html">Vyčistiť kontakty teraz</a>
+                <a class="button button--ghost" href="#ako-to-funguje">Ako to funguje</a>
+              </div>
+            </div>
+
+            <aside class="hero__panel" aria-label="Prehľad výhod">
+              <div class="hero-proof">
+                <span class="hero-proof__label">Výsledok</span>
+                <strong>Čistý export pripravený na import</strong>
+                <p>Meno, priezvisko, e-mail a telefón v jednom hotovom výstupe.</p>
+              </div>
+              <div class="hero-metrics">
+                <article class="hero-metric">
+                  <span class="hero-metric__icon" aria-hidden="true"></span>
+                  <strong>Presné odstránenie duplicít</strong>
+                </article>
+                <article class="hero-metric">
+                  <span class="hero-metric__icon" aria-hidden="true"></span>
+                  <strong>Bez manuálnej práce</strong>
+                </article>
+                <article class="hero-metric">
+                  <span class="hero-metric__icon" aria-hidden="true"></span>
+                  <strong>CSV aj XLSX výstup</strong>
+                </article>
+              </div>
+            </aside>
           </div>
         </div>
       </header>
 
       <section class="trust-bar" aria-label="Hlavné výhody">
         <article class="trust-pill">
-          <span class="trust-pill__icon">SECURE</span>
-          <span class="trust-pill__text">Bezpečné spracovanie</span>
+          <span class="trust-pill__eyebrow">Súkromie</span>
+          <strong class="trust-pill__text">Spracovanie bez zbytočného ukladania</strong>
         </article>
         <article class="trust-pill">
-          <span class="trust-pill__icon">PRIVATE</span>
-          <span class="trust-pill__text">Súbory sa po spracovaní neukladajú</span>
+          <span class="trust-pill__eyebrow">Bezpečnosť</span>
+          <strong class="trust-pill__text">Dáta ostávajú pod kontrolou</strong>
         </article>
         <article class="trust-pill">
-          <span class="trust-pill__icon">GDPR</span>
-          <span class="trust-pill__text">GDPR ready</span>
-        </article>
-        <article class="trust-pill">
-          <span class="trust-pill__icon">READY</span>
-          <span class="trust-pill__text">Pripravené pre Mailchimp / Ecomail</span>
+          <span class="trust-pill__eyebrow">Dôvera</span>
+          <strong class="trust-pill__text">Pripravené pre GDPR procesy</strong>
         </article>
       </section>
 
       <main class="layout">
-        <section class="card card--wide">
+        <section class="card card--wide card--simple">
           <div class="section-head">
             <div>
-              <p class="section-kicker">Prečo Unifyo</p>
-              <h2>Prestaň strácať čas s neporiadkom v kontaktoch.</h2>
+              <p class="section-kicker">Prečo to používať</p>
+              <h2>Menej chaosu. Menej duplicit. Menej ručnej práce.</h2>
             </div>
           </div>
 
           <div class="problem-grid">
             <article class="problem-card">
-              <span>Neprehľadné zoznamy kontaktov</span>
-              <p>Viac exportov, nejednotné názvy stĺpcov a neusporiadané dáta.</p>
+              <span>Neprehľadné kontakty</span>
+              <p>Viac exportov a nejednotné dáta v jednom zozname.</p>
             </article>
             <article class="problem-card">
               <span>Duplicitné záznamy</span>
-              <p>Rovnaké kontakty viackrát cez e-mail, telefón alebo podobné mená.</p>
+              <p>Rovnaké kontakty cez e-mail, telefón alebo podobné mená.</p>
             </article>
             <article class="problem-card">
-              <span>Zbytočne stratený čas</span>
-              <p>Ručné čistenie databáz a opravy importov do CRM alebo newsletter nástrojov.</p>
+              <span>Stratený čas</span>
+              <p>Ručné opravy databáz pred CRM alebo newsletter importom.</p>
             </article>
           </div>
-          <p class="section-note">Unifyo z toho spraví jeden čistý výstup pripravený na okamžitý import.</p>
         </section>
 
-        <section class="card card--wide">
+        <section class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">Predtým → Potom</p>
-              <h2>Pozri si výsledok ešte pred prvým importom.</h2>
+              <h2>Uvidíš presne, čo sa zmení vo finálnom exporte</h2>
             </div>
           </div>
 
@@ -206,42 +208,38 @@
               </div>
             </article>
           </div>
-          <p class="table-subnote">Presne tento formát vieš importovať do CRM, Mailchimpu, Ecomailu alebo newsletter systémov.</p>
+          <p class="table-subnote">Výstup obsahuje len meno, priezvisko, email a telefón.</p>
         </section>
 
-        <section class="card card--wide card--info">
+        <section class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">Ako to funguje</p>
-              <h2>Jednoducho, rýchlo a bez zbytočného trenia.</h2>
+              <h2>Tri kroky a hotovo.</h2>
             </div>
           </div>
 
           <div class="info-grid">
             <article class="info-card">
               <strong>1. Nahraj súbory</strong>
-              <p>Vyber jeden alebo viac súborov vo formáte CSV, XLSX alebo XLS.</p>
+              <p>Vyber CSV, XLSX alebo XLS.</p>
             </article>
             <article class="info-card">
               <strong>2. Vyčisti automaticky</strong>
-              <p>Systém odstráni duplicity, vyčistí dáta a ponechá len použiteľné kontakty.</p>
+              <p>Systém odstráni duplicity a vyčistí dáta.</p>
             </article>
             <article class="info-card">
               <strong>3. Stiahni výsledok</strong>
-              <p>Stiahneš jeden čistý výstup pripravený na CRM alebo newsletter import.</p>
-            </article>
-            <article class="info-card">
-              <strong>4. Použi výsledok</strong>
-              <p>Hotový export vieš ihneď poslať do CRM, Ecomailu, Mailchimpu alebo ďalšieho systému.</p>
+              <p>Hotový export vieš ihneď použiť ďalej.</p>
             </article>
           </div>
         </section>
 
-        <section class="card card--wide">
+        <section class="card card--wide card--simple">
           <div class="cta-strip">
             <div>
               <strong>Pripravený vyčistiť svoju databázu kontaktov?</strong>
-              <p>Prejdi do aplikácie a spracuj svoje súbory v niekoľkých krokoch.</p>
+              <p>Spusť aplikáciu a vyčisti svoj zoznam bez ručného chaosu.</p>
             </div>
             <a class="button button--primary" href="/app.html">Vyčistiť moje kontakty</a>
           </div>
@@ -258,7 +256,68 @@
     </div>
   </div>
 
+  <div id="landingPromoModal" class="modal" hidden>
+    <div id="landingPromoBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog modal__dialog--promo modal__dialog--landing-promo">
+      <button id="landingPromoClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <div class="landing-promo__brand">
+        <img src="icons/unifyo-logo-clean.svg" alt="Unifyo logo">
+      </div>
+      <p class="landing-promo__caption">Limitovaná uvádzacia ponuka pre prvé čisté databázy bez chaosu a bez duplicit.</p>
+      <p class="section-kicker">Štartovacia akcia</p>
+      <h2>Vyčisti svoje kontakty profesionálne za cenu, ktorú nepustíš z hlavy.</h2>
+      <p class="modal__lead">Mesačný prístup k plnému importu, deduplikácii a finálnemu exportu teraz aktivuješ za zvýhodnenú cenu. Jednoducho, bezpečne a bez chaosu.</p>
+      <div class="promo-price promo-price--featured">
+        <span class="promo-price__old">4,99 € / mesiac</span>
+        <span class="promo-price__deal">Teraz len 0,99 € / mesiac</span>
+        <strong class="promo-price__current">Spusti Unifyo za 0,99 €</strong>
+      </div>
+      <div class="modal__promo-points landing-promo__points">
+        <span>Plný import vlastných súborov</span>
+        <span>Audit odstránených duplicit</span>
+        <span>Export do CSV aj XLSX</span>
+      </div>
+      <div class="modal__actions">
+        <a class="button button--ghost" href="/pricing.html">Pozrieť detaily</a>
+        <a class="button button--primary" href="/app.html">Aktivovať členstvo</a>
+      </div>
+    </div>
+  </div>
+
   <script src="consent.js"></script>
   <script src="site-nav.js"></script>
+  <script>
+    (function () {
+      const modal = document.getElementById("landingPromoModal");
+      const backdrop = document.getElementById("landingPromoBackdrop");
+      const closeButton = document.getElementById("landingPromoClose");
+      const storageKey = "unifyo_landing_promo_seen";
+
+      if (!modal || sessionStorage.getItem(storageKey) === "1") {
+        return;
+      }
+
+      function closeModal() {
+        modal.hidden = true;
+        document.body.classList.remove("modal-open");
+      }
+
+      function openModal() {
+        modal.hidden = false;
+        document.body.classList.add("modal-open");
+        sessionStorage.setItem(storageKey, "1");
+      }
+
+      closeButton?.addEventListener("click", closeModal);
+      backdrop?.addEventListener("click", closeModal);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeModal();
+        }
+      });
+
+      window.setTimeout(openModal, 650);
+    }());
+  </script>
 </body>
 </html>
