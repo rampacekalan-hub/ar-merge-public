@@ -3604,11 +3604,37 @@ tbody tr:hover td {
   margin-bottom: 18px;
 }
 
+.workspace-header--minimal {
+  padding-bottom: 18px;
+}
+
 .workspace-header__main {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.86fr);
   gap: 18px;
   align-items: start;
+}
+
+.workspace-header__main--minimal {
+  display: block;
+}
+
+.workspace-header__summary {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(14, 35, 68, 0.08);
+}
+
+.workspace-header__summary .section-kicker {
+  margin: 0;
+}
+
+.workspace-header__summary .workspace-header__status {
+  margin: 0;
+  max-width: none;
+  font-size: 0.98rem;
+  line-height: 1.7;
 }
 
 body.mode-chooser .workspace-header__main {

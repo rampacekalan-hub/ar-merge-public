@@ -175,7 +175,7 @@ async function bootstrap() {
   elements.uploadBox.addEventListener("dragover", handleUploadDragOver);
   elements.uploadBox.addEventListener("dragleave", handleUploadDragLeave);
   elements.uploadBox.addEventListener("drop", handleUploadDrop);
-  elements.buyHeroBtn.addEventListener("click", startCheckoutFlow);
+  elements.buyHeroBtn?.addEventListener("click", startCheckoutFlow);
   elements.accountBtn.addEventListener("click", () => {
     if (state.user) {
       openAccountPanel();
@@ -197,8 +197,8 @@ async function bootstrap() {
   });
   elements.logoutBtn.addEventListener("click", logout);
   elements.unlockUploadBtn.addEventListener("click", handleUnlockUploadAction);
-  elements.buyToolbarBtn.addEventListener("click", startCheckoutFlow);
-  elements.buyProBtn.addEventListener("click", startCheckoutFlow);
+  elements.buyToolbarBtn?.addEventListener("click", startCheckoutFlow);
+  elements.buyProBtn?.addEventListener("click", startCheckoutFlow);
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
   elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
   elements.modeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));

@@ -76,7 +76,7 @@
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 
     <div id="contentShell" class="content-shell content-shell--workspace">
-      <header class="workspace-header card">
+      <header class="workspace-header workspace-header--minimal card">
         <div class="hero__topbar">
           <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
           <div class="toolbar toolbar--compact">
@@ -85,31 +85,10 @@
           </div>
         </div>
 
-        <div id="workspaceHeaderMain" class="workspace-header__main">
-          <div>
-            <p class="section-kicker">Aplikácia</p>
-            <h1>
-              Vyber si režim:
-              <button id="heroModeContactsBtn" class="hero-mode-link" type="button">čistenie kontaktov</button>
-              alebo
-              <button id="heroModeCompressBtn" class="hero-mode-link" type="button">kompresia súborov</button>
-            </h1>
-            <p class="hero__lede">Jedna aplikácia, dve praktické funkcie. Kontakty vyčistíš bez duplicit a súbory zmenšíš na požadovanú veľkosť.</p>
-          </div>
-          <div class="workspace-header__aside">
-            <article id="premiumHeroCard" class="premium-hero" aria-label="Premium prístup">
-              <p id="premiumHeroLabel" class="premium-hero__label">Limitovaná akcia</p>
-              <div class="premium-hero__price-row">
-                <span class="premium-hero__old">4,99 € / mesiac</span>
-                <strong class="premium-hero__current">0,99 € / mesiac</strong>
-              </div>
-              <p id="premiumHeroNote" class="premium-hero__note">Premium prístup • cena platí iba teraz</p>
-            </article>
+        <div id="workspaceHeaderMain" class="workspace-header__main workspace-header__main--minimal">
+          <div class="workspace-header__summary">
+            <p class="section-kicker">Unifyo aplikácia</p>
             <p id="accountStatus" class="workspace-header__status">Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.</p>
-            <div class="hero__actions hero__actions--workspace">
-              <button id="buyHeroBtn" class="button button--primary" type="button">Nahrať a vyčistiť</button>
-              <button id="buyToolbarBtn" class="button button--ghost" type="button">Aktivovať členstvo</button>
-            </div>
           </div>
         </div>
       </header>
