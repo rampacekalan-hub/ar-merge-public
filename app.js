@@ -79,11 +79,6 @@ const elements = {
   assistantChatInput: document.getElementById("assistantChatInput"),
   assistantChatSubmit: document.getElementById("assistantChatSubmit"),
   assistantChatMessage: document.getElementById("assistantChatMessage"),
-  assistantProfileForm: document.getElementById("assistantProfileForm"),
-  assistantProfileFocus: document.getElementById("assistantProfileFocus"),
-  assistantProfileNotes: document.getElementById("assistantProfileNotes"),
-  assistantProfileSubmit: document.getElementById("assistantProfileSubmit"),
-  assistantProfileMessage: document.getElementById("assistantProfileMessage"),
   modeContactsBtn: document.getElementById("modeContactsBtn"),
   modeCompressBtn: document.getElementById("modeCompressBtn"),
   modeAssistantBtn: document.getElementById("modeAssistantBtn"),
@@ -250,7 +245,6 @@ async function bootstrap() {
   elements.heroModeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
   elements.assistantRefreshBtn?.addEventListener("click", fetchAssistantDashboard);
   elements.assistantChatForm?.addEventListener("submit", handleAssistantChatSubmit);
-  elements.assistantProfileForm?.addEventListener("submit", handleAssistantProfileSubmit);
   elements.assistantPromptChips?.querySelectorAll(".assistant-chip").forEach((button) => {
     button.addEventListener("click", handleAssistantPromptClick);
   });
@@ -1684,7 +1678,7 @@ function renderAssistantAccessState() {
         ? "AI asistent sa odomkne hneď po aktivácii členstva."
         : "Prihlás sa a aktivuj členstvo, aby sa odomkol AI asistent pre finančné sprostredkovanie.";
   }
-  [elements.assistantChatForm, elements.assistantProfileForm].forEach((form) => {
+  [elements.assistantChatForm].forEach((form) => {
     form?.querySelectorAll("input, select, textarea, button").forEach((field) => {
       field.disabled = !hasMembership;
     });
@@ -1704,7 +1698,7 @@ function renderAssistantLockedState() {
     elements.assistantHeadline.textContent = "AI asistent sa odomkne po aktivácii členstva.";
   }
   if (elements.assistantFocus) {
-    elements.assistantFocus.textContent = "Po odomknutí môžeš písať s AI asistentom, ktorý si pamätá kontext, pripraví plán dňa a pomôže s klientskou komunikáciou.";
+    elements.assistantFocus.textContent = "Po odomknutí môžeš písať s AI asistentom, ktorý pripraví plán dňa a pomôže s klientskou komunikáciou.";
   }
   if (elements.assistantStats) {
     elements.assistantStats.innerHTML = `
@@ -1714,7 +1708,7 @@ function renderAssistantLockedState() {
       </article>
       <article class="summary-card">
         <span>Kontext</span>
-        <strong>Pamäť</strong>
+        <strong>Asistent</strong>
       </article>
       <article class="summary-card">
         <span>Komunikácia</span>
@@ -1729,12 +1723,6 @@ function renderAssistantLockedState() {
   if (elements.assistantChatFeed) {
     elements.assistantChatFeed.className = "assistant-chat-feed empty-state";
     elements.assistantChatFeed.textContent = "Aktivuj členstvo a AI asistent sa odomkne pre konverzáciu a pracovnú pomoc.";
-  }
-  if (elements.assistantProfileFocus) {
-    elements.assistantProfileFocus.value = "";
-  }
-  if (elements.assistantProfileNotes) {
-    elements.assistantProfileNotes.value = "";
   }
 }
 
@@ -1760,22 +1748,13 @@ async function fetchAssistantDashboard() {
 
 function renderAssistantDashboard() {
   const messages = Array.isArray(state.assistant?.messages) ? state.assistant.messages : [];
-  const profile = state.assistant?.profile || {};
   if (elements.assistantHeadline) {
     elements.assistantHeadline.textContent = messages.length
       ? "AI asistent má načítaný kontext tvojej práce."
       : "Napíš, s čím dnes potrebuješ pomôcť.";
   }
   if (elements.assistantFocus) {
-    elements.assistantFocus.textContent = profile.notes
-      ? "Asistent má uloženú tvoju pamäť a zohľadní ju v ďalších odpovediach."
-      : "Ulož si profil práce a AI si bude pamätať, ako pracuješ a na čo sa má sústrediť.";
-  }
-  if (elements.assistantProfileFocus) {
-    elements.assistantProfileFocus.value = profile.focus || "";
-  }
-  if (elements.assistantProfileNotes) {
-    elements.assistantProfileNotes.value = profile.notes || "";
+    elements.assistantFocus.textContent = "Asistent odpovedá prakticky, po slovensky a navrhuje ďalšie kroky pre tvoju prax.";
   }
   if (elements.assistantChatFeed) {
     if (!messages.length) {
@@ -2234,46 +2213,6 @@ async function handleAssistantChatSubmit(event) {
     if (elements.assistantChatSubmit) {
       elements.assistantChatSubmit.disabled = false;
       elements.assistantChatSubmit.textContent = "Odoslať do AI asistenta";
-    }
-  }
-}
-
-async function handleAssistantProfileSubmit(event) {
-  event.preventDefault();
-  if (!state.user?.membership_active) {
-    startCheckoutFlow();
-    return;
-  }
-  try {
-    if (elements.assistantProfileMessage) {
-      elements.assistantProfileMessage.hidden = true;
-      elements.assistantProfileMessage.textContent = "";
-      elements.assistantProfileMessage.classList.remove("auth-message--error");
-    }
-    const response = await fetch("/api/assistant/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        focus: elements.assistantProfileFocus?.value.trim() || "",
-        notes: elements.assistantProfileNotes?.value.trim() || "",
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error || "Pamäť AI asistenta sa nepodarilo uložiť.");
-    }
-    state.assistant.profile = payload.profile || {};
-    if (elements.assistantProfileMessage) {
-      elements.assistantProfileMessage.hidden = false;
-      elements.assistantProfileMessage.textContent = "Pamäť asistenta bola uložená.";
-      elements.assistantProfileMessage.classList.remove("auth-message--error");
-    }
-    renderAssistantDashboard();
-  } catch (error) {
-    if (elements.assistantProfileMessage) {
-      elements.assistantProfileMessage.hidden = false;
-      elements.assistantProfileMessage.textContent = error.message;
-      elements.assistantProfileMessage.classList.add("auth-message--error");
     }
   }
 }

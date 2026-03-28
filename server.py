@@ -662,9 +662,7 @@ def perform_openai_request(url, payload):
         raise RuntimeError(f"OpenAI API nie je dostupné: {exc.reason}") from exc
 
 
-def build_assistant_system_prompt(user_row, profile):
-    focus = profile.get("focus") or "všeobecná práca finančného sprostredkovateľa"
-    notes = profile.get("notes") or "bez ďalších poznámok"
+def build_assistant_system_prompt(user_row, _profile):
     today_value = date.today().strftime("%d.%m.%Y")
     return (
         "Si Unifyo AI, profesionálny interný asistent pre finančných sprostredkovateľov na Slovensku. "
@@ -687,10 +685,41 @@ def build_assistant_system_prompt(user_row, profile):
         "Nedávaj záväzné právne, daňové ani regulované investičné odporúčania; pri takých otázkach "
         "odporuč overenie cez compliance alebo kvalifikovaného odborníka. "
         "Ak to pomôže používateľovi, proaktívne ponúkni krátku verziu do e-mailu/SMS alebo konkrétny ďalší krok. "
-        f"Používateľ sa volá {user_row['name'] or user_row['email']}. "
-        f"Jeho hlavný fokus: {focus}. "
-        f"Pamäť o používateľovi: {notes}."
+        f"Používateľ sa volá {user_row['name'] or user_row['email']}."
     )
+
+
+def should_use_openai_web_search(user_message):
+    if not OPENAI_WEB_SEARCH_ENABLED or OPENAI_WEB_SEARCH_RUNTIME_DISABLED:
+        return False
+    text = str(user_message or "").strip().lower()
+    if not text:
+        return False
+    time_sensitive_markers = (
+        "dnes",
+        "aktuálne",
+        "aktualne",
+        "najnov",
+        "novinka",
+        "novinky",
+        "zmena",
+        "zmeny",
+        "platí",
+        "plati",
+        "od kedy",
+        "sadzb",
+        "nbs",
+        "legislat",
+        "zákon",
+        "zakon",
+        "regul",
+        "vyhlášk",
+        "vyhlask",
+        "trh",
+        "úrok",
+        "urok",
+    )
+    return any(marker in text for marker in time_sensitive_markers)
 
 
 def call_openai_assistant(user_row, profile, history_messages, user_message):
@@ -725,7 +754,7 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     }
     primary_error = ""
     response_attempts = []
-    use_web_search = OPENAI_WEB_SEARCH_ENABLED and not OPENAI_WEB_SEARCH_RUNTIME_DISABLED
+    use_web_search = should_use_openai_web_search(user_message)
     if use_web_search:
         response_attempts.append({**payload_base, "tools": [{"type": OPENAI_WEB_SEARCH_TOOL}]})
     response_attempts.append(payload_base)

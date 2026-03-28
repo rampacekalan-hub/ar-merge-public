@@ -1,6 +1,5 @@
 const aiState = {
   user: null,
-  profile: null,
   messages: [],
   typing: false,
 };
@@ -21,11 +20,6 @@ const aiElements = {
   chatSubmit: document.getElementById("aiChatSubmit"),
   chatMessage: document.getElementById("aiChatMessage"),
   chatHeadline: document.getElementById("aiChatHeadline"),
-  profileForm: document.getElementById("aiProfileForm"),
-  profileFocus: document.getElementById("aiProfileFocus"),
-  profileNotes: document.getElementById("aiProfileNotes"),
-  profileSubmit: document.getElementById("aiProfileSubmit"),
-  profileMessage: document.getElementById("aiProfileMessage"),
   promptButtons: Array.from(document.querySelectorAll(".js-ai-prompt")),
 };
 
@@ -47,7 +41,6 @@ function bindAiEvents() {
   aiElements.checkoutBtn?.addEventListener("click", startCheckoutFlow);
   aiElements.chatForm?.addEventListener("submit", handleChatSubmit);
   aiElements.chatFeed?.addEventListener("click", handleChatFeedClick);
-  aiElements.profileForm?.addEventListener("submit", handleProfileSubmit);
   aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
   aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
   aiElements.promptButtons.forEach((button) => {
@@ -100,7 +93,7 @@ function renderAiState() {
   if (aiElements.lockedText) {
     aiElements.lockedText.textContent = !isLoggedIn
       ? "Prihlás sa a získaj AI asistenta pre každodennú prácu finančného sprostredkovateľa."
-      : "Po aktivácii členstva môžeš chat používať bez obmedzení aj s pamäťou kontextu.";
+      : "Po aktivácii členstva môžeš chat používať bez obmedzení počas celého dňa.";
   }
   if (aiElements.checkoutBtn) {
     aiElements.checkoutBtn.classList.toggle("is-hidden", !isLoggedIn || hasMembership);
@@ -108,7 +101,7 @@ function renderAiState() {
   if (aiElements.loginLink) {
     aiElements.loginLink.textContent = isLoggedIn ? "Prejsť do aplikácie" : "Prihlásiť sa / Registrovať";
   }
-  [aiElements.chatInput, aiElements.chatSubmit, aiElements.profileFocus, aiElements.profileNotes, aiElements.profileSubmit].forEach((element) => {
+  [aiElements.chatInput, aiElements.chatSubmit].forEach((element) => {
     if (element) {
       element.disabled = !hasMembership;
     }
@@ -125,7 +118,6 @@ async function loadAssistant() {
     if (!response.ok) {
       throw new Error(payload.error || "AI asistent sa nepodarilo načítať.");
     }
-    aiState.profile = payload.profile || {};
     aiState.messages = payload.messages || [];
     renderAssistantData();
   } catch (error) {
@@ -134,12 +126,6 @@ async function loadAssistant() {
 }
 
 function renderAssistantData() {
-  if (aiElements.profileFocus) {
-    aiElements.profileFocus.value = aiState.profile?.focus || "";
-  }
-  if (aiElements.profileNotes) {
-    aiElements.profileNotes.value = aiState.profile?.notes || "";
-  }
   if (aiElements.chatHeadline) {
     aiElements.chatHeadline.textContent = aiState.messages.length
       ? "Pokračuj v konverzácii"
@@ -275,7 +261,6 @@ async function handleChatSubmit(event) {
     if (!response.ok) {
       throw new Error(payload.error || "AI asistent neodpovedal.");
     }
-    aiState.profile = payload.profile || aiState.profile || {};
     aiState.messages = payload.messages || aiState.messages;
     setInlineMessage(aiElements.chatMessage, "", false, true);
   } catch (error) {
@@ -286,39 +271,6 @@ async function handleChatSubmit(event) {
     aiElements.chatSubmit.textContent = "Odoslať";
     renderMessages();
     aiElements.chatInput?.focus();
-  }
-}
-
-async function handleProfileSubmit(event) {
-  event.preventDefault();
-  if (!aiState.user?.membership_active) {
-    await startCheckoutFlow();
-    return;
-  }
-
-  try {
-    setInlineMessage(aiElements.profileMessage, "", false, true);
-    aiElements.profileSubmit.disabled = true;
-    aiElements.profileSubmit.textContent = "Ukladám...";
-    const response = await fetch("/api/assistant/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        focus: aiElements.profileFocus?.value.trim() || "",
-        notes: aiElements.profileNotes?.value.trim() || "",
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error || "Pamäť AI asistenta sa nepodarilo uložiť.");
-    }
-    aiState.profile = payload.profile || {};
-    setInlineMessage(aiElements.profileMessage, "Pamäť asistenta bola uložená.", false);
-  } catch (error) {
-    setInlineMessage(aiElements.profileMessage, error.message, true);
-  } finally {
-    aiElements.profileSubmit.disabled = false;
-    aiElements.profileSubmit.textContent = "Uložiť pamäť";
   }
 }
 
