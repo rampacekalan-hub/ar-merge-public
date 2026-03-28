@@ -2426,10 +2426,17 @@ body.is-pro-unlocked .upload--locked {
   border: 0;
 }
 
+.upload__inner {
+  width: min(100%, 580px);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
 .upload__title {
   font-size: 1.18rem;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin: 0;
   letter-spacing: -0.02em;
 }
 
@@ -2437,7 +2444,7 @@ body.is-pro-unlocked .upload--locked {
   max-width: 42ch;
   color: var(--muted);
   line-height: 1.65;
-  margin-bottom: 18px;
+  margin: 0 auto;
 }
 
 .toolbar {
@@ -3254,7 +3261,7 @@ h1 {
 .upload__progress {
   width: min(340px, 100%);
   height: 8px;
-  margin: 0 auto 18px;
+  margin: 2px auto 0;
   border-radius: 999px;
   background: rgba(16, 35, 63, 0.08);
   overflow: hidden;
@@ -3339,11 +3346,19 @@ tbody tr:hover td {
 }
 
 .compress-meta {
-  margin: 10px 0 0;
+  width: 100%;
+  max-width: 42ch;
+  min-height: 3.2em;
+  margin: 0;
   color: #60748d;
   font-size: 0.92rem;
   line-height: 1.6;
   text-align: center;
+  text-wrap: balance;
+}
+
+#compressSelectBtn {
+  margin-top: 2px;
 }
 
 .compress-controls {

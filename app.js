@@ -1578,17 +1578,17 @@ function estimateCompressionSeconds(file, targetMb) {
   const ratio = sizeMb / target;
   const extension = getFileExtension(file?.name || "").toLowerCase();
 
-  let seconds = 4 + sizeMb * 1.8;
+  let seconds = 8 + sizeMb * 3.4;
   if (extension === "pdf") {
-    seconds += sizeMb * 1.2;
+    seconds += sizeMb * 2.1;
   }
   if (extension === "png") {
-    seconds += sizeMb * 1.8;
+    seconds += sizeMb * 3.4;
   }
-  if (ratio > 2) {
-    seconds += ratio * 2.5;
+  if (ratio > 1.25) {
+    seconds += ratio * 5.5;
   }
-  return Math.max(4, Math.min(180, Math.round(seconds)));
+  return Math.max(6, Math.min(600, Math.round(seconds)));
 }
 
 function stopCompressionTimingLoop() {
@@ -1655,7 +1655,9 @@ function renderCompressionUploadState() {
   const hasFile = Boolean(state.compression.file);
   const { phase, progress } = state.compression.uploadUi;
   const elapsedSeconds = state.compression.startedAt ? Math.round((Date.now() - state.compression.startedAt) / 1000) : 0;
-  const remainingSeconds = Math.max(0, (state.compression.estimateSeconds || 0) - elapsedSeconds);
+  const estimateSeconds = Math.max(state.compression.estimateSeconds || 0, 0);
+  const remainingSeconds = Math.max(0, estimateSeconds - elapsedSeconds);
+  const isEstimateExceeded = estimateSeconds > 0 && elapsedSeconds >= estimateSeconds;
 
   elements.compressUploadBox.classList.toggle("upload--locked", !hasMembership);
   elements.compressUploadBox.classList.toggle("upload--ready", hasMembership && hasFile && phase !== "processing");
@@ -1674,7 +1676,9 @@ function renderCompressionUploadState() {
     badge = "Spracovanie";
     text = "Pripravujeme menšiu verziu súboru. Pri väčších súboroch to môže trvať dlhšie.";
     showProgress = true;
-    etaText = `Prešlo ${formatDuration(elapsedSeconds)} • odhad zostáva približne ${formatDuration(remainingSeconds)}.`;
+    etaText = isEstimateExceeded
+      ? `Prešlo ${formatDuration(elapsedSeconds)} • spracovanie trvá dlhšie než pôvodný odhad ${formatDuration(estimateSeconds)}.`
+      : `Prešlo ${formatDuration(elapsedSeconds)} • odhad zostáva približne ${formatDuration(remainingSeconds)}.`;
   } else if (phase === "done") {
     badge = "Hotovo";
     text = "Výsledok je pripravený na stiahnutie.";
