@@ -54,6 +54,7 @@ const elements = {
   buyToolbarBtn: document.getElementById("buyToolbarBtn"),
   buyProBtn: document.getElementById("buyProBtn"),
   pricingCtaBtn: document.getElementById("pricingCtaBtn"),
+  pricingCard: document.getElementById("pricingCard"),
   openCompressorBtn: document.getElementById("openCompressorBtn"),
   compressFeatureStatus: document.getElementById("compressFeatureStatus"),
   modeContactsBtn: document.getElementById("modeContactsBtn"),
@@ -219,7 +220,11 @@ async function bootstrap() {
   elements.compressDownloadBtn?.addEventListener("click", handleCompressionDownload);
   elements.compressTargetInput?.addEventListener("input", renderCompressionResult);
   elements.stickyDealBtn?.addEventListener("click", startCheckoutFlow);
-  elements.stickyDealClose?.addEventListener("click", dismissStickyDealBar);
+  elements.stickyDealClose?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dismissStickyDealBar();
+  });
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
   elements.promoModalAuth.addEventListener("click", () => {
@@ -296,12 +301,12 @@ function renderAccessState() {
     elements.mergeBtn.disabled = !hasMembership || state.files.length === 0;
   }
   if (elements.buyToolbarBtn) {
-    elements.buyToolbarBtn.classList.toggle("is-hidden", hasMembership || isLoggedIn);
+    elements.buyToolbarBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.buyHeroBtn) {
     elements.buyHeroBtn.textContent = hasMembership ? "Nahrať súbory" : isLoggedIn ? "Odomknúť import" : "Začať čistenie";
     elements.buyHeroBtn.disabled = false;
-    elements.buyHeroBtn.classList.toggle("is-hidden", isLoggedIn);
+    elements.buyHeroBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.unlockUploadBtn) {
     elements.unlockUploadBtn.textContent = hasMembership ? "Nahrať súbory" : isLoggedIn ? "Odomknúť import" : "Nahrať a vyčistiť";
@@ -310,12 +315,15 @@ function renderAccessState() {
   if (elements.buyProBtn) {
     elements.buyProBtn.textContent = hasMembership ? "Členstvo je aktívne" : "Aktivovať za 0,99 € / mesiac";
     elements.buyProBtn.disabled = false;
-    elements.buyProBtn.classList.toggle("is-hidden", isLoggedIn);
+    elements.buyProBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.pricingCtaBtn) {
     elements.pricingCtaBtn.textContent = hasMembership ? "Nahrať a vyčistiť" : "Vyčistiť moje kontakty";
     elements.pricingCtaBtn.disabled = false;
-    elements.pricingCtaBtn.classList.toggle("is-hidden", isLoggedIn);
+    elements.pricingCtaBtn.classList.toggle("is-hidden", hasMembership);
+  }
+  if (elements.pricingCard) {
+    elements.pricingCard.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
@@ -1407,11 +1415,11 @@ async function startCheckoutFlow() {
       return;
     }
     if (state.mode === "compress" && elements.compressFileInput) {
-      elements.compressFileInput.click();
+      openFilePicker(elements.compressFileInput);
       return;
     }
     if (elements.fileInput) {
-      elements.fileInput.click();
+      openFilePicker(elements.fileInput);
     }
     return;
   }
@@ -1421,7 +1429,7 @@ async function startCheckoutFlow() {
 
 function handleUnlockUploadAction() {
   if (state.user?.membership_active) {
-    elements.fileInput.click();
+    openFilePicker(elements.fileInput);
     return;
   }
   startCheckoutFlow();
@@ -1462,7 +1470,11 @@ function handleWindowScroll() {
 }
 
 function dismissStickyDealBar() {
+  state.stickyDealDismissed = true;
   window.localStorage.setItem(STICKY_DEAL_DISMISSED_KEY, "1");
+  if (elements.stickyDealBar) {
+    elements.stickyDealBar.hidden = true;
+  }
   renderStickyDealBar();
 }
 
@@ -1470,13 +1482,29 @@ function renderStickyDealBar() {
   if (!elements.stickyDealBar) {
     return;
   }
-  const dismissed = window.localStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
+  const dismissed = state.stickyDealDismissed || window.localStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
+  const hasMembership = Boolean(state.user?.membership_active);
   const shouldShow =
     !dismissed &&
-    !state.user &&
+    !hasMembership &&
     window.scrollY > 280 &&
     (state.mode === "contacts" || state.mode === "chooser");
   elements.stickyDealBar.hidden = !shouldShow;
+}
+
+function openFilePicker(input) {
+  if (!input) {
+    return;
+  }
+  try {
+    input.disabled = false;
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+  } catch (_error) {
+  }
+  input.click();
 }
 
 function handleUploadBoxClick(event) {
@@ -1484,7 +1512,7 @@ function handleUploadBoxClick(event) {
     return;
   }
   if (state.user?.membership_active) {
-    elements.fileInput.click();
+    openFilePicker(elements.fileInput);
     return;
   }
   startCheckoutFlow();
@@ -1619,7 +1647,7 @@ function requestCompressionAccess() {
 }
 
 function handleCompressionUploadClick(event) {
-  if (event?.currentTarget === elements.compressUploadBox && event.target.closest("button")) {
+  if (event?.currentTarget === elements.compressUploadBox && event.target.closest("button, label")) {
     return;
   }
   if (event) {
@@ -1629,7 +1657,7 @@ function handleCompressionUploadClick(event) {
   if (!requestCompressionAccess()) {
     return;
   }
-  elements.compressFileInput?.click();
+  openFilePicker(elements.compressFileInput);
 }
 
 function handleCompressionUploadKeydown(event) {
