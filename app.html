@@ -117,7 +117,7 @@
           <button id="modeAssistantBtn" class="mode-card" type="button" data-mode="assistant">
             <span class="mode-card__kicker">AI</span>
             <strong>AI asistent pre sprostredkovateľa</strong>
-            <p>Sleduj dnešné úlohy, follow-upy a priority dňa v jednom pracovnom module.</p>
+            <p>Píš si s AI asistentom, ktorý si pamätá kontext, pomáha s pracovným dňom a pripravuje klientsku komunikáciu.</p>
             <span class="mode-card__cta">Otvoriť AI asistenta</span>
           </button>
         </div>
@@ -296,98 +296,93 @@
             <div class="section-head">
               <div>
                 <p class="section-kicker">AI asistent</p>
-                <h2>Tvoj pracovný prehľad na dnešok</h2>
+                <h2>AI asistent pre finančných sprostredkovateľov</h2>
               </div>
             </div>
-            <p id="assistantSubtitle" class="section-copy">Spravuj úlohy, follow-upy a klientské priority v jednom asistentskom paneli.</p>
+            <p id="assistantSubtitle" class="section-copy">Konverzačný asistent pre slovenských finančných sprostredkovateľov. Pomáha s organizáciou dňa, follow-upmi, klientskou komunikáciou, prípravou hovorov aj ďalšími pracovnými úlohami.</p>
 
             <div id="assistantHero" class="assistant-hero">
               <div class="assistant-hero__copy">
-                <span class="upload__badge">Dnes</span>
-                <h3 id="assistantHeadline">AI asistent je pripravený pomôcť s tvojím dňom.</h3>
-                <p id="assistantFocus" class="assistant-hero__text">Po pridaní úloh uvidíš priority, follow-up odporúčania a čo riešiť ako prvé.</p>
+                <span class="upload__badge">Unifyo AI</span>
+                <h3 id="assistantHeadline">Napíš, s čím dnes potrebuješ pomôcť.</h3>
+                <p id="assistantFocus" class="assistant-hero__text">Asistent si pamätá kontext konverzácie, vie pripraviť denný plán, navrhnúť follow-up, pripraviť text klientovi aj pomôcť s organizáciou dňa.</p>
               </div>
               <div class="assistant-hero__actions">
-                <button id="assistantRefreshBtn" class="button button--ghost" type="button">Obnoviť prehľad</button>
+                <button id="assistantRefreshBtn" class="button button--ghost" type="button">Obnoviť chat</button>
               </div>
             </div>
 
-            <div id="assistantStats" class="summary-grid summary-grid--assistant">
-              <article class="summary-card">
-                <span>Otvorené úlohy</span>
-                <strong>0</strong>
-              </article>
+            <div id="assistantPromptChips" class="assistant-prompt-chips">
+              <button class="assistant-chip" type="button" data-prompt="Priprav mi plán dňa ako finančný sprostredkovateľ na Slovensku.">Plán dňa</button>
+              <button class="assistant-chip" type="button" data-prompt="Napíš mi follow-up e-mail klientovi po včerajšom stretnutí.">Follow-up e-mail</button>
+              <button class="assistant-chip" type="button" data-prompt="Priprav mi call script pre klienta, ktorému sa mám dnes ozvať.">Call script</button>
+              <button class="assistant-chip" type="button" data-prompt="Pomôž mi zorganizovať klientské priority na dnešok.">Priority na dnes</button>
             </div>
-          </section>
 
-          <section class="card">
-            <div class="section-head">
-              <div>
-                <p class="section-kicker">Nová úloha</p>
-                <h2>Pridaj klientsky krok alebo follow-up</h2>
-              </div>
+            <div id="assistantChatFeed" class="assistant-chat-feed empty-state">
+              AI asistent je pripravený. Pošli prvú správu a začneš konverzáciu.
             </div>
-            <form id="assistantTaskForm" class="auth-form auth-form--compact">
-              <div class="assistant-form-grid">
-                <label class="auth-field">
-                  <span>Názov úlohy</span>
-                  <input id="assistantTaskTitle" type="text" placeholder="Napísať follow-up po stretnutí" required>
-                </label>
-                <label class="auth-field">
-                  <span>Klient</span>
-                  <input id="assistantTaskClient" type="text" placeholder="Meno klienta">
-                </label>
-                <label class="auth-field">
-                  <span>Termín</span>
-                  <input id="assistantTaskDueDate" type="date">
-                </label>
-                <label class="auth-field">
-                  <span>Priorita</span>
-                  <select id="assistantTaskPriority">
-                    <option value="high">Vysoká</option>
-                    <option value="medium" selected>Stredná</option>
-                    <option value="low">Nízka</option>
-                  </select>
-                </label>
-                <label class="auth-field">
-                  <span>Typ kroku</span>
-                  <select id="assistantTaskChannel">
-                    <option value="followup" selected>Follow-up</option>
-                    <option value="email">E-mail</option>
-                    <option value="call">Telefonát</option>
-                    <option value="meeting">Stretnutie</option>
-                  </select>
-                </label>
-              </div>
+
+            <form id="assistantChatForm" class="auth-form auth-form--compact">
               <label class="auth-field">
-                <span>Poznámka</span>
-                <textarea id="assistantTaskDetails" rows="4" placeholder="Doplň poznámku, čo treba klientovi poslať alebo overiť."></textarea>
+                <span>Tvoja správa</span>
+                <textarea id="assistantChatInput" rows="5" placeholder="Napíš napríklad: priprav mi plán dňa, navrhni follow-up klientovi, pomôž mi s organizáciou klientov..." required></textarea>
               </label>
               <div class="toolbar toolbar--workspace">
-                <button id="assistantTaskSubmit" class="button button--primary" type="submit">Pridať úlohu</button>
+                <button id="assistantChatSubmit" class="button button--primary" type="submit">Odoslať do AI asistenta</button>
               </div>
-              <p id="assistantTaskMessage" class="auth-message" hidden></p>
+              <p id="assistantChatMessage" class="auth-message" hidden></p>
             </form>
           </section>
 
           <section class="card">
             <div class="section-head">
               <div>
-                <p class="section-kicker">Odporúčania</p>
-                <h2>AI návrhy na dnešné follow-upy</h2>
+                <p class="section-kicker">Pamäť asistenta</p>
+                <h2>Čo si má AI pamätať o tebe</h2>
               </div>
             </div>
-            <div id="assistantSuggestions" class="assistant-suggestions empty-state">Po načítaní úloh tu uvidíš odporúčané ďalšie kroky.</div>
+            <form id="assistantProfileForm" class="auth-form auth-form--compact">
+              <label class="auth-field">
+                <span>Tvoj fokus</span>
+                <input id="assistantProfileFocus" type="text" placeholder="Hypotéky, investície, poistenie, servis klientov...">
+              </label>
+              <label class="auth-field">
+                <span>Poznámky pre AI</span>
+                <textarea id="assistantProfileNotes" rows="6" placeholder="Napíš, ako pracuješ, aký štýl komunikácie preferuješ, čo má AI o tebe vedieť, aké typy klientov riešiš a čo ti má pripomínať."></textarea>
+              </label>
+              <div class="toolbar toolbar--workspace">
+                <button id="assistantProfileSubmit" class="button button--ghost" type="submit">Uložiť pamäť asistenta</button>
+              </div>
+              <p id="assistantProfileMessage" class="auth-message" hidden></p>
+            </form>
           </section>
 
           <section class="card">
             <div class="section-head">
               <div>
-                <p class="section-kicker">Úlohy</p>
-                <h2>Aktívne a dokončené položky</h2>
+                <p class="section-kicker">Čo vie</p>
+                <h2>S čím ti pomôže najčastejšie</h2>
               </div>
             </div>
-            <div id="assistantTaskList" class="assistant-task-list empty-state">Zatiaľ bez úloh. Pridaj prvú položku a AI asistent pripraví denný prehľad.</div>
+            <div id="assistantStats" class="summary-grid summary-grid--assistant">
+              <article class="summary-card">
+                <span>Denný plán</span>
+                <strong>Priorita dňa</strong>
+              </article>
+              <article class="summary-card">
+                <span>Follow-upy</span>
+                <strong>Klientská komunikácia</strong>
+              </article>
+              <article class="summary-card">
+                <span>Príprava</span>
+                <strong>Cally a stretnutia</strong>
+              </article>
+              <article class="summary-card">
+                <span>Texty</span>
+                <strong>E-maily a správy</strong>
+              </article>
+            </div>
           </section>
         </div>
 

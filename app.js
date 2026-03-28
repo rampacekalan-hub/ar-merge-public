@@ -3,8 +3,8 @@ const state = {
   account: null,
   admin: null,
   assistant: {
-    tasks: [],
-    brief: null,
+    profile: null,
+    messages: [],
   },
   mode: "chooser",
   authMode: "register",
@@ -72,16 +72,17 @@ const elements = {
   assistantFocus: document.getElementById("assistantFocus"),
   assistantStats: document.getElementById("assistantStats"),
   assistantRefreshBtn: document.getElementById("assistantRefreshBtn"),
-  assistantTaskForm: document.getElementById("assistantTaskForm"),
-  assistantTaskTitle: document.getElementById("assistantTaskTitle"),
-  assistantTaskClient: document.getElementById("assistantTaskClient"),
-  assistantTaskDueDate: document.getElementById("assistantTaskDueDate"),
-  assistantTaskPriority: document.getElementById("assistantTaskPriority"),
-  assistantTaskChannel: document.getElementById("assistantTaskChannel"),
-  assistantTaskDetails: document.getElementById("assistantTaskDetails"),
-  assistantTaskMessage: document.getElementById("assistantTaskMessage"),
-  assistantSuggestions: document.getElementById("assistantSuggestions"),
-  assistantTaskList: document.getElementById("assistantTaskList"),
+  assistantPromptChips: document.getElementById("assistantPromptChips"),
+  assistantChatFeed: document.getElementById("assistantChatFeed"),
+  assistantChatForm: document.getElementById("assistantChatForm"),
+  assistantChatInput: document.getElementById("assistantChatInput"),
+  assistantChatSubmit: document.getElementById("assistantChatSubmit"),
+  assistantChatMessage: document.getElementById("assistantChatMessage"),
+  assistantProfileForm: document.getElementById("assistantProfileForm"),
+  assistantProfileFocus: document.getElementById("assistantProfileFocus"),
+  assistantProfileNotes: document.getElementById("assistantProfileNotes"),
+  assistantProfileSubmit: document.getElementById("assistantProfileSubmit"),
+  assistantProfileMessage: document.getElementById("assistantProfileMessage"),
   modeContactsBtn: document.getElementById("modeContactsBtn"),
   modeCompressBtn: document.getElementById("modeCompressBtn"),
   modeAssistantBtn: document.getElementById("modeAssistantBtn"),
@@ -244,7 +245,11 @@ async function bootstrap() {
   elements.heroModeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.heroModeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
   elements.assistantRefreshBtn?.addEventListener("click", fetchAssistantDashboard);
-  elements.assistantTaskForm?.addEventListener("submit", handleAssistantTaskSubmit);
+  elements.assistantChatForm?.addEventListener("submit", handleAssistantChatSubmit);
+  elements.assistantProfileForm?.addEventListener("submit", handleAssistantProfileSubmit);
+  elements.assistantPromptChips?.querySelectorAll(".assistant-chip").forEach((button) => {
+    button.addEventListener("click", handleAssistantPromptClick);
+  });
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.compressUploadBox?.addEventListener("click", handleCompressionUploadClick);
@@ -370,6 +375,13 @@ function renderAccessState() {
       : isLoggedIn
         ? "Aktivovať členstvo pre kompresiu"
         : "Prihlásiť sa a odomknúť kompresiu";
+  }
+  if (elements.openAssistantBtn) {
+    elements.openAssistantBtn.textContent = hasMembership
+      ? "Otvoriť AI asistenta"
+      : isLoggedIn
+        ? "Aktivovať členstvo pre AI asistenta"
+        : "Prihlásiť sa a odomknúť AI asistenta";
   }
   if (elements.compressFeatureStatus) {
     elements.compressFeatureStatus.textContent = hasMembership
@@ -1355,7 +1367,7 @@ async function logout() {
   state.user = null;
   state.account = null;
   state.admin = null;
-  state.assistant = { tasks: [], brief: null };
+  state.assistant = { profile: null, messages: [] };
   resetApp();
   renderAccessState();
 }
@@ -1621,16 +1633,19 @@ function renderAssistantAccessState() {
   const hasMembership = Boolean(state.user?.membership_active);
   if (elements.assistantSubtitle) {
     elements.assistantSubtitle.textContent = hasMembership
-      ? "Spravuj úlohy, follow-upy a klientské priority v jednom asistentskom paneli."
+      ? "Konverzačný asistent, ktorý ti pomáha s denným plánom, follow-upmi, komunikáciou s klientmi a organizáciou práce."
       : state.user
         ? "AI asistent sa odomkne hneď po aktivácii členstva."
-        : "Prihlás sa a aktivuj členstvo, aby sa odomkol AI pracovný asistent.";
+        : "Prihlás sa a aktivuj členstvo, aby sa odomkol AI asistent pre finančné sprostredkovanie.";
   }
-  if (elements.assistantTaskForm) {
-    elements.assistantTaskForm.querySelectorAll("input, select, textarea, button").forEach((field) => {
+  [elements.assistantChatForm, elements.assistantProfileForm].forEach((form) => {
+    form?.querySelectorAll("input, select, textarea, button").forEach((field) => {
       field.disabled = !hasMembership;
     });
-  }
+  });
+  elements.assistantPromptChips?.querySelectorAll(".assistant-chip").forEach((button) => {
+    button.disabled = !hasMembership;
+  });
   if (!hasMembership) {
     renderAssistantLockedState();
     return;
@@ -1643,31 +1658,37 @@ function renderAssistantLockedState() {
     elements.assistantHeadline.textContent = "AI asistent sa odomkne po aktivácii členstva.";
   }
   if (elements.assistantFocus) {
-    elements.assistantFocus.textContent = "Po odomknutí uvidíš dnešné priority, follow-up návrhy a pracovné úlohy pre klientov.";
+    elements.assistantFocus.textContent = "Po odomknutí môžeš písať s AI asistentom, ktorý si pamätá kontext, pripraví plán dňa a pomôže s klientskou komunikáciou.";
   }
   if (elements.assistantStats) {
     elements.assistantStats.innerHTML = `
       <article class="summary-card">
-        <span>AI briefing</span>
-        <strong>Uzamknuté</strong>
+        <span>Denný briefing</span>
+        <strong>AI</strong>
       </article>
       <article class="summary-card">
-        <span>Denné úlohy</span>
-        <strong>Členstvo</strong>
+        <span>Kontext</span>
+        <strong>Pamäť</strong>
       </article>
       <article class="summary-card">
-        <span>Follow-upy</span>
-        <strong>Potrebné</strong>
+        <span>Komunikácia</span>
+        <strong>Follow-upy</strong>
+      </article>
+      <article class="summary-card">
+        <span>Pomoc</span>
+        <strong>Práca dňa</strong>
       </article>
     `;
   }
-  if (elements.assistantSuggestions) {
-    elements.assistantSuggestions.className = "assistant-suggestions empty-state";
-    elements.assistantSuggestions.textContent = "Aktivuj členstvo a AI asistent pripraví odporúčania pre tvoj deň.";
+  if (elements.assistantChatFeed) {
+    elements.assistantChatFeed.className = "assistant-chat-feed empty-state";
+    elements.assistantChatFeed.textContent = "Aktivuj členstvo a AI asistent sa odomkne pre konverzáciu a pracovnú pomoc.";
   }
-  if (elements.assistantTaskList) {
-    elements.assistantTaskList.className = "assistant-task-list empty-state";
-    elements.assistantTaskList.textContent = "Po odomknutí tu uvidíš úlohy, follow-upy a dokončené kroky.";
+  if (elements.assistantProfileFocus) {
+    elements.assistantProfileFocus.value = "";
+  }
+  if (elements.assistantProfileNotes) {
+    elements.assistantProfileNotes.value = "";
   }
 }
 
@@ -1684,107 +1705,46 @@ async function fetchAssistantDashboard() {
     state.assistant = payload;
     renderAssistantDashboard();
   } catch (error) {
-    if (elements.assistantSuggestions) {
-      elements.assistantSuggestions.className = "assistant-suggestions empty-state";
-      elements.assistantSuggestions.textContent = error.message;
-    }
-    if (elements.assistantTaskList) {
-      elements.assistantTaskList.className = "assistant-task-list empty-state";
-      elements.assistantTaskList.textContent = error.message;
+    if (elements.assistantChatFeed) {
+      elements.assistantChatFeed.className = "assistant-chat-feed empty-state";
+      elements.assistantChatFeed.textContent = error.message;
     }
   }
 }
 
 function renderAssistantDashboard() {
-  const brief = state.assistant?.brief;
-  const tasks = Array.isArray(state.assistant?.tasks) ? state.assistant.tasks : [];
-  if (!brief) {
-    if (elements.assistantHeadline) {
-      elements.assistantHeadline.textContent = "AI asistent je pripravený pomôcť s tvojím dňom.";
-    }
-    if (elements.assistantFocus) {
-      elements.assistantFocus.textContent = "Pridaj prvú úlohu a pripravíme priority, follow-up odporúčania aj denný prehľad.";
-    }
-  } else {
-    if (elements.assistantHeadline) {
-      elements.assistantHeadline.textContent = brief.counts?.overdue
-        ? `Dnes potrebuješ vyriešiť ${brief.counts.overdue} omeškané úlohy.`
-        : brief.counts?.due_today
-          ? `Na dnes máš pripravených ${brief.counts.due_today} úloh.`
-          : "Dnešný plán je pripravený.";
-    }
-    if (elements.assistantFocus) {
-      elements.assistantFocus.textContent = Array.isArray(brief.focus) && brief.focus.length
-        ? brief.focus.join(" ")
-        : "Dnes máš priestor pripraviť nové follow-upy a upratať klientsku pipeline.";
-    }
+  const messages = Array.isArray(state.assistant?.messages) ? state.assistant.messages : [];
+  const profile = state.assistant?.profile || {};
+  if (elements.assistantHeadline) {
+    elements.assistantHeadline.textContent = messages.length
+      ? "AI asistent má načítaný kontext tvojej práce."
+      : "Napíš, s čím dnes potrebuješ pomôcť.";
   }
-
-  if (elements.assistantStats) {
-    const counts = brief?.counts || {};
-    elements.assistantStats.innerHTML = `
-      <article class="summary-card">
-        <span>Otvorené úlohy</span>
-        <strong>${escapeHtml(String(counts.open_tasks || 0))}</strong>
-      </article>
-      <article class="summary-card">
-        <span>Dnes</span>
-        <strong>${escapeHtml(String(counts.due_today || 0))}</strong>
-      </article>
-      <article class="summary-card">
-        <span>Omeškané</span>
-        <strong>${escapeHtml(String(counts.overdue || 0))}</strong>
-      </article>
-      <article class="summary-card">
-        <span>High priority</span>
-        <strong>${escapeHtml(String(counts.high_priority || 0))}</strong>
-      </article>
-    `;
+  if (elements.assistantFocus) {
+    elements.assistantFocus.textContent = profile.notes
+      ? "Asistent má uloženú tvoju pamäť a zohľadní ju v ďalších odpovediach."
+      : "Ulož si profil práce a AI si bude pamätať, ako pracuješ a na čo sa má sústrediť.";
   }
-
-  if (elements.assistantSuggestions) {
-    const suggestions = brief?.suggestions || [];
-    if (!suggestions.length) {
-      elements.assistantSuggestions.className = "assistant-suggestions empty-state";
-      elements.assistantSuggestions.textContent = "Po načítaní úloh tu uvidíš odporúčané ďalšie kroky.";
+  if (elements.assistantProfileFocus) {
+    elements.assistantProfileFocus.value = profile.focus || "";
+  }
+  if (elements.assistantProfileNotes) {
+    elements.assistantProfileNotes.value = profile.notes || "";
+  }
+  if (elements.assistantChatFeed) {
+    if (!messages.length) {
+      elements.assistantChatFeed.className = "assistant-chat-feed empty-state";
+      elements.assistantChatFeed.textContent = "AI asistent je pripravený. Pošli prvú správu a začneš konverzáciu.";
     } else {
-      elements.assistantSuggestions.className = "assistant-suggestions";
-      elements.assistantSuggestions.innerHTML = suggestions.map((item) => `
-        <article class="assistant-suggestion">
-          <strong>${escapeHtml(item.title || "Odporúčanie")}</strong>
-          <p>${escapeHtml(item.body || "")}</p>
+      elements.assistantChatFeed.className = "assistant-chat-feed";
+      elements.assistantChatFeed.innerHTML = messages.map((message) => `
+        <article class="assistant-message assistant-message--${escapeHtml(message.role || "assistant")}">
+          <span class="assistant-message__role">${escapeHtml(formatAssistantRole(message.role))}</span>
+          <div class="assistant-message__bubble">${escapeHtml(message.content || "").replace(/\n/g, "<br>")}</div>
+          <span class="assistant-message__time">${escapeHtml(formatDateTime(message.created_at))}</span>
         </article>
       `).join("");
-    }
-  }
-
-  if (elements.assistantTaskList) {
-    if (!tasks.length) {
-      elements.assistantTaskList.className = "assistant-task-list empty-state";
-      elements.assistantTaskList.textContent = "Zatiaľ bez úloh. Pridaj prvú položku a AI asistent pripraví denný prehľad.";
-    } else {
-      elements.assistantTaskList.className = "assistant-task-list";
-      elements.assistantTaskList.innerHTML = tasks.map((task) => `
-        <article class="assistant-task ${task.status === "done" ? "assistant-task--done" : ""}">
-          <div class="assistant-task__head">
-            <div>
-              <strong>${escapeHtml(task.title || "Úloha")}</strong>
-              <p>${escapeHtml(task.client_name || "Bez klienta")} • ${escapeHtml(formatAssistantMeta(task))}</p>
-            </div>
-            <span class="pill">${escapeHtml(formatAssistantStatus(task.status, task.priority))}</span>
-          </div>
-          ${task.details ? `<p class="assistant-task__details">${escapeHtml(task.details)}</p>` : ""}
-          <div class="assistant-task__actions">
-            ${task.status === "done"
-              ? `<button class="button button--ghost assistant-task-action" data-action="reopen" data-task-id="${task.id}" type="button">Znova otvoriť</button>`
-              : `<button class="button button--ghost assistant-task-action" data-action="complete" data-task-id="${task.id}" type="button">Označiť ako hotové</button>`}
-            <button class="button button--ghost assistant-task-action" data-action="delete" data-task-id="${task.id}" type="button">Vymazať</button>
-          </div>
-        </article>
-      `).join("");
-      elements.assistantTaskList.querySelectorAll(".assistant-task-action").forEach((button) => {
-        button.addEventListener("click", handleAssistantTaskAction);
-      });
+      elements.assistantChatFeed.scrollTop = elements.assistantChatFeed.scrollHeight;
     }
   }
 }
@@ -2173,71 +2133,102 @@ function handleCompressionDownload() {
   triggerDownload(result.blob, result.fileName || "subor-zmenseny");
 }
 
-async function handleAssistantTaskSubmit(event) {
+function handleAssistantPromptClick(event) {
+  const prompt = event.currentTarget.dataset.prompt || "";
+  if (!prompt || !elements.assistantChatInput) {
+    return;
+  }
+  elements.assistantChatInput.value = prompt;
+  elements.assistantChatInput.focus();
+}
+
+async function handleAssistantChatSubmit(event) {
   event.preventDefault();
   if (!state.user?.membership_active) {
     startCheckoutFlow();
     return;
   }
   try {
-    const response = await fetch("/api/assistant/tasks", {
+    if (elements.assistantChatMessage) {
+      elements.assistantChatMessage.hidden = true;
+      elements.assistantChatMessage.textContent = "";
+      elements.assistantChatMessage.classList.remove("auth-message--error");
+    }
+    const message = elements.assistantChatInput?.value.trim() || "";
+    if (message.length < 2) {
+      throw new Error("Napíš správu pre AI asistenta.");
+    }
+    if (elements.assistantChatSubmit) {
+      elements.assistantChatSubmit.disabled = true;
+      elements.assistantChatSubmit.textContent = "AI premýšľa...";
+    }
+    const response = await fetch("/api/assistant/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "create",
-        title: elements.assistantTaskTitle?.value.trim(),
-        client_name: elements.assistantTaskClient?.value.trim(),
-        due_date: elements.assistantTaskDueDate?.value || "",
-        priority: elements.assistantTaskPriority?.value || "medium",
-        channel: elements.assistantTaskChannel?.value || "followup",
-        details: elements.assistantTaskDetails?.value.trim(),
+        message,
       }),
     });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.error || "Úlohu sa nepodarilo uložiť.");
+      throw new Error(payload.error || "AI asistent neodpovedal.");
     }
-    if (elements.assistantTaskForm) {
-      elements.assistantTaskForm.reset();
+    state.assistant = payload;
+    if (elements.assistantChatForm) {
+      elements.assistantChatForm.reset();
     }
-    if (elements.assistantTaskMessage) {
-      elements.assistantTaskMessage.hidden = false;
-      elements.assistantTaskMessage.textContent = "Úloha bola uložená.";
-      elements.assistantTaskMessage.classList.remove("auth-message--error");
-    }
-    await fetchAssistantDashboard();
+    renderAssistantDashboard();
   } catch (error) {
-    if (elements.assistantTaskMessage) {
-      elements.assistantTaskMessage.hidden = false;
-      elements.assistantTaskMessage.textContent = error.message;
-      elements.assistantTaskMessage.classList.add("auth-message--error");
+    if (elements.assistantChatMessage) {
+      elements.assistantChatMessage.hidden = false;
+      elements.assistantChatMessage.textContent = error.message;
+      elements.assistantChatMessage.classList.add("auth-message--error");
+    }
+  } finally {
+    if (elements.assistantChatSubmit) {
+      elements.assistantChatSubmit.disabled = false;
+      elements.assistantChatSubmit.textContent = "Odoslať do AI asistenta";
     }
   }
 }
 
-async function handleAssistantTaskAction(event) {
-  const button = event.currentTarget;
-  const taskId = Number(button.dataset.taskId);
-  const action = button.dataset.action;
-  if (!taskId || !action) {
+async function handleAssistantProfileSubmit(event) {
+  event.preventDefault();
+  if (!state.user?.membership_active) {
+    startCheckoutFlow();
     return;
   }
-  button.disabled = true;
   try {
-    const response = await fetch("/api/assistant/tasks", {
+    if (elements.assistantProfileMessage) {
+      elements.assistantProfileMessage.hidden = true;
+      elements.assistantProfileMessage.textContent = "";
+      elements.assistantProfileMessage.classList.remove("auth-message--error");
+    }
+    const response = await fetch("/api/assistant/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task_id: taskId, action }),
+      body: JSON.stringify({
+        focus: elements.assistantProfileFocus?.value.trim() || "",
+        notes: elements.assistantProfileNotes?.value.trim() || "",
+      }),
     });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.error || "Zmena úlohy zlyhala.");
+      throw new Error(payload.error || "Pamäť AI asistenta sa nepodarilo uložiť.");
     }
-    await fetchAssistantDashboard();
+    state.assistant.profile = payload.profile || {};
+    if (elements.assistantProfileMessage) {
+      elements.assistantProfileMessage.hidden = false;
+      elements.assistantProfileMessage.textContent = "Pamäť asistenta bola uložená.";
+      elements.assistantProfileMessage.classList.remove("auth-message--error");
+    }
+    renderAssistantDashboard();
   } catch (error) {
-    window.alert(error.message);
-  } finally {
-    button.disabled = false;
+    if (elements.assistantProfileMessage) {
+      elements.assistantProfileMessage.hidden = false;
+      elements.assistantProfileMessage.textContent = error.message;
+      elements.assistantProfileMessage.classList.add("auth-message--error");
+    }
   }
 }
 
@@ -2272,6 +2263,13 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
+}
+
+function formatAssistantRole(role) {
+  if (role === "user") {
+    return "Ty";
+  }
+  return "Unifyo AI";
 }
 
 function formatAssistantMeta(task) {

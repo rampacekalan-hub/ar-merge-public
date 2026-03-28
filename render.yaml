@@ -19,3 +19,7 @@ services:
         value: "8"
       - key: MAX_COMPRESS_FILE_MB
         value: "100"
+      - key: OPENAI_MODEL
+        value: gpt-5
+      - key: OPENAI_API_KEY
+        sync: false

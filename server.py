@@ -16,6 +16,8 @@ from email.parser import BytesParser
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 from urllib.parse import parse_qs, urlparse
 
 import openpyxl
@@ -39,6 +41,8 @@ STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip()
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5").strip() or "gpt-5"
 SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "").strip()
@@ -161,6 +165,23 @@ def init_db():
                 completed_at TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS assistant_profiles (
+                user_id INTEGER PRIMARY KEY,
+                focus TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS assistant_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
             """
@@ -517,6 +538,151 @@ def build_assistant_brief(tasks):
         "focus": focus,
         "suggestions": suggestions,
     }
+
+
+def get_assistant_profile(connection, user_id):
+    row = connection.execute(
+        "SELECT * FROM assistant_profiles WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        return {"focus": "", "notes": ""}
+    return {
+        "focus": row["focus"] or "",
+        "notes": row["notes"] or "",
+        "updated_at": row["updated_at"] or "",
+    }
+
+
+def get_assistant_messages(connection, user_id, limit=24):
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM assistant_messages
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+    messages = []
+    for row in reversed(rows):
+        messages.append(
+            {
+                "id": row["id"],
+                "role": row["role"],
+                "content": row["content"],
+                "created_at": row["created_at"],
+            }
+        )
+    return messages
+
+
+def save_assistant_message(connection, user_id, role, content):
+    connection.execute(
+        """
+        INSERT INTO assistant_messages (user_id, role, content, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, role, content, format_timestamp(utc_now())),
+    )
+    connection.commit()
+
+
+def extract_openai_response_text(payload):
+    output_text = str(payload.get("output_text") or "").strip()
+    if output_text:
+        return output_text
+
+    chunks = []
+    for item in payload.get("output", []) or []:
+        for content in item.get("content", []) or []:
+            content_type = content.get("type", "")
+            if content_type in {"output_text", "text"}:
+                text_value = content.get("text") or content.get("value") or ""
+                if isinstance(text_value, dict):
+                    text_value = text_value.get("value", "")
+                if text_value:
+                    chunks.append(str(text_value).strip())
+    return "\n\n".join(chunk for chunk in chunks if chunk).strip()
+
+
+def build_assistant_system_prompt(user_row, profile):
+    focus = profile.get("focus") or "všeobecná práca finančného sprostredkovateľa"
+    notes = profile.get("notes") or "bez ďalších poznámok"
+    return (
+        "Si AI asistent pre finančných sprostredkovateľov na Slovensku. "
+        "Pomáhaš s organizáciou dňa, prioritami, follow-upmi, klientskou komunikáciou, "
+        "prípravou stretnutí, call scriptami, e-mailami, SMS správami, prehľadom pipeline "
+        "a každodennou operatívou. Odpovedaj po slovensky, prakticky, profesionálne a stručne. "
+        "Nedávaj záväzné právne, daňové ani regulované investičné odporúčania; pri takých otázkach "
+        "upozorni na potrebu internej compliance alebo odbornej konzultácie. "
+        f"Používateľ sa volá {user_row['name'] or user_row['email']}. "
+        f"Jeho hlavný fokus: {focus}. "
+        f"Pamäť o používateľovi: {notes}."
+    )
+
+
+def call_openai_assistant(user_row, profile, history_messages, user_message):
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
+
+    input_messages = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": build_assistant_system_prompt(user_row, profile),
+                }
+            ],
+        }
+    ]
+    for message in history_messages[-16:]:
+        input_messages.append(
+            {
+                "role": "assistant" if message["role"] == "assistant" else "user",
+                "content": [{"type": "input_text", "text": message["content"]}],
+            }
+        )
+    input_messages.append(
+        {
+            "role": "user",
+            "content": [{"type": "input_text", "text": user_message}],
+        }
+    )
+
+    payload = {
+        "model": OPENAI_MODEL,
+        "input": input_messages,
+        "max_output_tokens": 900,
+    }
+    request = urllib_request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(request, timeout=90) as response:
+            body = response.read().decode("utf-8")
+    except urllib_error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8")
+        except Exception:
+            detail = ""
+        raise RuntimeError(f"OpenAI API chyba: {detail or exc.reason}") from exc
+    except urllib_error.URLError as exc:
+        raise RuntimeError(f"OpenAI API nie je dostupné: {exc.reason}") from exc
+
+    payload = json.loads(body)
+    text = extract_openai_response_text(payload)
+    if not text:
+        raise RuntimeError("AI asistent vrátil prázdnu odpoveď.")
+    return text
 
 
 def is_membership_active(membership):
@@ -904,6 +1070,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/account/change-password":
             self.handle_account_change_password()
             return
+        if self.path == "/api/assistant/chat":
+            self.handle_assistant_chat()
+            return
+        if self.path == "/api/assistant/profile":
+            self.handle_assistant_profile()
+            return
         if self.path == "/api/assistant/tasks":
             self.handle_assistant_tasks()
             return
@@ -1037,9 +1209,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
-            tasks = get_assistant_tasks(connection, user["id"], include_done=True)
-            brief = build_assistant_brief(tasks)
-            self.write_json({"tasks": tasks, "brief": brief})
+            self.write_json(
+                {
+                    "profile": get_assistant_profile(connection, user["id"]),
+                    "messages": get_assistant_messages(connection, user["id"], limit=24),
+                }
+            )
         finally:
             connection.close()
 
@@ -1410,6 +1585,77 @@ class AppHandler(SimpleHTTPRequestHandler):
             connection.commit()
             log_activity(connection, "password_changed", "Používateľ zmenil heslo v účte.", user["id"])
             self.write_json({"ok": True})
+        finally:
+            connection.close()
+
+    def handle_assistant_profile(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return
+
+            payload = require_json(self)
+            focus = str(payload.get("focus") or "").strip()
+            notes = str(payload.get("notes") or "").strip()
+            now_value = format_timestamp(utc_now())
+            connection.execute(
+                """
+                INSERT INTO assistant_profiles (user_id, focus, notes, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    focus = excluded.focus,
+                    notes = excluded.notes,
+                    updated_at = excluded.updated_at
+                """,
+                (user["id"], focus, notes, now_value),
+            )
+            connection.commit()
+            log_activity(connection, "assistant_profile_updated", "Používateľ upravil pamäť AI asistenta.", user["id"])
+            self.write_json({"ok": True, "profile": get_assistant_profile(connection, user["id"])})
+        finally:
+            connection.close()
+
+    def handle_assistant_chat(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return
+
+            payload = require_json(self)
+            message = str(payload.get("message") or "").strip()
+            if len(message) < 2:
+                self.write_json({"error": "Napíšte správu pre AI asistenta."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            profile = get_assistant_profile(connection, user["id"])
+            history_messages = get_assistant_messages(connection, user["id"], limit=24)
+            save_assistant_message(connection, user["id"], "user", message)
+            reply = call_openai_assistant(user, profile, history_messages, message)
+            save_assistant_message(connection, user["id"], "assistant", reply)
+            log_activity(connection, "assistant_chat_message", "Používateľ komunikoval s AI asistentom.", user["id"])
+            self.write_json(
+                {
+                    "ok": True,
+                    "messages": get_assistant_messages(connection, user["id"], limit=24),
+                    "profile": profile,
+                }
+            )
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        except RuntimeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
         finally:
             connection.close()
 
