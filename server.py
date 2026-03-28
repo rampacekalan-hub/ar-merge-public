@@ -1572,65 +1572,58 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         try:
             form = parse_multipart_form(self.headers, self.read_request_body())
-        except Exception as exc:
-            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
-            return
 
-        file_items = form.get("file", [])
-        if not file_items:
-            self.write_json({"error": "Súbor nebol prijatý."}, status=HTTPStatus.BAD_REQUEST)
-            return
+            file_items = form.get("file", [])
+            if not file_items:
+                self.write_json({"error": "Súbor nebol prijatý."}, status=HTTPStatus.BAD_REQUEST)
+                return
 
-        target_items = form.get("target_mb", [])
-        target_mb = ""
-        if target_items:
-            target_mb = (target_items[0].get("content", b"") or b"").decode("utf-8", "ignore").strip()
+            target_items = form.get("target_mb", [])
+            target_mb = ""
+            if target_items:
+                target_mb = (target_items[0].get("content", b"") or b"").decode("utf-8", "ignore").strip()
 
-        file_item = file_items[0]
-        file_name = file_item.get("filename") or "upload"
-        file_bytes = file_item.get("content", b"")
-        if reject_large_upload(self, len(file_bytes), MAX_COMPRESS_FILE_BYTES, "Súbor"):
-            return
+            file_item = file_items[0]
+            file_name = file_item.get("filename") or "upload"
+            file_bytes = file_item.get("content", b"")
+            if reject_large_upload(self, len(file_bytes), MAX_COMPRESS_FILE_BYTES, "Súbor"):
+                return
 
-        try:
             result = compress_upload(file_name, file_bytes, target_mb)
+
+            connection = get_db()
+            try:
+                log_activity(
+                    connection,
+                    "file_compressed",
+                    "Používateľ zmenšil súbor.",
+                    user["id"],
+                    file=file_name,
+                    original_bytes=result.original_bytes,
+                    compressed_bytes=result.compressed_bytes,
+                    target_bytes=result.target_bytes,
+                    status=result.status,
+                )
+            finally:
+                connection.close()
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", result.content_type)
+            self.send_header("Content-Disposition", f'attachment; filename="{result.file_name}"')
+            self.send_header("Content-Length", str(len(result.data)))
+            self.send_header("X-Compression-Original-Bytes", str(result.original_bytes))
+            self.send_header("X-Compression-Compressed-Bytes", str(result.compressed_bytes))
+            self.send_header("X-Compression-Target-Bytes", str(result.target_bytes))
+            self.send_header("X-Compression-Status", result.status)
+            self.send_header("X-Compression-Reached-Target", "1" if result.reached_target else "0")
+            self.end_headers()
+            self.wfile.write(result.data)
         except ValueError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
-            return
         except RuntimeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-        except Exception:
-            self.write_json({"error": "Kompresia súboru zlyhala."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
-            return
-
-        connection = get_db()
-        try:
-            log_activity(
-                connection,
-                "file_compressed",
-                "Používateľ zmenšil súbor.",
-                user["id"],
-                file=file_name,
-                original_bytes=result.original_bytes,
-                compressed_bytes=result.compressed_bytes,
-                target_bytes=result.target_bytes,
-                status=result.status,
-            )
-        finally:
-            connection.close()
-
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", result.content_type)
-        self.send_header("Content-Disposition", f'attachment; filename="{result.file_name}"')
-        self.send_header("Content-Length", str(len(result.data)))
-        self.send_header("X-Compression-Original-Bytes", str(result.original_bytes))
-        self.send_header("X-Compression-Compressed-Bytes", str(result.compressed_bytes))
-        self.send_header("X-Compression-Target-Bytes", str(result.target_bytes))
-        self.send_header("X-Compression-Status", result.status)
-        self.send_header("X-Compression-Reached-Target", "1" if result.reached_target else "0")
-        self.end_headers()
-        self.wfile.write(result.data)
+        except Exception as exc:
+            self.write_json({"error": f"Kompresia zlyhala: {exc}"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def handle_export_xlsx(self):
         user = self.require_active_membership()

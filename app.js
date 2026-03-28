@@ -1752,10 +1752,21 @@ async function handleCompressionSubmit(event) {
     });
 
     if (!response.ok) {
-      let message = "Kompresia zlyhala.";
+      let message = `Kompresia zlyhala (${response.status}).`;
       try {
-        const payload = await response.json();
-        message = payload.error || message;
+        const responseText = await response.text();
+        try {
+          const payload = JSON.parse(responseText);
+          message = payload.error || message;
+        } catch (_parseError) {
+          const cleaned = responseText
+            .replace(/<[^>]*>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (cleaned) {
+            message = cleaned.slice(0, 240);
+          }
+        }
       } catch (_error) {
         // keep fallback message
       }
@@ -1774,7 +1785,12 @@ async function handleCompressionSubmit(event) {
     };
     setCompressionUploadPhase("done", 100);
   } catch (error) {
-    state.compression.result = { error: error.message };
+    const message = String(error?.message || "Kompresia zlyhala.");
+    state.compression.result = {
+      error: message.includes("Failed to fetch")
+        ? "Server pri kompresii neodpovedal. Skús to prosím ešte raz."
+        : message,
+    };
     setCompressionUploadPhase("idle", 0);
   } finally {
     state.compression.isBusy = false;
