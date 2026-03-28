@@ -185,12 +185,12 @@ body {
 h1 {
   font-size: clamp(2.2rem, 3.6vw, 3.25rem);
   line-height: 0.98;
-  max-width: 11ch;
+  max-width: 16ch;
   letter-spacing: -0.055em;
 }
 
 .hero__lede {
-  max-width: 34rem;
+  max-width: 54rem;
   margin-top: 16px;
   color: #536982;
   font-size: 1.02rem;
@@ -206,6 +206,9 @@ h1 {
 }
 
 .hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   margin-top: 22px;
   gap: 12px;
 }
@@ -237,8 +240,8 @@ h1 {
 }
 
 .hero__grid--landing {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 390px);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
 
 .hero-preview {
@@ -352,21 +355,22 @@ h1 {
 .hero__microproof {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 .hero__microproof span {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  color: #49617d;
-  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(16, 35, 63, 0.08);
+  color: #294663;
+  font-size: 0.9rem;
   font-weight: 700;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
 }
 
 .trust-strip {
@@ -3490,33 +3494,20 @@ tbody tr:hover td {
 /* -------- Landing polish: stable layout + price-first promo -------- */
 
 .hero__grid--landing {
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px) !important;
-  align-items: stretch !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start !important;
 }
 
-.hero-preview {
-  height: 100%;
+.hero__main {
+  max-width: 100%;
 }
 
-.hero-preview__window {
-  height: 100%;
-  display: grid;
-  align-content: start;
-  gap: 10px;
+h1 {
+  max-width: 16ch !important;
 }
 
-.hero-preview__rows {
-  gap: 9px;
-}
-
-.hero-preview__row {
-  display: grid;
-  gap: 4px;
-  min-height: 68px;
-}
-
-.hero-preview__row span {
-  word-break: break-word;
+.hero__lede {
+  max-width: 56rem !important;
 }
 
 .compare-grid {
