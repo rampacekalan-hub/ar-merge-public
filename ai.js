@@ -98,8 +98,8 @@ function renderAiState() {
   }
   if (aiElements.lockedText) {
     aiElements.lockedText.textContent = !isLoggedIn
-      ? "Vytvor si účet v Unifyo a získaš prístup k AI asistentovi pre dennú prácu finančného sprostredkovateľa."
-      : "Po aktivácii členstva získaš plný prístup k AI chatu s pamäťou, follow-upmi, plánovaním dňa a klientskou komunikáciou.";
+      ? "Vytvor si účet v Unifyo a získaj AI asistenta pre každodennú prax finančného sprostredkovateľa."
+      : "Po aktivácii členstva získaš AI chat s pamäťou, follow-upmi, plánom dňa a odporúčaniami na relevantné oficiálne zdroje.";
   }
   if (aiElements.checkoutBtn) {
     aiElements.checkoutBtn.classList.toggle("is-hidden", !isLoggedIn || hasMembership);
@@ -197,7 +197,7 @@ function renderEmptyChat(message = "", isError = false) {
     <div class="ai-empty">
       <span class="pill">Pripravené</span>
       <h3>Začni jednou vetou</h3>
-      <p>Napíš, čo potrebuješ dnes vyriešiť, a AI navrhne ďalší postup.</p>
+      <p>Napíš, čo potrebuješ dnes vyriešiť, a AI navrhne ďalší postup aj relevantné zdroje.</p>
     </div>
   `;
 }
