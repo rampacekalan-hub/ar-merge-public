@@ -333,6 +333,9 @@ async function bootstrap() {
   renderCompressionResult();
   renderStickyDealBar();
   renderChooserDealMini();
+  if (shouldAutoOpenAdminPanel()) {
+    openAdminPanel();
+  }
 }
 
 function renderAccessState() {
@@ -726,6 +729,11 @@ async function openAdminPanel() {
 function closeAdminPanel() {
   elements.adminPanel.hidden = true;
   syncModalState();
+}
+
+function shouldAutoOpenAdminPanel() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("openAdmin") === "1";
 }
 
 function setAuthMode(mode) {
@@ -1296,6 +1304,7 @@ function renderAdminAssistantMessages(target, messages, userId, activeThreadId =
         <span>${escapeHtml(formatDateTime(message.created_at))}</span>
         ${message.role === "assistant" ? `<span class="pill pill--small">${escapeHtml(formatReviewStatus(message.review_status))}</span>` : ""}
       </div>
+      ${renderAdminAssistantMeta(message.meta)}
       <div class="admin-assistant-message__body">${formatMessageHtml(message.content || "")}</div>
       ${message.role === "assistant" ? `
         <div class="admin-actions">
@@ -1305,6 +1314,30 @@ function renderAdminAssistantMessages(target, messages, userId, activeThreadId =
       ` : ""}
     </article>
   `).join("");
+}
+
+function renderAdminAssistantMeta(meta) {
+  const normalized = meta && typeof meta === "object" ? meta : {};
+  const chips = [];
+  if (normalized.prompt_version) {
+    chips.push(`Prompt ${escapeHtml(String(normalized.prompt_version))}`);
+  }
+  if (normalized.model) {
+    chips.push(escapeHtml(String(normalized.model)));
+  }
+  if (normalized.used_web_search) {
+    chips.push("Web overenie");
+  }
+  if (normalized.used_image) {
+    chips.push("Obrázok");
+  }
+  if (normalized.attachment_name) {
+    chips.push(`Príloha: ${escapeHtml(String(normalized.attachment_name))}`);
+  }
+  if (!chips.length) {
+    return "";
+  }
+  return `<div class="admin-assistant-message__meta-row">${chips.map((chip) => `<span class="pill pill--small">${chip}</span>`).join("")}</div>`;
 }
 
 async function submitAdminAssistantReview(userId, messageId, reviewStatus, threadId, messageEl) {

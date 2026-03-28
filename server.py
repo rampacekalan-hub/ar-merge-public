@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import csv
+import base64
 import hashlib
 import hmac
 import io
@@ -55,10 +56,13 @@ MAX_COMPRESS_FILE_MB = float(os.environ.get("MAX_COMPRESS_FILE_MB", "100"))
 OPENAI_WEB_SEARCH_ENABLED = os.environ.get("OPENAI_ENABLE_WEB_SEARCH", "1").strip().lower() not in {"0", "false", "no"}
 OPENAI_WEB_SEARCH_TOOL = os.environ.get("OPENAI_WEB_SEARCH_TOOL", "web_search_preview").strip() or "web_search_preview"
 OPENAI_WEB_SEARCH_RUNTIME_DISABLED = False
+MAX_AI_IMAGE_MB = float(os.environ.get("MAX_AI_IMAGE_MB", "10"))
+PROMPT_VERSION = "unifyo-sk-fin-v4"
 
 MAX_REQUEST_BODY_BYTES = max(1, int(MAX_REQUEST_BODY_MB * 1024 * 1024))
 MAX_CONTACT_FILE_BYTES = max(1, int(MAX_CONTACT_FILE_MB * 1024 * 1024))
 MAX_COMPRESS_FILE_BYTES = max(1, int(MAX_COMPRESS_FILE_MB * 1024 * 1024))
+MAX_AI_IMAGE_BYTES = max(1, int(MAX_AI_IMAGE_MB * 1024 * 1024))
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -194,6 +198,7 @@ def init_db():
                 thread_id INTEGER,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
+                meta_json TEXT NOT NULL DEFAULT '{}',
                 review_status TEXT NOT NULL DEFAULT 'unreviewed',
                 reviewed_by INTEGER,
                 reviewed_at TEXT NOT NULL DEFAULT '',
@@ -214,6 +219,8 @@ def init_db():
         }
         if "thread_id" not in assistant_message_columns:
             connection.execute("ALTER TABLE assistant_messages ADD COLUMN thread_id INTEGER")
+        if "meta_json" not in assistant_message_columns:
+            connection.execute("ALTER TABLE assistant_messages ADD COLUMN meta_json TEXT NOT NULL DEFAULT '{}'")
         if "review_status" not in assistant_message_columns:
             connection.execute("ALTER TABLE assistant_messages ADD COLUMN review_status TEXT NOT NULL DEFAULT 'unreviewed'")
         if "reviewed_by" not in assistant_message_columns:
@@ -267,6 +274,15 @@ def parse_positive_int(value, default=0):
 
 def format_mb(size_bytes):
     return f"{size_bytes / (1024 * 1024):.2f} MB"
+
+
+def safe_json_loads(value, default=None):
+    if default is None:
+        default = {}
+    try:
+        return json.loads(value or "")
+    except Exception:
+        return default
 
 
 def today_iso():
@@ -763,6 +779,7 @@ def get_assistant_messages(connection, user_id, thread_id=None, limit=24):
                 "thread_id": row["thread_id"],
                 "role": row["role"],
                 "content": row["content"],
+                "meta": safe_json_loads(row["meta_json"], {}),
                 "review_status": row["review_status"] or "unreviewed",
                 "reviewed_by": row["reviewed_by"] or 0,
                 "reviewed_at": row["reviewed_at"] or "",
@@ -786,14 +803,15 @@ def touch_assistant_thread(connection, thread_id, title=None):
         )
 
 
-def save_assistant_message(connection, user_id, thread_id, role, content):
+def save_assistant_message(connection, user_id, thread_id, role, content, meta=None):
     review_status = "approved" if role == "user" else "unreviewed"
+    meta_json = json.dumps(meta or {}, ensure_ascii=False)
     cursor = connection.execute(
         """
-        INSERT INTO assistant_messages (user_id, thread_id, role, content, review_status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO assistant_messages (user_id, thread_id, role, content, meta_json, review_status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (user_id, thread_id, role, content, review_status, format_timestamp(utc_now())),
+        (user_id, thread_id, role, content, meta_json, review_status, format_timestamp(utc_now())),
     )
     if role == "user":
         thread_row = connection.execute("SELECT title FROM assistant_threads WHERE id = ?", (thread_id,)).fetchone()
@@ -895,8 +913,45 @@ def perform_openai_request(url, payload):
         raise RuntimeError(f"OpenAI API nie je dostupné: {exc.reason}") from exc
 
 
+def build_image_data_url(content_type, content_bytes):
+    encoded = base64.b64encode(content_bytes).decode("ascii")
+    return f"data:{content_type};base64,{encoded}"
+
+
+def normalize_attachment_name(value):
+    return " ".join(str(value or "").strip().split())[:120].strip() or "obrazok"
+
+
+def parse_assistant_attachment(form):
+    attachment_entry = None
+    for key in ("attachment", "image", "file"):
+        if form.get(key):
+            attachment_entry = form[key][0]
+            break
+    if not attachment_entry or not attachment_entry.get("content"):
+        return None
+
+    content_type = str(attachment_entry.get("content_type") or "").strip().lower()
+    if not content_type.startswith("image/"):
+        raise ValueError("AI aktuálne podporuje iba obrázky.")
+
+    content_bytes = attachment_entry.get("content") or b""
+    if len(content_bytes) > MAX_AI_IMAGE_BYTES:
+        raise ValueError(f"Obrázok je príliš veľký. Maximum je {format_mb(MAX_AI_IMAGE_BYTES)}.")
+
+    filename = normalize_attachment_name(attachment_entry.get("filename") or "obrazok")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "content_bytes": content_bytes,
+        "data_url": build_image_data_url(content_type, content_bytes),
+    }
+
+
 def build_assistant_system_prompt(user_row, _profile):
-    today_value = date.today().strftime("%d.%m.%Y")
+    now_value = datetime.now().astimezone()
+    today_value = now_value.strftime("%d.%m.%Y")
+    time_value = now_value.strftime("%H:%M")
     return (
         "Si Unifyo AI, profesionálny interný asistent pre finančných sprostredkovateľov na Slovensku. "
         "Pomáhaš s organizáciou dňa, prioritami, follow-upmi, klientskou komunikáciou, prípravou stretnutí, "
@@ -912,13 +967,15 @@ def build_assistant_system_prompt(user_row, _profile):
         "alebo užitočné (najmä pri regulačných, právnych, dohľadových a oficiálnych témach). "
         "Ak je vhodné odporučiť zdroj, preferuj oficiálne a dôveryhodné weby: nbs.sk, slov-lex.sk, "
         "oficiálne stránky finančných inštitúcií, prípadne podľa kontextu alanrampacek.sk a prosight.sk. "
-        f"Aktuálny referenčný dátum je {today_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
+        f"Aktuálny referenčný dátum a čas sú {today_value} {time_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
         "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
         "Nevymýšľaj si fakty. Ak si neistý, povedz to prirodzene a navrhni overenie. "
         "Nedávaj záväzné právne, daňové ani regulované investičné odporúčania; pri takých otázkach "
         "odporuč overenie cez compliance alebo kvalifikovaného odborníka. "
+        "Ak používateľ priloží obrázok alebo screenshot, najprv ho vecne vyhodnoť a potom odporuč konkrétny ďalší krok. "
         "Ak to pomôže používateľovi, proaktívne ponúkni krátku verziu do e-mailu/SMS alebo konkrétny ďalší krok. "
-        f"Používateľ sa volá {user_row['name'] or user_row['email']}."
+        f"Používateľ sa volá {user_row['name'] or user_row['email']}. "
+        f"Používaj internú prompt verziu {PROMPT_VERSION}, ale túto informáciu bežne nevypisuj používateľovi."
     )
 
 
@@ -955,10 +1012,57 @@ def should_use_openai_web_search(user_message):
     return any(marker in text for marker in time_sensitive_markers)
 
 
-def call_openai_assistant(user_row, profile, history_messages, user_message):
+def call_openai_assistant(user_row, profile, history_messages, user_message, attachment=None):
     global OPENAI_WEB_SEARCH_RUNTIME_DISABLED
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
+
+    response_meta = {
+        "prompt_version": PROMPT_VERSION,
+        "model": OPENAI_MODEL,
+        "used_web_search": False,
+        "used_image": bool(attachment),
+        "attachment_name": attachment["filename"] if attachment else "",
+    }
+
+    if attachment:
+        fallback_messages = [
+            {
+                "role": "system",
+                "content": build_assistant_system_prompt(user_row, profile),
+            }
+        ]
+        for message in history_messages[-8:]:
+            fallback_messages.append(
+                {
+                    "role": "assistant" if message["role"] == "assistant" else "user",
+                    "content": message["content"],
+                }
+            )
+        fallback_messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_message or "Vyhodnoť priložený obrázok a poraď mi ďalší krok."},
+                    {"type": "image_url", "image_url": {"url": attachment["data_url"]}},
+                ],
+            }
+        )
+
+        fallback_payload = perform_openai_request(
+            "https://api.openai.com/v1/chat/completions",
+            {
+                "model": "gpt-4.1-mini",
+                "messages": fallback_messages,
+                "temperature": 0.5,
+                "max_tokens": 700,
+            },
+        )
+        text = extract_openai_response_text(fallback_payload)
+        if text:
+            response_meta["model"] = "gpt-4.1-mini"
+            return text, response_meta
+        raise RuntimeError("AI asistent vrátil prázdnu odpoveď k priloženému obrázku.")
 
     input_messages = []
     for message in history_messages[-10:]:
@@ -993,7 +1097,9 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
             primary_payload = perform_openai_request("https://api.openai.com/v1/responses", candidate_payload)
             text = extract_openai_response_text(primary_payload)
             if text:
-                return text
+                response_meta["used_web_search"] = bool("tools" in candidate_payload)
+                response_meta["model"] = candidate_payload.get("model", OPENAI_MODEL)
+                return text, response_meta
             primary_error = f"AI asistent vrátil prázdnu odpoveď. Stav: {primary_payload.get('status') or 'unknown'}."
         except RuntimeError as exc:
             primary_error = str(exc)
@@ -1031,7 +1137,8 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     )
     text = extract_openai_response_text(fallback_payload)
     if text:
-        return text
+        response_meta["model"] = "gpt-4.1-mini"
+        return text, response_meta
     raise RuntimeError(primary_error or "AI asistent vrátil prázdnu odpoveď.")
 
 
@@ -2064,6 +2171,34 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
 
             payload = require_json(self)
+            action = str(payload.get("action") or "create").strip().lower()
+
+            if action == "rename":
+                thread_id = parse_positive_int(payload.get("thread_id"), 0)
+                title = build_thread_title(payload.get("title") or "Nový chat")
+                active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
+                if not active_thread:
+                    self.write_json({"error": "Chat sa nenašiel."}, status=HTTPStatus.NOT_FOUND)
+                    return
+                touch_assistant_thread(connection, active_thread["id"], title=title)
+                connection.commit()
+                active_thread = resolve_assistant_thread(connection, user["id"], active_thread["id"])
+                log_activity(connection, "assistant_thread_renamed", "Používateľ premenoval AI chat.", user["id"], thread_id=active_thread["id"], title=title)
+                self.write_json(
+                    {
+                        "ok": True,
+                        "thread": {
+                            "id": active_thread["id"],
+                            "title": active_thread["title"] or "Nový chat",
+                            "created_at": active_thread["created_at"],
+                            "updated_at": active_thread["updated_at"],
+                        },
+                        "threads": get_assistant_threads(connection, user["id"], limit=50),
+                        "messages": get_assistant_messages(connection, user["id"], active_thread["id"], limit=80),
+                    }
+                )
+                return
+
             title = build_thread_title(payload.get("title") or "Nový chat")
             thread_id = create_assistant_thread(connection, user["id"], title)
             active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
@@ -2098,10 +2233,22 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
-            payload = require_json(self)
-            message = str(payload.get("message") or "").strip()
-            thread_id = parse_positive_int(payload.get("thread_id"), 0)
-            if len(message) < 2:
+            content_type = self.headers.get("Content-Type", "")
+            attachment = None
+            if "multipart/form-data" in content_type.lower():
+                form = parse_multipart_form(self.headers, self.read_request_body())
+                message = ""
+                if form.get("message"):
+                    message = (form["message"][0].get("content") or b"").decode("utf-8", errors="ignore").strip()
+                thread_id = 0
+                if form.get("thread_id"):
+                    thread_id = parse_positive_int((form["thread_id"][0].get("content") or b"").decode("utf-8", errors="ignore").strip(), 0)
+                attachment = parse_assistant_attachment(form)
+            else:
+                payload = require_json(self)
+                message = str(payload.get("message") or "").strip()
+                thread_id = parse_positive_int(payload.get("thread_id"), 0)
+            if len(message) < 2 and not attachment:
                 self.write_json({"error": "Napíšte správu pre AI asistenta."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
@@ -2111,15 +2258,26 @@ class AppHandler(SimpleHTTPRequestHandler):
                 active_thread = resolve_assistant_thread(connection, user["id"], new_thread_id)
             profile = get_assistant_profile(connection, user["id"])
             history_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
-            save_assistant_message(connection, user["id"], active_thread["id"], "user", message)
-            reply = call_openai_assistant(user, profile, history_messages, message)
-            save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply)
+            user_message_content = message
+            user_meta = {}
+            if attachment:
+                base_user_message = message or "Vyhodnoť prosím priložený obrázok."
+                user_message_content = f"{base_user_message}\n\n[Priložený obrázok: {attachment['filename']}]"
+                user_meta = {
+                    "attachment_name": attachment["filename"],
+                    "attachment_type": attachment["content_type"],
+                }
+            save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta)
+            reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment)
+            save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta)
             log_activity(
                 connection,
                 "assistant_chat_message",
                 "Používateľ komunikoval s AI asistentom.",
                 user["id"],
                 thread_id=active_thread["id"],
+                used_image=bool(attachment),
+                attachment_name=attachment["filename"] if attachment else "",
             )
             self.write_json(
                 {

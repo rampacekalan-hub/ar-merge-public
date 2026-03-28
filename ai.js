@@ -4,6 +4,8 @@ const aiState = {
   activeThreadId: 0,
   messages: [],
   typing: false,
+  attachment: null,
+  renaming: false,
 };
 
 const aiElements = {
@@ -12,8 +14,10 @@ const aiElements = {
   sidebarToggle: document.getElementById("aiSidebarToggle"),
   accountBtn: document.getElementById("aiAccountBtn"),
   logoutBtn: document.getElementById("aiLogoutBtn"),
+  adminBtn: document.getElementById("aiAdminBtn"),
   checkoutBtn: document.getElementById("aiCheckoutBtn"),
   loginLink: document.getElementById("aiLoginLink"),
+  nowPill: document.getElementById("aiNowPill"),
   membershipPill: document.getElementById("aiMembershipPill"),
   lockedState: document.getElementById("aiLockedState"),
   lockedTitle: document.getElementById("aiLockedTitle"),
@@ -21,10 +25,18 @@ const aiElements = {
   chatReady: document.getElementById("aiChatReady"),
   chatFeed: document.getElementById("aiChatFeed"),
   chatForm: document.getElementById("aiChatForm"),
+  composerShell: document.querySelector(".ai-chatboard__composer-shell"),
   chatInput: document.getElementById("aiChatInput"),
+  imageInput: document.getElementById("aiImageInput"),
+  attachBtn: document.getElementById("aiAttachBtn"),
+  attachmentBar: document.getElementById("aiAttachmentBar"),
   chatSubmit: document.getElementById("aiChatSubmit"),
   chatMessage: document.getElementById("aiChatMessage"),
   chatHeadline: document.getElementById("aiChatHeadline"),
+  renameThreadBtn: document.getElementById("aiRenameThreadBtn"),
+  renameForm: document.getElementById("aiRenameForm"),
+  renameInput: document.getElementById("aiRenameInput"),
+  renameCancelBtn: document.getElementById("aiRenameCancelBtn"),
   promptButtons: Array.from(document.querySelectorAll(".js-ai-prompt")),
   newThreadBtn: document.getElementById("aiNewThreadBtn"),
   threadList: document.getElementById("aiThreadList"),
@@ -36,6 +48,7 @@ bootstrapAi();
 async function bootstrapAi() {
   await disableServiceWorkers();
   bindAiEvents();
+  startNowTicker();
   await refreshAiUser();
   renderAiState();
   if (aiState.user?.membership_active) {
@@ -55,10 +68,20 @@ function bindAiEvents() {
   aiElements.checkoutBtn?.addEventListener("click", startCheckoutFlow);
   aiElements.chatForm?.addEventListener("submit", handleChatSubmit);
   aiElements.chatFeed?.addEventListener("click", handleChatFeedClick);
+  aiElements.attachmentBar?.addEventListener("click", handleAttachmentBarClick);
   aiElements.threadList?.addEventListener("click", handleThreadListClick);
   aiElements.newThreadBtn?.addEventListener("click", handleNewThreadClick);
+  aiElements.renameThreadBtn?.addEventListener("click", openRenameThread);
+  aiElements.renameCancelBtn?.addEventListener("click", closeRenameThread);
+  aiElements.renameForm?.addEventListener("submit", handleRenameThreadSubmit);
   aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
   aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
+  aiElements.chatInput?.addEventListener("paste", handleChatPaste);
+  aiElements.attachBtn?.addEventListener("click", () => aiElements.imageInput?.click());
+  aiElements.imageInput?.addEventListener("change", handleAttachmentSelection);
+  aiElements.composerShell?.addEventListener("dragover", handleComposerDragOver);
+  aiElements.composerShell?.addEventListener("dragleave", handleComposerDragLeave);
+  aiElements.composerShell?.addEventListener("drop", handleComposerDrop);
   aiElements.promptButtons.forEach((button) => {
     button.addEventListener("click", () => {
       if (!aiElements.chatInput) {
@@ -69,6 +92,24 @@ function bindAiEvents() {
       aiElements.chatInput.focus();
     });
   });
+}
+
+function startNowTicker() {
+  renderNowPill();
+  window.setInterval(renderNowPill, 30_000);
+}
+
+function renderNowPill() {
+  if (!aiElements.nowPill) {
+    return;
+  }
+  const now = new Date();
+  aiElements.nowPill.textContent = new Intl.DateTimeFormat("sk-SK", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(now);
 }
 
 async function refreshAiUser() {
@@ -113,6 +154,9 @@ function renderAiState() {
   if (aiElements.logoutBtn) {
     aiElements.logoutBtn.classList.toggle("is-hidden", !isLoggedIn);
   }
+  if (aiElements.adminBtn) {
+    aiElements.adminBtn.classList.toggle("is-hidden", !Boolean(user?.is_admin));
+  }
   if (aiElements.membershipPill) {
     aiElements.membershipPill.textContent = hasMembership
       ? `Aktívne do ${formatDate(user.membership_valid_until)}`
@@ -145,6 +189,12 @@ function renderAiState() {
   if (aiElements.newThreadBtn) {
     aiElements.newThreadBtn.disabled = !hasMembership;
   }
+  if (aiElements.renameThreadBtn) {
+    aiElements.renameThreadBtn.disabled = !hasMembership || !aiState.activeThreadId;
+  }
+  if (aiElements.attachBtn) {
+    aiElements.attachBtn.disabled = !hasMembership;
+  }
   [aiElements.chatInput, aiElements.chatSubmit].forEach((element) => {
     if (element) {
       element.disabled = !hasMembership;
@@ -153,6 +203,7 @@ function renderAiState() {
   aiElements.promptButtons.forEach((button) => {
     button.disabled = !hasMembership;
   });
+  renderAttachmentBar();
   renderThreadList();
 }
 
@@ -178,9 +229,13 @@ async function loadAssistant(threadId = 0) {
 function renderAssistantData() {
   const activeThread = getActiveThread();
   if (aiElements.chatHeadline) {
-    aiElements.chatHeadline.textContent = activeThread?.title || "Praktický chat pre každodennú prácu";
+    aiElements.chatHeadline.textContent = activeThread?.title || "Nový chat";
+  }
+  if (aiElements.renameInput && activeThread) {
+    aiElements.renameInput.value = activeThread.title || "";
   }
   renderThreadList();
+  renderAttachmentBar();
   autoResizeTextarea(aiElements.chatInput);
   renderMessages();
   if (aiElements.chatInput && aiState.user?.membership_active) {
@@ -268,6 +323,25 @@ function renderMessages() {
   aiElements.chatFeed.scrollTop = aiElements.chatFeed.scrollHeight;
 }
 
+function renderAttachmentBar() {
+  if (!aiElements.attachmentBar) {
+    return;
+  }
+  if (!aiState.attachment) {
+    aiElements.attachmentBar.classList.add("is-hidden");
+    aiElements.attachmentBar.innerHTML = "";
+    return;
+  }
+  aiElements.attachmentBar.classList.remove("is-hidden");
+  aiElements.attachmentBar.innerHTML = `
+    <div class="ai-attachment-chip">
+      <span class="ai-attachment-chip__label">Obrázok</span>
+      <strong>${escapeHtml(aiState.attachment.name)}</strong>
+      <button class="ai-attachment-chip__remove" type="button" data-action="remove-attachment">×</button>
+    </div>
+  `;
+}
+
 function renderEmptyChat(message = "", isError = false) {
   if (message) {
     aiElements.chatFeed.className = `ai-chatboard__feed empty-state${isError ? " auth-message auth-message--error" : ""}`;
@@ -280,7 +354,7 @@ function renderEmptyChat(message = "", isError = false) {
     <div class="ai-empty-state">
       <span class="pill">Nový chat</span>
       <h3>Začni prvou otázkou</h3>
-      <p>Napíš situáciu z praxe a dostaneš stručnú, praktickú odpoveď so zrozumiteľným ďalším krokom.</p>
+      <p>Napíš situáciu z praxe, pridaj obrázok alebo screenshot a dostaneš stručnú, praktickú odpoveď s ďalším krokom.</p>
     </div>
   `;
 }
@@ -327,6 +401,112 @@ async function handleThreadListClick(event) {
   await loadAssistant(threadId);
 }
 
+function handleAttachmentSelection(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+  setAttachment(file);
+}
+
+function setAttachment(file) {
+  if (!file) {
+    return;
+  }
+  if (!String(file.type || "").startsWith("image/")) {
+    setInlineMessage(aiElements.chatMessage, "AI aktuálne podporuje iba obrázky.", true);
+    return;
+  }
+  aiState.attachment = file;
+  renderAttachmentBar();
+  setInlineMessage(aiElements.chatMessage, "", false, true);
+}
+
+function clearAttachment() {
+  aiState.attachment = null;
+  if (aiElements.imageInput) {
+    aiElements.imageInput.value = "";
+  }
+  renderAttachmentBar();
+}
+
+function handleAttachmentBarClick(event) {
+  const button = event.target.closest('[data-action="remove-attachment"]');
+  if (!button) {
+    return;
+  }
+  clearAttachment();
+}
+
+function handleComposerDragOver(event) {
+  event.preventDefault();
+  aiElements.composerShell?.classList.add("is-dragover");
+}
+
+function handleComposerDragLeave(event) {
+  if (event.target === aiElements.composerShell || !aiElements.composerShell?.contains(event.relatedTarget)) {
+    aiElements.composerShell?.classList.remove("is-dragover");
+  }
+}
+
+function handleComposerDrop(event) {
+  event.preventDefault();
+  aiElements.composerShell?.classList.remove("is-dragover");
+  const file = event.dataTransfer?.files?.[0];
+  if (file) {
+    setAttachment(file);
+  }
+}
+
+function openRenameThread() {
+  const activeThread = getActiveThread();
+  if (!activeThread || !aiElements.renameForm || !aiElements.renameInput) {
+    return;
+  }
+  aiState.renaming = true;
+  aiElements.renameForm.classList.remove("is-hidden");
+  aiElements.renameInput.value = activeThread.title || "";
+  aiElements.renameInput.focus();
+  aiElements.renameInput.select();
+}
+
+function closeRenameThread() {
+  aiState.renaming = false;
+  aiElements.renameForm?.classList.add("is-hidden");
+}
+
+async function handleRenameThreadSubmit(event) {
+  event.preventDefault();
+  const activeThread = getActiveThread();
+  const title = aiElements.renameInput?.value.trim() || "";
+  if (!activeThread || title.length < 2) {
+    setInlineMessage(aiElements.chatMessage, "Zadaj názov chatu.", true);
+    return;
+  }
+  try {
+    const response = await fetch("/api/assistant/thread", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "rename",
+        thread_id: activeThread.id,
+        title,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Názov chatu sa nepodarilo uložiť.");
+    }
+    aiState.threads = payload.threads || aiState.threads;
+    aiState.activeThreadId = Number(payload.thread?.id || aiState.activeThreadId || 0);
+    aiState.messages = payload.messages || aiState.messages;
+    closeRenameThread();
+    renderAssistantData();
+  } catch (error) {
+    setInlineMessage(aiElements.chatMessage, error.message, true);
+  }
+}
+
 async function handleNewThreadClick() {
   if (!aiState.user?.membership_active) {
     await startCheckoutFlow();
@@ -360,6 +540,20 @@ function handleChatKeydown(event) {
   }
 }
 
+function handleChatPaste(event) {
+  const items = Array.from(event.clipboardData?.items || []);
+  const imageItem = items.find((item) => String(item.type || "").startsWith("image/"));
+  if (!imageItem) {
+    return;
+  }
+  const file = imageItem.getAsFile();
+  if (!file) {
+    return;
+  }
+  event.preventDefault();
+  setAttachment(file);
+}
+
 async function handleChatSubmit(event) {
   event.preventDefault();
   if (!aiState.user?.membership_active) {
@@ -368,8 +562,8 @@ async function handleChatSubmit(event) {
   }
 
   const message = aiElements.chatInput?.value.trim() || "";
-  if (message.length < 2) {
-    setInlineMessage(aiElements.chatMessage, "Napíš správu pre AI asistenta.", true);
+  if (message.length < 2 && !aiState.attachment) {
+    setInlineMessage(aiElements.chatMessage, "Napíš správu alebo prilož obrázok pre AI asistenta.", true);
     return;
   }
 
@@ -383,9 +577,10 @@ async function handleChatSubmit(event) {
     ...aiState.messages,
     {
       role: "user",
-      content: message,
+      content: aiState.attachment ? `${message || "Vyhodnoť prosím priložený obrázok."}\n\n[Priložený obrázok: ${aiState.attachment.name}]` : message,
       created_at: new Date().toISOString(),
       review_status: "approved",
+      meta: aiState.attachment ? { attachment_name: aiState.attachment.name } : {},
     },
   ];
   renderMessages();
@@ -395,11 +590,7 @@ async function handleChatSubmit(event) {
   aiElements.chatSubmit.textContent = "Posielam...";
 
   try {
-    const response = await fetch("/api/assistant/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, thread_id: aiState.activeThreadId }),
-    });
+    const response = await sendAssistantMessage(message);
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || "AI asistent neodpovedal.");
@@ -411,11 +602,30 @@ async function handleChatSubmit(event) {
   } catch (error) {
     setInlineMessage(aiElements.chatMessage, error.message, true);
   } finally {
+    clearAttachment();
     aiState.typing = false;
     aiElements.chatSubmit.disabled = false;
     aiElements.chatSubmit.textContent = "Odoslať";
     renderAssistantData();
   }
+}
+
+async function sendAssistantMessage(message) {
+  if (aiState.attachment) {
+    const formData = new FormData();
+    formData.append("message", message);
+    formData.append("thread_id", String(aiState.activeThreadId || 0));
+    formData.append("attachment", aiState.attachment);
+    return fetch("/api/assistant/chat", {
+      method: "POST",
+      body: formData,
+    });
+  }
+  return fetch("/api/assistant/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, thread_id: aiState.activeThreadId }),
+  });
 }
 
 function handleAccountClick() {

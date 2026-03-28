@@ -47,6 +47,14 @@
         </div>
       </div>
 
+      <div class="ai-sidebar__section ai-sidebar__section--tips">
+        <span class="ai-sidebar__label">Možnosti</span>
+        <div class="ai-sidebar__mini-card">
+          <strong>Aktuálny čas, web a obrázky</strong>
+          <span>AI pozná aktuálny dátum a čas, pri časovo citlivých témach vie overiť web a vie vyhodnotiť aj priložený screenshot alebo fotku.</span>
+        </div>
+      </div>
+
       <div class="ai-sidebar__footer">
         <a href="/app.html">Aplikácia</a>
         <a href="/pricing.html">Cenník</a>
@@ -61,10 +69,21 @@
             <button id="aiSidebarToggle" class="ai-sidebar-toggle" type="button" aria-label="Otvoriť históriu chatov">☰</button>
             <p class="ai-workspace__eyebrow">AI pre sprostredkovateľov</p>
           </div>
-          <h1 id="aiChatHeadline">Praktický chat pre každodennú prácu</h1>
+          <div class="ai-thread-titlebar">
+            <h1 id="aiChatHeadline">Praktický chat pre každodennú prácu</h1>
+            <button id="aiRenameThreadBtn" class="button button--ghost ai-rename-btn" type="button">Premenovať</button>
+          </div>
+          <p class="ai-workspace__microcopy">Píš prirodzene. AI odpovie po slovensky, prakticky a v kontexte slovenského trhu.</p>
+          <form id="aiRenameForm" class="ai-rename-form is-hidden">
+            <input id="aiRenameInput" type="text" maxlength="72" placeholder="Nový názov chatu">
+            <button class="button button--primary" type="submit">Uložiť</button>
+            <button id="aiRenameCancelBtn" class="button button--ghost" type="button">Zrušiť</button>
+          </form>
         </div>
         <div class="ai-workspace__actions">
+          <span id="aiNowPill" class="pill pill--subtle">Načítavam čas…</span>
           <span id="aiMembershipPill" class="pill">Načítavam</span>
+          <a id="aiAdminBtn" class="button button--ghost is-hidden" href="/app.html?openAdmin=1">AI admin</a>
           <button id="aiAccountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
           <button id="aiLogoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
         </div>
@@ -85,10 +104,13 @@
 
         <form id="aiChatForm" class="ai-chatboard__composer">
           <label class="sr-only" for="aiChatInput">Tvoja správa</label>
+          <input id="aiImageInput" type="file" accept="image/*" hidden>
           <div class="ai-chatboard__composer-shell">
+            <button id="aiAttachBtn" class="button button--ghost ai-attach-btn" type="button" aria-label="Pridať obrázok">+</button>
             <textarea id="aiChatInput" rows="1" placeholder="Napíš otázku, situáciu alebo úlohu..." required></textarea>
             <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
           </div>
+          <div id="aiAttachmentBar" class="ai-attachment-bar is-hidden"></div>
           <p id="aiChatMessage" class="auth-message" hidden></p>
         </form>
       </section>
