@@ -16,89 +16,132 @@
         <a href="/index.html" class="ai-wordmark">Unifyo</a>
         <span class="ai-wordmark__badge">AI</span>
       </div>
+      <nav class="ai-topbar__nav" aria-label="Sekcie">
+        <a href="/index.html">Domov</a>
+        <a href="/app.html">Aplikácia</a>
+        <a href="/pricing.html">Cenník</a>
+      </nav>
       <div class="ai-topbar__actions">
-        <a href="/app.html" class="button button--ghost">Aplikácia</a>
         <button id="aiAccountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
         <button id="aiLogoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
       </div>
     </header>
 
-    <main class="ai-layout">
-      <section class="ai-main">
-        <section class="ai-hero card">
-          <div class="ai-hero__copy">
-            <p class="section-kicker">Unifyo AI</p>
-            <h1>AI asistent pre finančných sprostredkovateľov na Slovensku</h1>
-            <p class="ai-hero__lead">
-              Píš si s AI asistentom, ktorý si pamätá kontext, pomáha s organizáciou dňa, follow-upmi, prípravou hovorov,
-              klientskou komunikáciou aj prioritami v tvojej práci.
+    <main class="ai-workspace">
+      <aside class="ai-sidebar card">
+        <div class="ai-sidebar__section">
+          <p class="section-kicker">Unifyo AI</p>
+          <h1>Pracovný chat pre finančných sprostredkovateľov</h1>
+          <p class="ai-sidebar__lead">
+            Jeden AI priestor pre denný plán, follow-upy, call script, klientsku komunikáciu aj organizáciu pracovného dňa.
+          </p>
+        </div>
+
+        <div class="ai-sidebar__section">
+          <div class="ai-sidebar__head">
+            <p class="section-kicker">Rýchle nástroje</p>
+            <h2>Spusť hotový režim</h2>
+          </div>
+          <div class="ai-tool-grid">
+            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi plán dňa ako finančný sprostredkovateľ na Slovensku. Zoradí priority, follow-upy, telefonáty a stretnutia.">
+              <span class="ai-tool__icon">01</span>
+              <div>
+                <strong>Plán dňa</strong>
+                <p>Zoradenie úloh, klientov a priorít na dnešok.</p>
+              </div>
+            </button>
+            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Napíš mi profesionálny follow-up e-mail klientovi po stretnutí. Buď stručný, profesionálny a predajný.">
+              <span class="ai-tool__icon">02</span>
+              <div>
+                <strong>Follow-up e-mail</strong>
+                <p>Hotová odpoveď po stretnutí alebo telefonáte.</p>
+              </div>
+            </button>
+            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi call script pre klienta, ktorému sa dnes potrebujem ozvať. Chcem profesionálny a prirodzený priebeh hovoru.">
+              <span class="ai-tool__icon">03</span>
+              <div>
+                <strong>Call script</strong>
+                <p>Scenár hovoru pre klienta alebo lead.</p>
+              </div>
+            </button>
+            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Pomôž mi zoradiť rozpracovaných klientov a povedz mi, kto má byť dnes priorita a prečo.">
+              <span class="ai-tool__icon">04</span>
+              <div>
+                <strong>Priority dňa</strong>
+                <p>Kto je urgentný a čo má zmysel riešiť ako prvé.</p>
+              </div>
+            </button>
+            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Napíš mi krátku profesionálnu správu klientovi, ktorý prestal reagovať a potrebujem ho znovu aktivovať.">
+              <span class="ai-tool__icon">05</span>
+              <div>
+                <strong>Reaktivácia klienta</strong>
+                <p>SMS alebo e-mail pre neodpovedajúceho klienta.</p>
+              </div>
+            </button>
+            <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi checklist na stretnutie s klientom a otázky, ktoré si mám pripraviť ako finančný sprostredkovateľ.">
+              <span class="ai-tool__icon">06</span>
+              <div>
+                <strong>Príprava na stretnutie</strong>
+                <p>Checklist, otázky a agenda pred klientom.</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="ai-chat-panel card">
+        <div class="ai-chat-panel__head">
+          <div>
+            <p class="section-kicker">AI chat</p>
+            <h2 id="aiChatHeadline">Moderný pracovný copilot pre tvoj deň</h2>
+            <p class="ai-chat-panel__copy">
+              Pýtaj sa prirodzene. Unifyo AI si pamätá kontext, pomáha s komunikáciou, organizáciou dňa aj ďalšími úlohami.
             </p>
           </div>
-          <div class="ai-hero__pills">
-            <span class="pill">Pamäť kontextu</span>
-            <span class="pill">Slovenské prostredie</span>
-            <span class="pill">Pracovný copilot</span>
-          </div>
-        </section>
+          <span id="aiMembershipPill" class="pill">Načítavam</span>
+        </div>
 
-        <section class="ai-chat card">
-          <div class="ai-chat__header">
-            <div>
-              <p class="section-kicker">Chat</p>
-              <h2 id="aiChatHeadline">Tvoj pracovný AI asistent</h2>
-            </div>
-            <div class="ai-chat__status">
-              <span id="aiMembershipPill" class="pill">Načítavam</span>
+        <div id="aiLockedState" class="ai-locked is-hidden">
+          <div class="ai-locked__card">
+            <span class="pill">Premium prístup</span>
+            <h3 id="aiLockedTitle">Prihlás sa a odomkni AI asistenta</h3>
+            <p id="aiLockedText">
+              Verejný AI chat sa odomkne po prihlásení a aktivácii členstva.
+            </p>
+            <div class="toolbar toolbar--workspace">
+              <a id="aiLoginLink" href="/app.html" class="button button--ghost">Prihlásiť sa</a>
+              <button id="aiCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
             </div>
           </div>
+        </div>
 
-          <div id="aiLockedState" class="ai-locked is-hidden">
-            <div class="ai-locked__card">
-              <span class="pill">Premium prístup</span>
-              <h3 id="aiLockedTitle">AI asistent sa odomkne po prihlásení</h3>
-              <p id="aiLockedText">
-                Prihlás sa a aktivuj členstvo, aby sa odomkol konverzačný AI asistent pre tvoju dennú prácu.
-              </p>
-              <div class="toolbar toolbar--workspace">
-                <a id="aiLoginLink" href="/app.html" class="button button--ghost">Prihlásiť sa</a>
-                <button id="aiCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
-              </div>
-            </div>
+        <div id="aiChatReady" class="ai-chat-stage is-hidden">
+          <div id="aiChatFeed" class="ai-chat-feed empty-state">
+            AI asistent je pripravený. Začni otázkou alebo si vyber jeden z nástrojov vľavo.
           </div>
 
-          <div id="aiChatReady" class="ai-chat__body is-hidden">
-            <div id="aiPromptRow" class="ai-prompt-row">
-              <button class="assistant-chip" type="button" data-prompt="Priprav mi plán dňa ako finančný sprostredkovateľ na Slovensku.">Plán dňa</button>
-              <button class="assistant-chip" type="button" data-prompt="Napíš mi profesionálny follow-up e-mail klientovi po stretnutí.">Follow-up e-mail</button>
-              <button class="assistant-chip" type="button" data-prompt="Priprav mi call script na dnešné telefonáty s klientmi.">Call script</button>
-              <button class="assistant-chip" type="button" data-prompt="Pomôž mi zoradiť priority a klientov na dnešok.">Priority na dnes</button>
+          <form id="aiChatForm" class="ai-composer">
+            <label class="sr-only" for="aiChatInput">Tvoja správa</label>
+            <textarea id="aiChatInput" rows="1" placeholder="Napíš správu pre Unifyo AI..." required></textarea>
+            <div class="ai-composer__actions">
+              <p id="aiChatMessage" class="auth-message" hidden></p>
+              <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
             </div>
-
-            <div id="aiChatFeed" class="ai-chat-feed empty-state">
-              AI asistent je pripravený. Začni otázkou alebo si vyber jednu z rýchlych úloh vyššie.
-            </div>
-
-            <form id="aiChatForm" class="ai-composer">
-              <label class="sr-only" for="aiChatInput">Tvoja správa</label>
-              <textarea id="aiChatInput" rows="4" placeholder="Napíš napríklad: priprav mi plán dňa, navrhni follow-up klientovi, pomôž mi s organizáciou pipeline..." required></textarea>
-              <div class="ai-composer__footer">
-                <p id="aiChatMessage" class="auth-message" hidden></p>
-                <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
-              </div>
-            </form>
-          </div>
-        </section>
+          </form>
+        </div>
       </section>
 
-      <aside class="ai-side">
+      <aside class="ai-context">
         <section class="card ai-panel">
           <div class="section-head section-head--tight">
             <div>
-              <p class="section-kicker">Profil asistenta</p>
-              <h2>Čo si má pamätať</h2>
+              <p class="section-kicker">Pamäť</p>
+              <h2>Čo si má asistent pamätať</h2>
             </div>
           </div>
-          <p class="section-copy">Ulož si štýl práce, focus a dôležité poznámky. Asistent ich zohľadní v ďalších odpovediach.</p>
+          <p class="section-copy">
+            Nastav si štýl práce, focus a poznámky. Odpovede budú osobnejšie a bližšie tomu, ako pracuješ.
+          </p>
           <form id="aiProfileForm" class="auth-form auth-form--compact">
             <label class="auth-field">
               <span>Tvoj fokus</span>
@@ -106,7 +149,7 @@
             </label>
             <label class="auth-field">
               <span>Poznámky pre AI</span>
-              <textarea id="aiProfileNotes" rows="7" placeholder="Napíš, ako pracuješ, aký štýl komunikácie preferuješ, aké typy klientov riešiš a čo ti má AI priebežne pripomínať."></textarea>
+              <textarea id="aiProfileNotes" rows="8" placeholder="Napíš, aký štýl komunikácie preferuješ, aké typy klientov riešiš, čo má AI zohľadniť a čo ti má priebežne pripomínať."></textarea>
             </label>
             <div class="toolbar toolbar--workspace">
               <button id="aiProfileSubmit" class="button button--ghost" type="submit">Uložiť pamäť</button>
@@ -118,26 +161,26 @@
         <section class="card ai-panel">
           <div class="section-head section-head--tight">
             <div>
-              <p class="section-kicker">Čo vie</p>
-              <h2>S čím pomôže najčastejšie</h2>
+              <p class="section-kicker">Pre financákov</p>
+              <h2>Najčastejšie použitie</h2>
             </div>
           </div>
           <div class="ai-capability-list">
             <article class="ai-capability">
-              <strong>Plán dňa</strong>
-              <p>Zoradí priority, kontakty, follow-upy aj ďalšie kroky pre tvoj pracovný deň.</p>
+              <strong>Plánovanie dňa</strong>
+              <p>Ranné priority, follow-upy, klienti, telefonáty a stretnutia.</p>
             </article>
             <article class="ai-capability">
-              <strong>Komunikácia s klientmi</strong>
-              <p>Pripraví e-mail, správu, call script alebo reakciu po stretnutí.</p>
+              <strong>Klientská komunikácia</strong>
+              <p>Profesionálne e-maily, správy, reakcie po stretnutí aj znovuobnovenie kontaktu.</p>
+            </article>
+            <article class="ai-capability">
+              <strong>Predajná príprava</strong>
+              <p>Call script, agenda stretnutia, otázky na klienta aj ďalší krok v procese.</p>
             </article>
             <article class="ai-capability">
               <strong>Pracovná organizácia</strong>
-              <p>Pomôže ti upratať pipeline, ďalšie kroky aj rozpracované prípady.</p>
-            </article>
-            <article class="ai-capability">
-              <strong>Slovenské prostredie</strong>
-              <p>Komunikuje po slovensky a je nastavený na prácu finančného sprostredkovateľa na Slovensku.</p>
+              <p>Pomoc s prioritami, pipeline, pracovným rytmom a rozdelením dňa.</p>
             </article>
           </div>
         </section>

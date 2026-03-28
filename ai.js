@@ -26,13 +26,13 @@ const aiElements = {
   profileNotes: document.getElementById("aiProfileNotes"),
   profileSubmit: document.getElementById("aiProfileSubmit"),
   profileMessage: document.getElementById("aiProfileMessage"),
-  promptButtons: Array.from(document.querySelectorAll(".assistant-chip")),
+  promptButtons: Array.from(document.querySelectorAll(".js-ai-prompt")),
 };
 
 bootstrapAi();
 
 async function bootstrapAi() {
-  disableServiceWorkers();
+  await disableServiceWorkers();
   bindAiEvents();
   await refreshAiUser();
   renderAiState();
@@ -47,6 +47,8 @@ function bindAiEvents() {
   aiElements.checkoutBtn?.addEventListener("click", startCheckoutFlow);
   aiElements.chatForm?.addEventListener("submit", handleChatSubmit);
   aiElements.profileForm?.addEventListener("submit", handleProfileSubmit);
+  aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
+  aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
   aiElements.promptButtons.forEach((button) => {
     button.addEventListener("click", () => {
       if (!aiElements.chatInput) {
@@ -57,7 +59,6 @@ function bindAiEvents() {
       aiElements.chatInput.focus();
     });
   });
-  aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
 }
 
 async function refreshAiUser() {
@@ -92,13 +93,13 @@ function renderAiState() {
   }
   if (aiElements.lockedTitle) {
     aiElements.lockedTitle.textContent = !isLoggedIn
-      ? "Prihlás sa a odomkni AI asistenta"
-      : "Aktivuj členstvo a otvor si AI asistenta";
+      ? "Prihlás sa a odomkni Unifyo AI"
+      : "Aktivuj členstvo a otvor si AI chat";
   }
   if (aiElements.lockedText) {
     aiElements.lockedText.textContent = !isLoggedIn
-      ? "Vytvor si účet v Unifyo a otvor si verejný AI chat asistenta pre finančné sprostredkovanie."
-      : "Po aktivácii členstva získaš plný prístup k AI chatu s pamäťou, follow-upmi, plánom dňa a klientskou komunikáciou.";
+      ? "Vytvor si účet v Unifyo a získaš prístup k AI asistentovi pre dennú prácu finančného sprostredkovateľa."
+      : "Po aktivácii členstva získaš plný prístup k AI chatu s pamäťou, follow-upmi, plánovaním dňa a klientskou komunikáciou.";
   }
   if (aiElements.checkoutBtn) {
     aiElements.checkoutBtn.classList.toggle("is-hidden", !isLoggedIn || hasMembership);
@@ -106,11 +107,10 @@ function renderAiState() {
   if (aiElements.loginLink) {
     aiElements.loginLink.textContent = isLoggedIn ? "Prejsť do aplikácie" : "Prihlásiť sa / Registrovať";
   }
-  [aiElements.chatInput, aiElements.chatSubmit, aiElements.profileFocus, aiElements.profileNotes, aiElements.profileSubmit].forEach((el) => {
-    if (!el) {
-      return;
+  [aiElements.chatInput, aiElements.chatSubmit, aiElements.profileFocus, aiElements.profileNotes, aiElements.profileSubmit].forEach((element) => {
+    if (element) {
+      element.disabled = !hasMembership;
     }
-    el.disabled = !hasMembership;
   });
   aiElements.promptButtons.forEach((button) => {
     button.disabled = !hasMembership;
@@ -133,15 +133,16 @@ async function loadAssistant() {
 }
 
 function renderAssistantData() {
-  aiElements.chatHeadline.textContent = aiState.messages.length
-    ? "AI chat má načítanú tvoju konverzáciu"
-    : "Začni prvou správou a Unifyo AI sa prispôsobí tvojmu pracovnému štýlu";
-
   if (aiElements.profileFocus) {
     aiElements.profileFocus.value = aiState.profile?.focus || "";
   }
   if (aiElements.profileNotes) {
     aiElements.profileNotes.value = aiState.profile?.notes || "";
+  }
+  if (aiElements.chatHeadline) {
+    aiElements.chatHeadline.textContent = aiState.messages.length
+      ? "Tvoj AI chat už pozná kontext konverzácie"
+      : "Napíš, čo dnes potrebuješ vyriešiť";
   }
   autoResizeTextarea(aiElements.chatInput);
   renderMessages();
@@ -149,7 +150,7 @@ function renderAssistantData() {
 
 function renderMessages() {
   if (!aiState.messages.length) {
-    renderEmptyChat("AI asistent je pripravený. Začni otázkou alebo si vyber jednu z rýchlych úloh vyššie.");
+    renderEmptyChat();
     return;
   }
 
@@ -184,9 +185,42 @@ function renderMessages() {
   aiElements.chatFeed.scrollTop = aiElements.chatFeed.scrollHeight;
 }
 
-function renderEmptyChat(text, isError = false) {
-  aiElements.chatFeed.className = `ai-chat-feed empty-state${isError ? " auth-message auth-message--error" : ""}`;
-  aiElements.chatFeed.textContent = text;
+function renderEmptyChat(message = "", isError = false) {
+  if (message) {
+    aiElements.chatFeed.className = `ai-chat-feed empty-state${isError ? " auth-message auth-message--error" : ""}`;
+    aiElements.chatFeed.textContent = message;
+    return;
+  }
+
+  aiElements.chatFeed.className = "ai-chat-feed empty-state";
+  aiElements.chatFeed.innerHTML = `
+    <div class="ai-empty">
+      <span class="pill">Unifyo AI pripravené</span>
+      <h3>Napíš, čo dnes potrebuješ vyriešiť</h3>
+      <p>Asistent ti pomôže s plánom dňa, follow-upmi, klientskou komunikáciou, call scriptom aj organizáciou pipeline.</p>
+      <div class="ai-empty__grid">
+        <article class="ai-empty__card">
+          <strong>Plán dňa</strong>
+          <p>„Priprav mi dnešný plán ako finančný sprostredkovateľ.“</p>
+        </article>
+        <article class="ai-empty__card">
+          <strong>Follow-up</strong>
+          <p>„Napíš mi follow-up e-mail klientovi po stretnutí.“</p>
+        </article>
+        <article class="ai-empty__card">
+          <strong>Call script</strong>
+          <p>„Priprav mi scenár hovoru pre klienta, ktorému sa mám dnes ozvať.“</p>
+        </article>
+      </div>
+    </div>
+  `;
+}
+
+function handleChatKeydown(event) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    aiElements.chatForm?.requestSubmit();
+  }
 }
 
 async function handleChatSubmit(event) {
@@ -209,7 +243,7 @@ async function handleChatSubmit(event) {
   aiElements.chatForm.reset();
   autoResizeTextarea(aiElements.chatInput);
   aiElements.chatSubmit.disabled = true;
-  aiElements.chatSubmit.textContent = "AI premýšľa...";
+  aiElements.chatSubmit.textContent = "Odosielam...";
 
   try {
     const response = await fetch("/api/assistant/chat", {
@@ -284,6 +318,7 @@ async function startCheckoutFlow() {
   if (aiState.user.membership_active) {
     return;
   }
+
   try {
     const response = await fetch("/api/create-checkout-session", { method: "POST" });
     const payload = await response.json();
@@ -311,7 +346,7 @@ function autoResizeTextarea(textarea) {
     return;
   }
   textarea.style.height = "auto";
-  textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+  textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 52), 220)}px`;
 }
 
 function formatMessageHtml(text) {
