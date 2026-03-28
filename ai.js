@@ -677,7 +677,53 @@ function autoResizeTextarea(textarea) {
 }
 
 function formatMessageHtml(text) {
-  let formatted = escapeHtml(text).replace(/\n/g, "<br>");
+  const normalized = String(text || "").replace(/\r/g, "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const lines = normalized.split("\n");
+  const blocks = [];
+  let listItems = [];
+
+  function flushList() {
+    if (!listItems.length) {
+      return;
+    }
+    blocks.push(`<ul>${listItems.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+    listItems = [];
+  }
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+    const headingMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
+    const numberedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (headingMatch) {
+      flushList();
+      blocks.push(`<p><strong>${formatInlineText(headingMatch[1])}</strong></p>`);
+      return;
+    }
+    if (bulletMatch || numberedMatch) {
+      const content = bulletMatch ? bulletMatch[1] : numberedMatch[1];
+      listItems.push(formatInlineText(content));
+      return;
+    }
+    flushList();
+    blocks.push(`<p>${formatInlineText(trimmed)}</p>`);
+  });
+
+  flushList();
+  return blocks.join("");
+}
+
+function formatInlineText(value) {
+  let formatted = escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  formatted = formatted.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
   formatted = formatted.replace(
     /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
     (_match, label, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`

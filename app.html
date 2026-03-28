@@ -92,9 +92,11 @@
       <header class="workspace-header workspace-header--minimal card">
         <div class="hero__topbar">
           <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
-          <div class="toolbar toolbar--compact">
+          <div class="hero__topbar-actions" data-lang-switch-host>
+            <div class="toolbar toolbar--compact">
             <button id="accountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
             <button id="logoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
+            </div>
           </div>
         </div>
 
@@ -681,6 +683,46 @@
 
   <script src="billing-config.js"></script>
   <script src="consent.js"></script>
+  <script>
+    window.UNIFYO_PAGE_I18N = [
+      { selector: "title", text: { sk: "Unifyo | Aplikácia", en: "Unifyo | App" } },
+      { selector: ".sidebar-group__toggle[data-sidebar-group=\"pages\"] span:first-child", text: { sk: "Prehľad", en: "Overview" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"pages\"] .sidebar__link[href=\"/index.html\"] span:last-child", text: { sk: "Domov", en: "Home" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"pages\"] .sidebar__link[href=\"/app.html\"] span:last-child", text: { sk: "Aplikácia", en: "App" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"pages\"] .sidebar__link[href=\"/pricing.html\"] span:last-child", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".sidebar-group__toggle[data-sidebar-group=\"work\"] span:first-child", text: { sk: "Spracovanie", en: "Processing" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"work\"] .sidebar__link[href=\"#import\"] span:last-child", text: { sk: "Čistenie kontaktov", en: "Contact cleanup" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"work\"] .sidebar__link[href=\"#vysledok\"] span:last-child", text: { sk: "Výsledok", en: "Result" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"work\"] .sidebar__link[href=\"#audit\"] span:last-child", text: { sk: "Audit duplicit", en: "Duplicate audit" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"work\"] .sidebar__link[href=\"/ai.html\"] span:last-child", text: { sk: "AI asistent", en: "AI assistant" } },
+      { selector: ".sidebar-group__toggle[data-sidebar-group=\"account\"] span:first-child", text: { sk: "Účet", en: "Account" } },
+      { selector: ".sidebar-group__toggle[data-sidebar-group=\"trust\"] span:first-child", text: { sk: "Podmienky", en: "Legal" } },
+      { selector: ".workspace-header__summary .section-kicker", text: { sk: "Unifyo aplikácia", en: "Unifyo app" } },
+      { selector: "#aplikacia-mody .section-kicker", text: { sk: "Režim aplikácie", en: "App mode" } },
+      { selector: "#aplikacia-mody h2", text: { sk: "Vyber si jednu možnosť", en: "Choose one option" } },
+      { selector: "#modeContactsBtn .mode-card__kicker", text: { sk: "Kontakty", en: "Contacts" } },
+      { selector: "#modeContactsBtn strong", text: { sk: "Čistenie databázy kontaktov", en: "Contact database cleanup" } },
+      { selector: "#modeContactsBtn p", text: { sk: "Nahraj CSV/XLSX/XLS, odstráň duplicity a stiahni čistý export pripravený na import.", en: "Upload CSV/XLSX/XLS, remove duplicates and download a clean export ready for import." } },
+      { selector: "#modeContactsBtn .mode-card__cta", text: { sk: "Otvoriť čistenie kontaktov", en: "Open contact cleanup" } },
+      { selector: "#modeCompressBtn .mode-card__kicker", text: { sk: "Súbory", en: "Files" } },
+      { selector: "#modeCompressBtn strong", text: { sk: "Kompresia PDF a obrázkov", en: "PDF and image compression" } },
+      { selector: "#modeCompressBtn p", text: { sk: "Zmenši PDF, JPG, PNG alebo WEBP na cieľovú veľkosť bez zbytočných krokov navyše.", en: "Reduce PDF, JPG, PNG or WEBP to your target size without extra steps." } },
+      { selector: "#modeCompressBtn .mode-card__cta", text: { sk: "Otvoriť kompresiu súborov", en: "Open file compression" } },
+      { selector: "#modeAssistantBtn .mode-card__kicker", text: { sk: "AI", en: "AI" } },
+      { selector: "#modeAssistantBtn strong", text: { sk: "AI asistent pre sprostredkovateľa", en: "AI assistant for intermediaries" } },
+      { selector: "#modeAssistantBtn p", text: { sk: "Píš si s AI asistentom, ktorý pomáha s pracovným dňom a pripravuje klientsku komunikáciu.", en: "Chat with an AI assistant that helps with your workday and client communication." } },
+      { selector: "#modeAssistantBtn .mode-card__cta", text: { sk: "Otvoriť AI chat", en: "Open AI chat" } },
+      { selector: "#chooserDealMini .chooser-deal-mini__label", text: { sk: "Akciová cena", en: "Special price" } },
+      { selector: "#chooserDealMini .chooser-deal-mini__note", text: { sk: "Čistenie kontaktov, kompresia súborov a AI asistent v jednom účte.", en: "Contact cleanup, file compression and an AI assistant in one account." } },
+      { selector: ".site-footer a[href=\"/index.html\"]", text: { sk: "Domov", en: "Home" } },
+      { selector: ".site-footer a[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".site-footer a[href=\"/privacy.html\"]", text: { sk: "Ochrana súkromia", en: "Privacy" } },
+      { selector: ".site-footer a[href=\"/terms.html\"]", text: { sk: "Podmienky používania", en: "Terms of use" } },
+      { selector: ".site-footer a[href=\"/cookie-policy.html\"]", text: { sk: "Cookies", en: "Cookies" } },
+      { selector: ".site-footer a[href=\"/contact.html\"]", text: { sk: "Kontakt", en: "Contact" } }
+    ];
+  </script>
+  <script src="lang-switch.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

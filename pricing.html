@@ -67,6 +67,7 @@
         <div class="hero__content hero__content--compact hero__content--pricing-wide">
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
+            <div class="hero__topbar-actions" data-lang-switch-host></div>
           </div>
           <p class="hero__eyebrow">Cenník</p>
           <h1>Jedno členstvo. Plný výkon pre moderného sprostredkovateľa.</h1>
@@ -189,6 +190,21 @@
   </div>
 
   <script src="consent.js"></script>
+  <script>
+    window.UNIFYO_PAGE_I18N = [
+      { selector: "title", text: { sk: "Unifyo | Cenník", en: "Unifyo | Pricing" } },
+      { selector: ".hero__eyebrow", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".hero__content--pricing-wide h1", text: { sk: "Jedno členstvo. Plný výkon pre moderného sprostredkovateľa.", en: "One membership. Full performance for a modern intermediary." } },
+      { selector: ".hero__content--pricing-wide .hero__lede", text: { sk: "Aktiváciou odomkneš čistenie kontaktov, kompresiu súborov aj AI asistenta, ktorý zrýchli bežnú prácu aj klientsku komunikáciu.", en: "Activation unlocks contact cleanup, file compression and an AI assistant that speeds up daily work and client communication." } },
+      { selector: ".hero__actions .button--primary", text: { sk: "Prejsť do aplikácie", en: "Go to app" } },
+      { selector: ".pricing-card__label", text: { sk: "Mesačný prístup", en: "Monthly access" } },
+      { selector: ".pricing-card--hero-wide h2", text: { sk: "Kompletný pracovný balík v jednej aplikácii.", en: "A complete work bundle in one app." } },
+      { selector: ".pricing-card__intro", text: { sk: "Jedna cena, jeden účet a tri služby: kontakty bez duplicit, menšie súbory a AI podpora pre každodennú prax.", en: "One price, one account and three services: duplicate-free contacts, smaller files and AI support for daily practice." } },
+      { selector: ".pricing-card__deal", text: { sk: "Akciová cena", en: "Special price" } },
+      { selector: ".pricing-card__link", text: { sk: "Začať v aplikácii", en: "Start in the app" } }
+    ];
+  </script>
+  <script src="lang-switch.js"></script>
   <script src="site-nav.js"></script>
 </body>
 </html>

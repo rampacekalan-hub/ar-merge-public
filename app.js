@@ -198,6 +198,14 @@ const CHOOSER_DEAL_DISMISSED_KEY = "unifyo_chooser_deal_dismissed";
 const COMPRESS_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp"]);
 const ONLINE_COMPRESS_UI_LIMIT_BYTES = 100 * 1024 * 1024;
 
+function getCurrentLang() {
+  return window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
+}
+
+function tr(sk, en) {
+  return getCurrentLang() === "en" ? en : sk;
+}
+
 bootstrap();
 
 async function bootstrap() {
@@ -309,6 +317,7 @@ async function bootstrap() {
   elements.sidebarGroupToggles.forEach((toggle) => toggle.addEventListener("click", handleSidebarGroupToggle));
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
   document.addEventListener("keydown", handleModalEscape);
+  window.addEventListener("unifyo-language-change", handleLanguageChange);
   elements.downloadCsvBtn.addEventListener("click", () => {
     if (state.mergedContacts.length) {
       downloadCsv("kontakty_final.csv", state.mergedContacts);
@@ -343,7 +352,7 @@ function renderAccessState() {
   const isLoggedIn = Boolean(state.user);
   const isAdmin = Boolean(state.user?.is_admin);
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
-  const accountLabel = state.user?.name?.trim() || state.user?.email || "Prihlásiť sa";
+  const accountLabel = state.user?.name?.trim() || state.user?.email || tr("Prihlásiť sa", "Sign in");
   const membershipUntil = formatDate(state.user?.membership_valid_until);
   document.body.classList.toggle("is-pro-unlocked", hasMembership);
   if (elements.mergeBtn) {
@@ -354,21 +363,21 @@ function renderAccessState() {
     elements.buyToolbarBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.buyHeroBtn) {
-    elements.buyHeroBtn.textContent = hasMembership ? "Nahrať súbory" : isLoggedIn ? "Odomknúť import" : "Začať čistenie";
+    elements.buyHeroBtn.textContent = hasMembership ? tr("Nahrať súbory", "Upload files") : isLoggedIn ? tr("Odomknúť import", "Unlock import") : tr("Začať čistenie", "Start cleanup");
     elements.buyHeroBtn.disabled = false;
     elements.buyHeroBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.unlockUploadBtn) {
-    elements.unlockUploadBtn.textContent = hasMembership ? "Nahrať súbory" : isLoggedIn ? "Odomknúť import" : "Nahrať a vyčistiť";
+    elements.unlockUploadBtn.textContent = hasMembership ? tr("Nahrať súbory", "Upload files") : isLoggedIn ? tr("Odomknúť import", "Unlock import") : tr("Nahrať a vyčistiť", "Upload and clean");
     elements.unlockUploadBtn.disabled = false;
   }
   if (elements.buyProBtn) {
-    elements.buyProBtn.textContent = hasMembership ? "Členstvo je aktívne" : "Aktivovať za 1,99 € / mesiac";
+    elements.buyProBtn.textContent = hasMembership ? tr("Členstvo je aktívne", "Membership is active") : tr("Aktivovať za 1,99 € / mesiac", "Activate for €1.99 / month");
     elements.buyProBtn.disabled = false;
     elements.buyProBtn.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.pricingCtaBtn) {
-    elements.pricingCtaBtn.textContent = hasMembership ? "Nahrať a vyčistiť" : "Vyčistiť moje kontakty";
+    elements.pricingCtaBtn.textContent = hasMembership ? tr("Nahrať a vyčistiť", "Upload and clean") : tr("Vyčistiť moje kontakty", "Clean my contacts");
     elements.pricingCtaBtn.disabled = false;
     elements.pricingCtaBtn.classList.toggle("is-hidden", hasMembership);
   }
@@ -377,33 +386,33 @@ function renderAccessState() {
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
-      ? "Prepnúť na kompresiu"
+      ? tr("Prepnúť na kompresiu", "Switch to compression")
       : isLoggedIn
-        ? "Aktivovať členstvo pre kompresiu"
-        : "Prihlásiť sa a odomknúť kompresiu";
+        ? tr("Aktivovať členstvo pre kompresiu", "Activate membership for compression")
+        : tr("Prihlásiť sa a odomknúť kompresiu", "Sign in to unlock compression");
   }
   if (elements.openAssistantBtn) {
     elements.openAssistantBtn.textContent = hasMembership
-      ? "Otvoriť AI chat"
+      ? tr("Otvoriť AI chat", "Open AI chat")
       : isLoggedIn
-        ? "Aktivovať členstvo pre AI asistenta"
-        : "Prihlásiť sa a odomknúť AI asistenta";
+        ? tr("Aktivovať členstvo pre AI asistenta", "Activate membership for AI assistant")
+        : tr("Prihlásiť sa a odomknúť AI asistenta", "Sign in to unlock AI assistant");
   }
   if (elements.compressFeatureStatus) {
     elements.compressFeatureStatus.textContent = hasMembership
-      ? "Všetky pracovné moduly sú odomknuté. Môžeš prepínať medzi kontaktmi, kompresiou aj AI asistentom."
+      ? tr("Všetky pracovné moduly sú odomknuté. Môžeš prepínať medzi kontaktmi, kompresiou aj AI asistentom.", "All work modules are unlocked. You can switch between contacts, compression and the AI assistant.")
       : isLoggedIn
-        ? "Kompresia sa odomkne hneď po aktivácii členstva."
-        : "Dostupné po prihlásení a aktivácii členstva.";
+        ? tr("Kompresia sa odomkne hneď po aktivácii členstva.", "Compression unlocks immediately after membership activation.")
+        : tr("Dostupné po prihlásení a aktivácii členstva.", "Available after sign-in and membership activation.");
   }
   if (elements.fileInput) {
     elements.fileInput.disabled = !hasMembership;
   }
   if (elements.accountBtn) {
-    elements.accountBtn.textContent = isLoggedIn ? accountLabel : "Prihlásiť sa";
+    elements.accountBtn.textContent = isLoggedIn ? accountLabel : tr("Prihlásiť sa", "Sign in");
   }
   if (elements.accountMenuBtn) {
-    elements.accountMenuBtn.textContent = isLoggedIn ? "Účet a nastavenia" : "Prihlásiť sa / Registrovať";
+    elements.accountMenuBtn.textContent = isLoggedIn ? tr("Účet a nastavenia", "Account and settings") : tr("Prihlásiť sa / Registrovať", "Sign in / Register");
   }
   if (elements.adminMenuBtn) {
     elements.adminMenuBtn.classList.toggle("is-hidden", !isAdmin);
@@ -413,23 +422,29 @@ function renderAccessState() {
   }
   if (elements.accountStatus) {
     if (hasMembership) {
-      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}${canManageAdminTools ? " a plný správca prístup." : isAdmin ? " a zároveň administrátorský prístup." : "."}`;
+      elements.accountStatus.textContent = getCurrentLang() === "en"
+        ? `Signed-in account ${accountLabel} has active membership${membershipUntil !== "—" ? ` until ${membershipUntil}` : ""}${canManageAdminTools ? " and full admin access." : isAdmin ? " and admin access." : "."}`
+        : `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}${canManageAdminTools ? " a plný správca prístup." : isAdmin ? " a zároveň administrátorský prístup." : "."}`;
     } else if (isLoggedIn) {
-      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo${canManageAdminTools ? ", ale má plný správca prístup." : isAdmin ? ", ale má administrátorský prístup." : "."}`;
+      elements.accountStatus.textContent = getCurrentLang() === "en"
+        ? `Signed-in account ${accountLabel} does not have active membership yet${canManageAdminTools ? ", but has full admin access." : isAdmin ? ", but has admin access." : "."}`
+        : `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo${canManageAdminTools ? ", ale má plný správca prístup." : isAdmin ? ", ale má administrátorský prístup." : "."}`;
     } else {
-      elements.accountStatus.textContent = "Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.";
+      elements.accountStatus.textContent = tr("Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.", "Create an account, activate membership and clean your contacts without duplicates.");
     }
   }
   if (elements.premiumHeroCard) {
     elements.premiumHeroCard.classList.toggle("is-active", hasMembership);
   }
   if (elements.premiumHeroLabel) {
-    elements.premiumHeroLabel.textContent = hasMembership ? "Členstvo aktívne" : "Limitovaná akcia";
+    elements.premiumHeroLabel.textContent = hasMembership ? tr("Členstvo aktívne", "Membership active") : tr("Limitovaná akcia", "Limited offer");
   }
   if (elements.premiumHeroNote) {
     elements.premiumHeroNote.textContent = hasMembership
-      ? `Premium prístup je aktívny${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}`
-      : "Premium prístup • cena platí iba teraz";
+      ? (getCurrentLang() === "en"
+          ? `Premium access is active${membershipUntil !== "—" ? ` until ${membershipUntil}` : ""}`
+          : `Premium prístup je aktívny${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}`)
+      : tr("Premium prístup • cena platí iba teraz", "Premium access • price valid for now only");
   }
   const accountGroupToggle = document.querySelector('[data-sidebar-group="account"]');
   const accountGroupContent = document.querySelector('[data-sidebar-group-content="account"]');
@@ -439,15 +454,15 @@ function renderAccessState() {
   }
   if (elements.uploadTitle) {
     elements.uploadTitle.textContent = hasMembership
-      ? "Import je odomknutý a pripravený"
-      : "Plný import je súčasťou členského prístupu";
+      ? tr("Import je odomknutý a pripravený", "Import is unlocked and ready")
+      : tr("Plný import je súčasťou členského prístupu", "Full import is part of membership");
   }
   if (elements.uploadSubtitle) {
     elements.uploadSubtitle.textContent = hasMembership
-      ? "Nahraj vlastné CSV, XLSX alebo XLS súbory a systém ich automaticky vyčistí."
+      ? tr("Nahraj vlastné CSV, XLSX alebo XLS súbory a systém ich automaticky vyčistí.", "Upload your own CSV, XLSX or XLS files and the system will clean them automatically.")
       : isLoggedIn
-        ? "Účet je pripravený. Aktivuj členstvo cez Stripe a odomkni plný import a export."
-        : "Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.";
+        ? tr("Účet je pripravený. Aktivuj členstvo cez Stripe a odomkni plný import a export.", "Your account is ready. Activate membership via Stripe to unlock full import and export.")
+        : tr("Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.", "Register, sign in and activate membership for 1 month first.");
   }
   renderAccountSummary();
   renderUploadState();
@@ -736,12 +751,22 @@ function shouldAutoOpenAdminPanel() {
   return params.get("openAdmin") === "1";
 }
 
+function handleLanguageChange() {
+  renderAccessState();
+  renderCompressionAccessState();
+  renderCompressionResult();
+  renderAssistantAccessState();
+  renderAccountSummary();
+  renderAccountPanel();
+  setAuthMode(state.authMode);
+}
+
 function setAuthMode(mode) {
   state.authMode = mode;
   const isRegister = mode === "register";
   elements.authRegisterTab.classList.toggle("auth-switch__button--active", isRegister);
   elements.authLoginTab.classList.toggle("auth-switch__button--active", !isRegister);
-  elements.authSubmitBtn.textContent = isRegister ? "Vytvoriť účet" : "Prihlásiť sa";
+  elements.authSubmitBtn.textContent = isRegister ? tr("Vytvoriť účet", "Create account") : tr("Prihlásiť sa", "Sign in");
   elements.authPassword.autocomplete = isRegister ? "new-password" : "current-password";
   elements.authNameField.classList.toggle("is-hidden", !isRegister);
   elements.forgotPasswordBtn.classList.toggle("is-hidden", isRegister);
@@ -851,13 +876,13 @@ async function fetchAdminPanel() {
 
 function formatDate(value) {
   if (!value) {
-    return "—";
+    return tr("—", "—");
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "—";
+    return tr("—", "—");
   }
-  return new Intl.DateTimeFormat("sk-SK", {
+  return new Intl.DateTimeFormat(getCurrentLang() === "en" ? "en-GB" : "sk-SK", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -888,23 +913,23 @@ function renderAccountSummary() {
   }
   if (!state.user) {
     elements.accountSummary.className = "account-summary empty-state";
-    elements.accountSummary.textContent = "Zatiaľ nie si prihlásený.";
+    elements.accountSummary.textContent = tr("Zatiaľ nie si prihlásený.", "You are not signed in yet.");
     return;
   }
 
   elements.accountSummary.className = "account-summary";
   elements.accountSummary.innerHTML = `
     <article class="account-card">
-      <div class="account-card__row"><strong>Meno</strong><span>${escapeHtml(state.user.name || "—")}</span></div>
-      <div class="account-card__row"><strong>E-mail</strong><span>${escapeHtml(state.user.email || "")}</span></div>
-      <div class="account-card__row"><strong>Rola</strong><span>${escapeHtml(state.user.is_admin ? "Admin" : "Používateľ")}</span></div>
-      <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(state.user.created_at))}</span></div>
-      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(state.user.membership_active ? "Aktívne" : "Neaktívne")}</span></div>
-      <div class="account-card__row"><strong>Členstvo od</strong><span>${escapeHtml(formatDate(state.user.membership_started_at))}</span></div>
-      <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(state.user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Meno", "Name"))}</strong><span>${escapeHtml(state.user.name || "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("E-mail", "Email"))}</strong><span>${escapeHtml(state.user.email || "")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(state.user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Registrovaný od", "Registered since"))}</strong><span>${escapeHtml(formatDate(state.user.created_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(state.user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(formatDate(state.user.membership_started_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(formatDate(state.user.membership_valid_until))}</span></div>
       ${state.user.membership_active ? "" : `
         <div class="account-card__cta">
-          <button id="accountSummaryCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo za 1,99 €</button>
+          <button id="accountSummaryCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
         </div>
       `}
     </article>
@@ -916,22 +941,22 @@ function renderAccountPanel() {
   const user = state.account?.user || state.user;
   if (!user) {
     elements.accountPanelSummary.className = "account-summary empty-state";
-    elements.accountPanelSummary.textContent = "Zatiaľ nie si prihlásený.";
+    elements.accountPanelSummary.textContent = tr("Zatiaľ nie si prihlásený.", "You are not signed in yet.");
     return;
   }
   elements.accountPanelSummary.className = "account-summary";
   elements.accountPanelSummary.innerHTML = `
     <article class="account-card">
-      <div class="account-card__row"><strong>Meno</strong><span>${escapeHtml(user.name || "—")}</span></div>
-      <div class="account-card__row"><strong>E-mail</strong><span>${escapeHtml(user.email || "")}</span></div>
-      <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
-      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_active ? "Aktívne" : "Neaktívne")}</span></div>
-      <div class="account-card__row"><strong>Členstvo od</strong><span>${escapeHtml(formatDate(user.membership_started_at))}</span></div>
-      <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
-      <div class="account-card__row"><strong>Rola</strong><span>${escapeHtml(user.is_admin ? "Admin" : "Používateľ")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Meno", "Name"))}</strong><span>${escapeHtml(user.name || "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("E-mail", "Email"))}</strong><span>${escapeHtml(user.email || "")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Registrovaný od", "Registered since"))}</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(formatDate(user.membership_started_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
       ${user.membership_active ? "" : `
         <div class="account-card__cta">
-          <button id="accountPanelCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo za 1,99 €</button>
+          <button id="accountPanelCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
         </div>
       `}
     </article>
@@ -960,7 +985,7 @@ function renderActivityList(target, items) {
   const collapsed = collapseActivityFeed(items);
   if (!collapsed.length) {
     target.className = "empty-state";
-    target.textContent = "Zatiaľ bez aktivity.";
+    target.textContent = tr("Zatiaľ bez aktivity.", "No activity yet.");
     return;
   }
   target.className = "activity-list";
@@ -1834,7 +1859,7 @@ function renderCompressionAccessState() {
     elements.compressFileInput.disabled = !hasMembership;
   }
   if (elements.compressSelectBtn) {
-    elements.compressSelectBtn.textContent = hasMembership ? (hasFile ? "Vybrať iný súbor" : "Vybrať súbor") : "Aktivovať členstvo";
+    elements.compressSelectBtn.textContent = hasMembership ? (hasFile ? tr("Vybrať iný súbor", "Choose another file") : tr("Vybrať súbor", "Choose file")) : tr("Aktivovať členstvo", "Activate membership");
   }
   if (elements.compressRunBtn) {
     elements.compressRunBtn.disabled = !hasMembership || !hasFile || state.compression.isBusy || state.compression.isOversize;
@@ -1846,10 +1871,10 @@ function renderAssistantAccessState() {
   const hasMembership = Boolean(state.user?.membership_active);
   if (elements.assistantSubtitle) {
     elements.assistantSubtitle.textContent = hasMembership
-      ? "Konverzačný asistent, ktorý ti pomáha s denným plánom, follow-upmi, komunikáciou s klientmi a organizáciou práce."
+      ? tr("Konverzačný asistent, ktorý ti pomáha s denným plánom, follow-upmi, komunikáciou s klientmi a organizáciou práce.", "A conversational assistant that helps with your daily plan, follow-ups, client communication and work organization.")
       : state.user
-        ? "AI asistent sa odomkne hneď po aktivácii členstva."
-        : "Prihlás sa a aktivuj členstvo, aby sa odomkol AI asistent pre finančné sprostredkovanie.";
+        ? tr("AI asistent sa odomkne hneď po aktivácii členstva.", "The AI assistant unlocks immediately after membership activation.")
+        : tr("Prihlás sa a aktivuj členstvo, aby sa odomkol AI asistent pre finančné sprostredkovanie.", "Sign in and activate membership to unlock the AI assistant for financial intermediation.");
   }
   [elements.assistantChatForm].forEach((form) => {
     form?.querySelectorAll("input, select, textarea, button").forEach((field) => {
@@ -1868,10 +1893,10 @@ function renderAssistantAccessState() {
 
 function renderAssistantLockedState() {
   if (elements.assistantHeadline) {
-    elements.assistantHeadline.textContent = "AI asistent sa odomkne po aktivácii členstva.";
+    elements.assistantHeadline.textContent = tr("AI asistent sa odomkne po aktivácii členstva.", "The AI assistant unlocks after membership activation.");
   }
   if (elements.assistantFocus) {
-    elements.assistantFocus.textContent = "Po odomknutí môžeš písať s AI asistentom, ktorý pripraví plán dňa a pomôže s klientskou komunikáciou.";
+    elements.assistantFocus.textContent = tr("Po odomknutí môžeš písať s AI asistentom, ktorý pripraví plán dňa a pomôže s klientskou komunikáciou.", "After unlocking, you can chat with an AI assistant that prepares your daily plan and helps with client communication.");
   }
   if (elements.assistantStats) {
     elements.assistantStats.innerHTML = `
@@ -1895,7 +1920,7 @@ function renderAssistantLockedState() {
   }
   if (elements.assistantChatFeed) {
     elements.assistantChatFeed.className = "assistant-chat-feed empty-state";
-    elements.assistantChatFeed.textContent = "Aktivuj členstvo a AI asistent sa odomkne pre konverzáciu a pracovnú pomoc.";
+    elements.assistantChatFeed.textContent = tr("Aktivuj členstvo a AI asistent sa odomkne pre konverzáciu a pracovnú pomoc.", "Activate membership and the AI assistant will unlock for chat and daily work help.");
   }
 }
 
@@ -1923,22 +1948,22 @@ function renderAssistantDashboard() {
   const messages = Array.isArray(state.assistant?.messages) ? state.assistant.messages : [];
   if (elements.assistantHeadline) {
     elements.assistantHeadline.textContent = messages.length
-      ? "AI asistent má načítaný kontext tvojej práce."
-      : "Napíš, s čím dnes potrebuješ pomôcť.";
+      ? tr("AI asistent má načítaný kontext tvojej práce.", "The AI assistant has your work context loaded.")
+      : tr("Napíš, s čím dnes potrebuješ pomôcť.", "Write what you need help with today.");
   }
   if (elements.assistantFocus) {
-    elements.assistantFocus.textContent = "Asistent odpovedá prakticky, po slovensky a navrhuje ďalšie kroky pre tvoju prax.";
+    elements.assistantFocus.textContent = tr("Asistent odpovedá prakticky, po slovensky a navrhuje ďalšie kroky pre tvoju prax.", "The assistant replies practically and suggests the next best steps for your work.");
   }
   if (elements.assistantChatFeed) {
     if (!messages.length) {
       elements.assistantChatFeed.className = "assistant-chat-feed empty-state";
-      elements.assistantChatFeed.textContent = "AI asistent je pripravený. Pošli prvú správu a začneš konverzáciu.";
+      elements.assistantChatFeed.textContent = tr("AI asistent je pripravený. Pošli prvú správu a začneš konverzáciu.", "The AI assistant is ready. Send your first message to begin.");
     } else {
       elements.assistantChatFeed.className = "assistant-chat-feed";
       elements.assistantChatFeed.innerHTML = messages.map((message) => `
         <article class="assistant-message assistant-message--${escapeHtml(message.role || "assistant")}">
           <span class="assistant-message__role">${escapeHtml(formatAssistantRole(message.role))}</span>
-          <div class="assistant-message__bubble">${escapeHtml(message.content || "").replace(/\n/g, "<br>")}</div>
+          <div class="assistant-message__bubble">${formatMessageHtml(message.content || "")}</div>
           <span class="assistant-message__time">${escapeHtml(formatDateTime(message.created_at))}</span>
         </article>
       `).join("");
@@ -2288,12 +2313,12 @@ function renderCompressionResult() {
   if (!state.compression.result) {
     elements.compressOriginal.textContent = state.compression.file ? formatMegabytes(state.compression.file.size) : "0 MB";
     elements.compressFinal.textContent = "0 MB";
-    elements.compressStatus.textContent = "Čaká na spracovanie";
+    elements.compressStatus.textContent = tr("Čaká na spracovanie", "Waiting for processing");
     if (elements.compressTime) {
       elements.compressTime.textContent = state.compression.file ? formatDuration(state.compression.estimateSeconds || 0) : "—";
     }
     elements.compressResultMessage.className = "empty-state";
-    elements.compressResultMessage.textContent = "Zatiaľ bez výsledku. Nahraj súbor a spusti kompresiu.";
+    elements.compressResultMessage.textContent = tr("Zatiaľ bez výsledku. Nahraj súbor a spusti kompresiu.", "No result yet. Upload a file and start compression.");
     elements.compressDownloadBtn.disabled = true;
     return;
   }
@@ -2302,7 +2327,7 @@ function renderCompressionResult() {
   if (result.error) {
     elements.compressOriginal.textContent = state.compression.file ? formatMegabytes(state.compression.file.size) : "0 MB";
     elements.compressFinal.textContent = "—";
-    elements.compressStatus.textContent = "Chyba";
+    elements.compressStatus.textContent = tr("Chyba", "Error");
     if (elements.compressTime) {
       elements.compressTime.textContent = result.elapsedSeconds ? formatDuration(result.elapsedSeconds) : "—";
     }
@@ -2354,11 +2379,11 @@ async function handleAssistantChatSubmit(event) {
     }
     const message = elements.assistantChatInput?.value.trim() || "";
     if (message.length < 2) {
-      throw new Error("Napíš správu pre AI asistenta.");
+      throw new Error(tr("Napíš správu pre AI asistenta.", "Write a message for the AI assistant."));
     }
     if (elements.assistantChatSubmit) {
       elements.assistantChatSubmit.disabled = true;
-      elements.assistantChatSubmit.textContent = "AI premýšľa...";
+      elements.assistantChatSubmit.textContent = tr("AI premýšľa...", "AI is thinking...");
     }
     const response = await fetch("/api/assistant/chat", {
       method: "POST",
@@ -2385,7 +2410,7 @@ async function handleAssistantChatSubmit(event) {
   } finally {
     if (elements.assistantChatSubmit) {
       elements.assistantChatSubmit.disabled = false;
-      elements.assistantChatSubmit.textContent = "Odoslať do AI asistenta";
+      elements.assistantChatSubmit.textContent = tr("Odoslať do AI asistenta", "Send to AI assistant");
     }
   }
 }
@@ -2762,6 +2787,64 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function formatMessageHtml(text) {
+  const normalized = String(text || "").replace(/\r/g, "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const lines = normalized.split("\n");
+  const blocks = [];
+  let listItems = [];
+
+  function flushList() {
+    if (!listItems.length) {
+      return;
+    }
+    blocks.push(`<ul>${listItems.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+    listItems = [];
+  }
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+    const headingMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
+    const numberedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (headingMatch) {
+      flushList();
+      blocks.push(`<p><strong>${formatInlineMessageText(headingMatch[1])}</strong></p>`);
+      return;
+    }
+    if (bulletMatch || numberedMatch) {
+      listItems.push(formatInlineMessageText((bulletMatch || numberedMatch)[1]));
+      return;
+    }
+    flushList();
+    blocks.push(`<p>${formatInlineMessageText(trimmed)}</p>`);
+  });
+
+  flushList();
+  return blocks.join("");
+}
+
+function formatInlineMessageText(value) {
+  let formatted = escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  formatted = formatted.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
+  formatted = formatted.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (_match, label, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`
+  );
+  formatted = formatted.replace(
+    /(^|[\s>])(https?:\/\/[^\s<]+)/g,
+    (_match, prefix, url) => `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+  );
+  return formatted;
 }
 
 function getFileExtension(fileName) {

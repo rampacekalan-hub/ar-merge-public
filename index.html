@@ -25,7 +25,7 @@
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="main">
             <a href="/index.html" class="sidebar__link" aria-current="page"><span class="sidebar__link-icon"></span><span>Domov</span></a>
-            <a id="homeSidebarAuthLink" href="/app.html" class="sidebar__link js-auth-entry" data-auth-href="/app.html" data-guest-href="/app.html" data-auth-label="Aplikácia" data-guest-label="Prihlásenie"><span class="sidebar__link-icon"></span><span data-auth-entry-label>Prihlásenie</span></a>
+            <a id="homeSidebarAuthLink" href="/app.html" class="sidebar__link js-auth-entry" data-auth-href="/app.html" data-guest-href="/app.html" data-auth-label="Aplikácia" data-guest-label="Prihlásenie" data-auth-label-en="App" data-guest-label-en="Login"><span class="sidebar__link-icon"></span><span data-auth-entry-label>Prihlásenie</span></a>
             <a href="/pricing.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cenník</span></a>
           </div>
         </div>
@@ -68,9 +68,9 @@
         <div class="hero__content hero__content--landing">
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
-            <div class="hero__topbar-actions">
+            <div class="hero__topbar-actions" data-lang-switch-host>
               <a class="ghost-link" href="/pricing.html">Cenník</a>
-              <a id="homeTopAuthLink" class="ghost-link js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html" data-auth-label="Aplikácia" data-guest-label="Prihlásenie">Prihlásenie</a>
+              <a id="homeTopAuthLink" class="ghost-link js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html" data-auth-label="Aplikácia" data-guest-label="Prihlásenie" data-auth-label-en="App" data-guest-label-en="Login">Prihlásenie</a>
             </div>
           </div>
 
@@ -228,6 +228,40 @@
   </div>
 
   <script src="consent.js"></script>
+  <script>
+    window.UNIFYO_PAGE_I18N = [
+      { selector: "title", text: { sk: "Unifyo", en: "Unifyo" } },
+      { selector: ".sidebar-group__toggle[data-sidebar-group=\"main\"] span:first-child", text: { sk: "Produkt", en: "Product" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"main\"] .sidebar__link[href=\"/index.html\"] span:last-child", text: { sk: "Domov", en: "Home" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"main\"] .sidebar__link[href=\"/pricing.html\"] span:last-child", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".sidebar-group__toggle[data-sidebar-group=\"landing\"] span:first-child", text: { sk: "Obsah", en: "Content" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"landing\"] .sidebar__link[href=\"/how-it-works.html\"] span:last-child", text: { sk: "Ako to funguje", en: "How it works" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"landing\"] .sidebar__link[href=\"#preco-unifyo\"] span:last-child", text: { sk: "Prečo Unifyo", en: "Why Unifyo" } },
+      { selector: ".sidebar-group__content[data-sidebar-group-content=\"landing\"] .sidebar__link[href=\"#zacni-s-unifyo\"] span:last-child", text: { sk: "Začni s Unifyo", en: "Get started with Unifyo" } },
+      { selector: ".hero__topbar-actions .ghost-link[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".hero__eyebrow", text: { sk: "JEDNA APLIKÁCIA. TRI PRAKTICKÉ SLUŽBY.", en: "ONE APP. THREE PRACTICAL TOOLS." } },
+      { selector: ".hero__main--wide h1", text: { sk: "VYČISTI KONTAKTY, ZMENŠI SÚBORY A ZÍSKAJ AI ASISTENTA V JEDNOM NÁSTROJI", en: "CLEAN CONTACTS, COMPRESS FILES AND GET AN AI ASSISTANT IN ONE TOOL" } },
+      { selector: ".hero__lede", text: { sk: "Unifyo ti dá do poriadku kontakty bez duplicit, zmenší PDF a obrázky na cieľovú veľkosť a pridá AI asistenta pre každodennú prax finančného sprostredkovateľa.", en: "Unifyo cleans duplicate contacts, compresses PDFs and images to your target size, and adds an AI assistant for the daily practice of a financial intermediary." } },
+      { selector: "#homePrimaryCta", text: { sk: "Spustiť aplikáciu", en: "Launch app" } },
+      { selector: ".hero__actions .button--ghost", text: { sk: "Ako to funguje", en: "How it works" } },
+      { selector: ".hero__microproof span:nth-of-type(3)", text: { sk: "Kompresia súborov", en: "File compression" } },
+      { selector: ".hero__microproof span:nth-of-type(4)", text: { sk: "AI pre sprostredkovateľov", en: "AI for intermediaries" } },
+      { selector: ".trust-strip .trust-mini:nth-of-type(1) span:last-child", text: { sk: "Bez ukladania dát", en: "No data storage" } },
+      { selector: ".trust-strip .trust-mini:nth-of-type(2) span:last-child", text: { sk: "Bezpečné spracovanie", en: "Secure processing" } },
+      { selector: ".trust-strip .trust-mini:nth-of-type(4) span:last-child", text: { sk: "CRM / newsletter ready", en: "CRM / newsletter ready" } },
+      { selector: ".trust-strip .trust-mini:nth-of-type(5) span:last-child", text: { sk: "AI pomocník pre prax", en: "AI assistant for practice" } },
+      { selector: "#preco-unifyo .section-kicker", text: { sk: "Prečo Unifyo", en: "Why Unifyo" } },
+      { selector: "#preco-unifyo h2", text: { sk: "Menej chaosu, viac výkonu a rýchlejšia práca s klientmi", en: "Less chaos, more output and faster work with clients" } },
+      { selector: "#zacni-s-unifyo strong", text: { sk: "Začni s Unifyo: kontakty, kompresia aj AI na jednom mieste", en: "Start with Unifyo: contacts, compression and AI in one place" } },
+      { selector: "#zacni-s-unifyo p", text: { sk: "Čisté dáta, menšie súbory a moderný asistent pre každodennú prax sprostredkovateľa.", en: "Clean data, smaller files and a modern assistant for everyday intermediary work." } },
+      { selector: ".site-footer a:nth-of-type(1)", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".site-footer a:nth-of-type(2)", text: { sk: "Ochrana súkromia", en: "Privacy" } },
+      { selector: ".site-footer a:nth-of-type(3)", text: { sk: "Podmienky používania", en: "Terms" } },
+      { selector: ".site-footer a:nth-of-type(4)", text: { sk: "Cookies", en: "Cookies" } },
+      { selector: ".site-footer a:nth-of-type(5)", text: { sk: "Kontakt", en: "Contact" } }
+    ];
+  </script>
+  <script src="lang-switch.js"></script>
   <script src="site-nav.js"></script>
   <script>
     (function () {

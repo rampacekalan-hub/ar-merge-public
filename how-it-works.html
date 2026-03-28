@@ -39,7 +39,7 @@
         <div class="hero__content hero__content--landing">
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
-            <div class="hero__topbar-actions">
+            <div class="hero__topbar-actions" data-lang-switch-host>
               <a class="ghost-link" href="/index.html">Domov</a>
               <a class="ghost-link" href="/pricing.html">Cenník</a>
             </div>
@@ -197,6 +197,20 @@
   </div>
 
   <script src="consent.js"></script>
+  <script>
+    window.UNIFYO_PAGE_I18N = [
+      { selector: "title", text: { sk: "Unifyo | Ako to funguje", en: "Unifyo | How it works" } },
+      { selector: ".hero__topbar-actions .ghost-link[href=\"/index.html\"]", text: { sk: "Domov", en: "Home" } },
+      { selector: ".hero__topbar-actions .ghost-link[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".hero__eyebrow", text: { sk: "Ako to funguje", en: "How it works" } },
+      { selector: ".hero__main--wide h1", text: { sk: "KONTAKTY, KOMPRESIA AJ AI PREHĽADNE NA JEDNOM MIESTE", en: "CONTACTS, COMPRESSION AND AI CLEARLY IN ONE PLACE" } },
+      { selector: ".hero__lede", text: { sk: "Vyber si službu podľa potreby a pokračuj priamo do pracovného režimu bez zbytočných krokov.", en: "Choose the service you need and continue directly to the working mode without unnecessary steps." } },
+      { selector: ".hero__actions .button--primary", text: { sk: "Otvoriť aplikáciu", en: "Open app" } },
+      { selector: ".hero__actions .button--ghost", text: { sk: "Otvoriť AI", en: "Open AI" } },
+      { selector: "main section:nth-of-type(1) .section-kicker", text: { sk: "Služby", en: "Services" } }
+    ];
+  </script>
+  <script src="lang-switch.js"></script>
   <script src="site-nav.js"></script>
 </body>
 </html>

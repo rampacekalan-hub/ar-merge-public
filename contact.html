@@ -40,7 +40,7 @@
         <div class="hero__content hero__content--compact">
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
-            <div class="hero__topbar-actions">
+            <div class="hero__topbar-actions" data-lang-switch-host>
               <a class="ghost-link" href="/index.html">Domov</a>
               <a class="ghost-link" href="/pricing.html">Cenník</a>
             </div>
@@ -65,19 +65,19 @@
               </div>
             </div>
             <form id="contactForm" class="auth-form">
-              <label class="auth-field">
+              <label class="auth-field" for="contactName">
                 <span>Tvoj kontakt</span>
                 <input id="contactName" type="text" name="contact_name" autocomplete="name" required>
               </label>
-              <label class="auth-field">
+              <label class="auth-field" for="contactEmail">
                 <span>Tvoj e-mail</span>
                 <input id="contactEmail" type="email" name="contact_email" autocomplete="email" required>
               </label>
-              <label class="auth-field">
+              <label class="auth-field" for="contactSubject">
                 <span>Predmet</span>
                 <input id="contactSubject" type="text" name="subject" required>
               </label>
-              <label class="auth-field">
+              <label class="auth-field" for="contactMessage">
                 <span>Správa</span>
                 <textarea id="contactMessage" name="message" rows="7" required></textarea>
               </label>
@@ -123,6 +123,23 @@
   </div>
 
   <script src="consent.js"></script>
+  <script>
+    window.UNIFYO_PAGE_I18N = [
+      { selector: "title", text: { sk: "Unifyo | Kontakt", en: "Unifyo | Contact" } },
+      { selector: ".hero__topbar-actions .ghost-link[href=\"/index.html\"]", text: { sk: "Domov", en: "Home" } },
+      { selector: ".hero__topbar-actions .ghost-link[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".hero__eyebrow", text: { sk: "Kontakt", en: "Contact" } },
+      { selector: ".hero__main--wide h1", text: { sk: "Napíš nám a ozveme sa ti priamo na tvoj kontakt", en: "Write to us and we will reply directly to your contact" } },
+      { selector: ".hero__lede", text: { sk: "Ak potrebuješ pomoc s členstvom, aplikáciou, AI asistentom alebo nasadením, pošli správu cez formulár nižšie.", en: "If you need help with membership, the app, the AI assistant or deployment, send us a message using the form below." } },
+      { selector: ".panel-card:first-of-type .section-kicker", text: { sk: "Formulár", en: "Form" } },
+      { selector: ".panel-card:first-of-type h2", text: { sk: "Pošli správu", en: "Send a message" } },
+      { selector: "label[for=\"contactName\"] span", text: { sk: "Tvoj kontakt", en: "Your contact" } },
+      { selector: "label[for=\"contactEmail\"] span", text: { sk: "Tvoj e-mail", en: "Your email" } },
+      { selector: "label[for=\"contactSubject\"] span", text: { sk: "Predmet", en: "Subject" } },
+      { selector: "label[for=\"contactMessage\"] span", text: { sk: "Správa", en: "Message" } }
+    ];
+  </script>
+  <script src="lang-switch.js"></script>
   <script src="site-nav.js"></script>
   <script>
     (function () {

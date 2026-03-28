@@ -88,12 +88,13 @@
       const payload = await response.json();
       const user = payload?.user || null;
       const isAuthenticated = Boolean(user);
+      const lang = window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
       window.unifyoCurrentUser = user;
       authEntryLinks.forEach((link) => {
         const guestHref = link.dataset.guestHref || "/app.html";
         const authHref = link.dataset.authHref || "/app.html";
-        const guestLabel = link.dataset.guestLabel || "Prihlásenie";
-        const authLabel = link.dataset.authLabel || "Aplikácia";
+        const guestLabel = lang === "en" ? (link.dataset.guestLabelEn || link.dataset.guestLabel || "Login") : (link.dataset.guestLabel || "Prihlásenie");
+        const authLabel = lang === "en" ? (link.dataset.authLabelEn || link.dataset.authLabel || "App") : (link.dataset.authLabel || "Aplikácia");
         const labelTarget = link.querySelector("[data-auth-entry-label]") || link;
         if (isAuthenticated) {
           link.setAttribute("href", authHref);
@@ -106,9 +107,10 @@
       window.dispatchEvent(new CustomEvent("unifyo-auth-ready", { detail: { user } }));
     } catch (_error) {
       window.unifyoCurrentUser = null;
+      const lang = window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
       authEntryLinks.forEach((link) => {
         const guestHref = link.dataset.guestHref || "/app.html";
-        const guestLabel = link.dataset.guestLabel || "Prihlásenie";
+        const guestLabel = lang === "en" ? (link.dataset.guestLabelEn || link.dataset.guestLabel || "Login") : (link.dataset.guestLabel || "Prihlásenie");
         const labelTarget = link.querySelector("[data-auth-entry-label]") || link;
         link.setAttribute("href", guestHref);
         labelTarget.textContent = guestLabel;
@@ -118,4 +120,8 @@
   }
 
   syncAuthEntries();
+
+  window.addEventListener("unifyo-language-change", () => {
+    syncAuthEntries();
+  });
 }());
