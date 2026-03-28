@@ -238,10 +238,10 @@ async function bootstrap() {
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
   elements.openContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
-  elements.openAssistantBtn?.addEventListener("click", () => navigateToMode("assistant"));
+  elements.openAssistantBtn?.addEventListener("click", handleOpenAssistantAction);
   elements.modeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.modeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
-  elements.modeAssistantBtn?.addEventListener("click", () => navigateToMode("assistant"));
+  elements.modeAssistantBtn?.addEventListener("click", handleOpenAssistantAction);
   elements.heroModeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.heroModeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
   elements.assistantRefreshBtn?.addEventListener("click", fetchAssistantDashboard);
@@ -378,7 +378,7 @@ function renderAccessState() {
   }
   if (elements.openAssistantBtn) {
     elements.openAssistantBtn.textContent = hasMembership
-      ? "Otvoriť AI asistenta"
+      ? "Otvoriť AI chat"
       : isLoggedIn
         ? "Aktivovať členstvo pre AI asistenta"
         : "Prihlásiť sa a odomknúť AI asistenta";
@@ -483,6 +483,11 @@ function renderMode() {
   const isContacts = state.mode === "contacts";
   const isCompress = state.mode === "compress";
   const isAssistant = state.mode === "assistant";
+
+  if (isAssistant) {
+    window.location.replace("/ai.html");
+    return;
+  }
 
   document.body.classList.toggle("mode-chooser", isChooser);
   document.body.classList.toggle("mode-contacts", isContacts);
@@ -1501,6 +1506,18 @@ function handleUnlockUploadAction() {
 
 function handleOpenCompressorAction() {
   navigateToMode("compress");
+}
+
+function handleOpenAssistantAction() {
+  if (state.user?.membership_active) {
+    window.location.href = "/ai.html";
+    return;
+  }
+  if (!state.user) {
+    openAuthModal("register");
+    return;
+  }
+  startCheckoutFlow();
 }
 
 async function startProCheckout() {
