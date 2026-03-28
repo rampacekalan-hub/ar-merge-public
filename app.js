@@ -13,11 +13,20 @@ const state = {
     pocet_vyradenych_bez_emailu_a_telefonu: 0,
     pocet_finalnych_kontaktov: 0,
   },
+  uploadUi: {
+    phase: "idle",
+    progress: 0,
+    progressTimer: null,
+  },
 };
 
 const elements = {
   fileInput: document.getElementById("fileInput"),
   uploadBox: document.getElementById("uploadBox"),
+  uploadStateBadge: document.getElementById("uploadStateBadge"),
+  uploadStateText: document.getElementById("uploadStateText"),
+  uploadProgress: document.getElementById("uploadProgress"),
+  uploadProgressBar: document.getElementById("uploadProgressBar"),
   buyHeroBtn: document.getElementById("buyHeroBtn"),
   accountBtn: document.getElementById("accountBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
@@ -99,10 +108,13 @@ const elements = {
   adminActivityList: document.getElementById("adminActivityList"),
   sidebar: document.getElementById("sidebar"),
   sidebarToggle: document.getElementById("sidebarToggle"),
+  sidebarRailToggle: document.getElementById("sidebarRailToggle"),
   sidebarBackdrop: document.getElementById("sidebarBackdrop"),
   sidebarLinks: document.querySelectorAll(".sidebar__link"),
   sidebarGroupToggles: document.querySelectorAll(".sidebar-group__toggle"),
 };
+
+const SIDEBAR_COLLAPSED_KEY = "unifyo_sidebar_collapsed";
 
 bootstrap();
 
@@ -111,6 +123,9 @@ async function bootstrap() {
   await refreshCurrentUser();
   elements.fileInput.addEventListener("change", handleFileSelection);
   elements.uploadBox.addEventListener("click", handleUploadBoxClick);
+  elements.uploadBox.addEventListener("dragover", handleUploadDragOver);
+  elements.uploadBox.addEventListener("dragleave", handleUploadDragLeave);
+  elements.uploadBox.addEventListener("drop", handleUploadDrop);
   elements.buyHeroBtn.addEventListener("click", startCheckoutFlow);
   elements.accountBtn.addEventListener("click", () => {
     if (state.user) {
@@ -170,6 +185,7 @@ async function bootstrap() {
   elements.adminMembershipFilter?.addEventListener("change", renderAdminUsers);
   elements.adminExportBtn?.addEventListener("click", exportAdminUsers);
   elements.sidebarToggle?.addEventListener("click", toggleSidebar);
+  elements.sidebarRailToggle?.addEventListener("click", toggleSidebarRail);
   elements.sidebarBackdrop?.addEventListener("click", closeSidebar);
   elements.sidebarLinks.forEach((link) => link.addEventListener("click", closeSidebar));
   elements.sidebarGroupToggles.forEach((toggle) => toggle.addEventListener("click", handleSidebarGroupToggle));
@@ -191,13 +207,16 @@ async function bootstrap() {
     }
   });
   maybeOpenPromoModal();
+  syncSidebarCollapse();
   renderAccessState();
+  renderUploadState();
 }
 
 function renderAccessState() {
   const hasMembership = Boolean(state.user?.membership_active);
   const isLoggedIn = Boolean(state.user);
   const isAdmin = Boolean(state.user?.is_admin);
+  const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   const accountLabel = state.user?.name?.trim() || state.user?.email || "Prihlásiť sa";
   const membershipUntil = formatDate(state.user?.membership_valid_until);
   document.body.classList.toggle("is-pro-unlocked", hasMembership);
@@ -241,9 +260,9 @@ function renderAccessState() {
   }
   if (elements.accountStatus) {
     if (hasMembership) {
-      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}${isAdmin ? " a zároveň administrátorský prístup." : "."}`;
+      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}${canManageAdminTools ? " a plný správca prístup." : isAdmin ? " a zároveň administrátorský prístup." : "."}`;
     } else if (isLoggedIn) {
-      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo${isAdmin ? ", ale má administrátorský prístup." : "."}`;
+      elements.accountStatus.textContent = `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo${canManageAdminTools ? ", ale má plný správca prístup." : isAdmin ? ", ale má administrátorský prístup." : "."}`;
     } else {
       elements.accountStatus.textContent = "Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.";
     }
@@ -267,6 +286,67 @@ function renderAccessState() {
         : "Najprv sa zaregistruj, prihlás sa a aktivuj členstvo na 1 mesiac.";
   }
   renderAccountSummary();
+  renderUploadState();
+}
+
+function setUploadPhase(phase, progress = state.uploadUi.progress) {
+  if (state.uploadUi.progressTimer) {
+    window.clearInterval(state.uploadUi.progressTimer);
+    state.uploadUi.progressTimer = null;
+  }
+  state.uploadUi.phase = phase;
+  state.uploadUi.progress = progress;
+  renderUploadState();
+}
+
+function renderUploadState() {
+  if (!elements.uploadBox || !elements.uploadStateBadge || !elements.uploadStateText || !elements.uploadProgress || !elements.uploadProgressBar) {
+    return;
+  }
+
+  const membershipActive = Boolean(state.user?.membership_active);
+  const fileCount = state.files.length;
+  const { phase, progress } = state.uploadUi;
+
+  elements.uploadBox.classList.toggle("upload--locked", !membershipActive);
+  elements.uploadBox.classList.toggle("upload--ready", membershipActive && fileCount > 0 && phase !== "processing");
+  elements.uploadBox.classList.toggle("upload--processing", phase === "processing");
+  elements.uploadBox.classList.toggle("upload--done", phase === "done");
+
+  let badge = "Pripravené";
+  let text = "Pridaj súbory alebo ich sem pretiahni";
+  let showProgress = false;
+
+  if (!membershipActive) {
+    badge = "Uzamknuté";
+    text = "Najprv aktivuj členstvo a potom nahráš vlastné súbory";
+  } else if (phase === "processing") {
+    badge = "Spracovanie";
+    text = "Súbory sa práve čistia a pripravujú na finálny export";
+    showProgress = true;
+  } else if (phase === "done") {
+    badge = "Hotovo";
+    text = "Výsledok je pripravený nižšie vrátane auditu a exportu";
+  } else if (fileCount > 0) {
+    badge = "Nahraté";
+    text = `${fileCount} súbor${fileCount === 1 ? "" : fileCount >= 2 && fileCount <= 4 ? "y" : "ov"} pripraven${fileCount === 1 ? "ý" : "é"} na čistenie`;
+  }
+
+  elements.uploadStateBadge.textContent = badge;
+  elements.uploadStateText.textContent = text;
+  elements.uploadProgress.hidden = !showProgress;
+  elements.uploadProgressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+}
+
+function startUploadProgressLoop() {
+  setUploadPhase("processing", 14);
+  state.uploadUi.progressTimer = window.setInterval(() => {
+    if (state.uploadUi.progress >= 84) {
+      return;
+    }
+    state.uploadUi.progress += Math.random() > 0.55 ? 11 : 7;
+    renderUploadState();
+  }, 320);
 }
 
 function handleModalEscape(event) {
@@ -315,8 +395,23 @@ function toggleSidebar() {
   document.body.classList.toggle("sidebar-open");
 }
 
+function syncSidebarCollapse() {
+  const isCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  document.body.classList.toggle("sidebar-collapsed", isCollapsed);
+  if (elements.sidebarRailToggle) {
+    elements.sidebarRailToggle.textContent = isCollapsed ? "⟩" : "⟨";
+  }
+}
+
+function toggleSidebarRail() {
+  const nextValue = document.body.classList.contains("sidebar-collapsed") ? "0" : "1";
+  window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, nextValue);
+  syncSidebarCollapse();
+}
+
 function closeSidebar() {
   document.body.classList.remove("sidebar-open");
+  elements.uploadBox?.classList.remove("is-dragover");
 }
 
 function handleSidebarGroupToggle(event) {
@@ -368,6 +463,10 @@ function closeAccountPanel() {
 }
 
 async function openAdminPanel() {
+  if (!state.user?.is_admin) {
+    window.alert("Administrácia je dostupná len pre správcu.");
+    return;
+  }
   elements.adminPanel.hidden = false;
   syncModalState();
   await fetchAdminPanel();
@@ -624,6 +723,7 @@ function renderAdminStats() {
 
 function renderAdminUsers() {
   const users = getFilteredAdminUsers();
+  const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   if (!users.length) {
     elements.adminUsersTable.className = "table-wrap empty-state";
     elements.adminUsersTable.textContent = "Zatiaľ bez registrovaných používateľov.";
@@ -657,8 +757,8 @@ function renderAdminUsers() {
             <td>
               <div class="admin-actions">
                 <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="detail" type="button">Detail</button>
-                <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="activate_30d" type="button">+30 dní</button>
-                <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="deactivate" type="button">Deaktivovať</button>
+                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="activate_30d" type="button">+30 dní</button>` : ""}
+                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="deactivate" type="button">Deaktivovať</button>` : ""}
               </div>
             </td>
           </tr>
@@ -699,6 +799,10 @@ async function handleAdminAction(event) {
   const action = button.dataset.action;
   if (action === "detail") {
     await openAdminUserDetail(userId);
+    return;
+  }
+  if (!state.user?.can_manage_admin_tools) {
+    window.alert("Členstvá môže upravovať len hlavný správca.");
     return;
   }
   button.disabled = true;
@@ -742,6 +846,7 @@ async function openAdminUserDetail(userId) {
 function renderAdminUserDetail(payload) {
   const user = payload.user;
   const activity = payload.activity || [];
+  const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   elements.adminUserDetail.className = "panel-card";
   elements.adminUserDetail.innerHTML = `
     <div class="admin-user-detail__head">
@@ -756,7 +861,7 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_status || "inactive")}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
     </div>
-    <form id="adminMembershipForm" class="inline-form">
+    ${canManageAdminTools ? `<form id="adminMembershipForm" class="inline-form">
       <label class="auth-field auth-field--inline">
         <span>Predĺžiť o dni</span>
         <input id="adminMembershipDays" type="number" min="1" max="365" value="30">
@@ -766,7 +871,7 @@ function renderAdminUserDetail(payload) {
         <button id="adminDeactivateBtn" class="button button--ghost" type="button">Deaktivovať</button>
         <button id="adminRoleBtn" class="button button--ghost" type="button">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
       </div>
-    </form>
+    </form>` : `<p class="panel-copy">Tento administrátorský účet má prístup k prehľadu, ale zmeny členstva a rolí môže robiť len hlavný správca.</p>`}
     <p id="adminUserMessage" class="auth-message" hidden></p>
     <div class="section-head section-head--tight">
       <div>
@@ -1131,6 +1236,37 @@ function handleUploadBoxClick(event) {
   startCheckoutFlow();
 }
 
+function handleUploadDragOver(event) {
+  event.preventDefault();
+  if (!state.user?.membership_active) {
+    return;
+  }
+  elements.uploadBox.classList.add("is-dragover");
+}
+
+function handleUploadDragLeave(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    elements.uploadBox.classList.remove("is-dragover");
+  }
+}
+
+function handleUploadDrop(event) {
+  event.preventDefault();
+  elements.uploadBox.classList.remove("is-dragover");
+  if (!state.user?.membership_active) {
+    startCheckoutFlow();
+    return;
+  }
+  const files = Array.from(event.dataTransfer?.files || []);
+  if (!files.length) {
+    return;
+  }
+  state.files.push(...files);
+  setUploadPhase("ready", 0);
+  renderSelectedFiles();
+  renderAccessState();
+}
+
 function formatDateTime(value) {
   if (!value) {
     return "—";
@@ -1173,6 +1309,7 @@ function handleFileSelection(event) {
   }
 
   state.files.push(...files);
+  setUploadPhase("ready", 0);
   renderSelectedFiles();
   renderAccessState();
   elements.fileInput.value = "";
@@ -1185,6 +1322,7 @@ async function processFiles() {
 
   elements.mergeBtn.disabled = true;
   elements.mergeBtn.textContent = "Spracúvam...";
+  startUploadProgressLoop();
 
   const formData = new FormData();
   state.files.forEach((file) => formData.append("files", file, file.name));
@@ -1204,12 +1342,14 @@ async function processFiles() {
     state.mergedContacts = payload.rows || [];
     state.removedDuplicates = payload.removed_duplicates || [];
     state.report = payload.report || state.report;
+    setUploadPhase("done", 100);
 
     renderDatasetResults();
     renderSummary();
     renderResultTable();
     renderDuplicatesAudit();
   } catch (error) {
+    setUploadPhase(state.files.length ? "ready" : "idle", 0);
     window.alert(`Nepodarilo sa spracovať súbory: ${error.message}`);
   } finally {
     renderAccessState();
@@ -1330,6 +1470,7 @@ function resetApp() {
     pocet_vyradenych_bez_emailu_a_telefonu: 0,
     pocet_finalnych_kontaktov: 0,
   };
+  setUploadPhase("idle", 0);
 
   renderSelectedFiles();
   renderSummary();

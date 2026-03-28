@@ -1,0 +1,18 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="unifyoBlue" x1="38" y1="26" x2="138" y2="146" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35B8FF"/>
+      <stop offset="1" stop-color="#1668E8"/>
+    </linearGradient>
+    <linearGradient id="unifyoGreen" x1="88" y1="26" x2="168" y2="144" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8DEB46"/>
+      <stop offset="1" stop-color="#3EC36C"/>
+    </linearGradient>
+  </defs>
+  <circle cx="59" cy="30" r="17" fill="url(#unifyoBlue)"/>
+  <circle cx="142" cy="30" r="17" fill="url(#unifyoGreen)"/>
+  <path d="M59 49V99C59 123.853 79.1472 144 104 144C128.853 144 149 123.853 149 99V49" stroke="url(#unifyoBlue)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M142 49V99C142 119.987 124.987 137 104 137C83.0132 137 66 119.987 66 99V49" stroke="url(#unifyoGreen)" stroke-width="10" stroke-linecap="round" opacity="0.95"/>
+  <path d="M81 49V95C81 107.15 90.8497 117 103 117C115.15 117 125 107.15 125 95V49" stroke="#2A86F7" stroke-width="4.5" stroke-linecap="round" opacity="0.35"/>
+  <text x="195" y="110" fill="#10213F" font-size="88" font-weight="700" font-family="Avenir Next, Segoe UI, Arial, sans-serif" letter-spacing="-3.8">Unifyo</text>
+</svg>

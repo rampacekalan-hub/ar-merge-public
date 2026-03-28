@@ -9,143 +9,157 @@
 <body>
   <div class="ambient ambient--one"></div>
   <div class="ambient ambient--two"></div>
-  <div class="app-shell app-shell--dashboard">
+
+  <div class="app-shell app-shell--site">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar__brand sidebar__brand--wordmark">
-        <span class="sidebar__wordmark">Unifyo</span>
+      <div class="sidebar__header">
+        <a href="/index.html" class="sidebar__wordmark">Unifyo</a>
+        <button id="sidebarRailToggle" class="sidebar__collapse" type="button" aria-label="Zbaliť menu">⟨</button>
       </div>
 
       <nav class="sidebar__nav" aria-label="Navigácia">
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="main" aria-expanded="true">
-            <span>Hlavné menu</span>
+            <span>Produkt</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="main">
-            <a href="/index.html" class="sidebar__link" aria-current="page">Domov</a>
-            <a href="/app.html" class="sidebar__link">Aplikácia</a>
-            <a href="/pricing.html" class="sidebar__link">Cenník</a>
+            <a href="/index.html" class="sidebar__link" aria-current="page"><span class="sidebar__link-icon"></span><span>Domov</span></a>
+            <a href="/app.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Aplikácia</span></a>
+            <a href="/pricing.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cenník</span></a>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <button class="sidebar-group__toggle" type="button" data-sidebar-group="landing" aria-expanded="true">
+            <span>Obsah</span>
+            <span class="sidebar-group__chevron">⌄</span>
+          </button>
+          <div class="sidebar-group__content" data-sidebar-group-content="landing">
+            <a href="#vysledok-preview" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ukážka výsledku</span></a>
+            <a href="#ako-to-funguje" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ako to funguje</span></a>
+            <a href="#preco-unifyo" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Prečo Unifyo</span></a>
           </div>
         </div>
 
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="trust" aria-expanded="false">
-            <span>Dôvera a podmienky</span>
+            <span>Podmienky</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content is-collapsed" data-sidebar-group-content="trust">
-            <a href="/privacy.html" class="sidebar__link">Ochrana súkromia</a>
-            <a href="/terms.html" class="sidebar__link">Podmienky používania</a>
-            <a href="/cookie-policy.html" class="sidebar__link">Cookies</a>
+            <a href="/privacy.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ochrana súkromia</span></a>
+            <a href="/terms.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Podmienky používania</span></a>
+            <a href="/cookie-policy.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cookies</span></a>
           </div>
         </div>
       </nav>
 
       <div class="sidebar__footer">
-        <span>Bezpečné spracovanie</span>
-        <span>CSV / XLSX / XLS</span>
+        <span>Čisté kontakty bez duplicít</span>
+        <span>Jednoduchý výstup pre ďalší import</span>
       </div>
     </aside>
 
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 
-    <div class="content-shell">
-      <header class="hero">
-        <div class="hero__content">
+    <div class="content-shell content-shell--site">
+      <header class="hero hero--landing">
+        <div class="hero__content hero__content--landing">
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
+            <div class="hero__topbar-actions">
+              <a class="ghost-link" href="/pricing.html">Cenník</a>
+              <a class="ghost-link" href="/app.html">Aplikácia</a>
+            </div>
           </div>
-          <div class="hero__grid">
+
+          <div class="hero__grid hero__grid--landing">
             <div class="hero__main">
-              <div class="brand-lockup">
-                <span class="brand-lockup__wordmark">Unifyo</span>
-              </div>
+              <p class="hero__eyebrow">ČISTÉ KONTAKTY BEZ DUPLICÍT</p>
               <h1>Odstráň duplicity z kontaktov za pár sekúnd</h1>
               <p class="hero__lede">Nahraj súbor, automaticky ho vyčisti a stiahni hotový zoznam bez duplicít.</p>
               <div class="hero__actions">
                 <a class="button button--primary" href="/app.html">Vyčistiť kontakty teraz</a>
                 <a class="button button--ghost" href="#ako-to-funguje">Ako to funguje</a>
               </div>
+              <div class="hero__microproof">
+                <span>CSV a XLSX</span>
+                <span>Presné odstránenie duplicit</span>
+                <span>Export pripravený na import</span>
+              </div>
             </div>
 
-            <aside class="hero__panel" aria-label="Prehľad výhod">
-              <div class="hero-proof">
-                <span class="hero-proof__label">Výsledok</span>
-                <strong>Čistý export pripravený na import</strong>
-                <p>Meno, priezvisko, e-mail a telefón v jednom hotovom výstupe.</p>
-              </div>
-              <div class="hero-metrics">
-                <article class="hero-metric">
-                  <span class="hero-metric__icon" aria-hidden="true"></span>
-                  <strong>Presné odstránenie duplicít</strong>
-                </article>
-                <article class="hero-metric">
-                  <span class="hero-metric__icon" aria-hidden="true"></span>
-                  <strong>Bez manuálnej práce</strong>
-                </article>
-                <article class="hero-metric">
-                  <span class="hero-metric__icon" aria-hidden="true"></span>
-                  <strong>CSV aj XLSX výstup</strong>
-                </article>
+            <aside class="hero-preview" aria-label="Ukážka výstupu">
+              <div class="hero-preview__window">
+                <div class="hero-preview__header">
+                  <span class="hero-preview__tag hero-preview__tag--muted">Vstup</span>
+                  <span class="hero-preview__status hero-preview__status--danger">2 duplicity</span>
+                </div>
+                <div class="hero-preview__rows">
+                  <div class="hero-preview__row hero-preview__row--duplicate">
+                    <strong>Jana Nováková</strong>
+                    <span>jana.novakova@example.com</span>
+                  </div>
+                  <div class="hero-preview__row hero-preview__row--duplicate">
+                    <strong>Jana Nováková</strong>
+                    <span> JANA.NOVAKOVA@example.com </span>
+                  </div>
+                </div>
+                <div class="hero-preview__divider"></div>
+                <div class="hero-preview__header">
+                  <span class="hero-preview__tag">Výstup</span>
+                  <span class="hero-preview__status hero-preview__status--success">Čistý export</span>
+                </div>
+                <div class="hero-preview__rows">
+                  <div class="hero-preview__row hero-preview__row--clean">
+                    <strong>Jana Nováková</strong>
+                    <span>+421 905 123 456</span>
+                  </div>
+                  <div class="hero-preview__row hero-preview__row--neutral">
+                    <strong>Pripravené na import</strong>
+                    <span>Mailchimp / Ecomail / CRM</span>
+                  </div>
+                </div>
               </div>
             </aside>
           </div>
         </div>
       </header>
 
-      <section class="trust-bar" aria-label="Hlavné výhody">
-        <article class="trust-pill">
-          <span class="trust-pill__eyebrow">Súkromie</span>
-          <strong class="trust-pill__text">Spracovanie bez zbytočného ukladania</strong>
+      <section class="trust-strip" aria-label="Dôvera">
+        <article class="trust-mini">
+          <span class="trust-mini__icon"></span>
+          <span>Bez ukladania dát</span>
         </article>
-        <article class="trust-pill">
-          <span class="trust-pill__eyebrow">Bezpečnosť</span>
-          <strong class="trust-pill__text">Dáta ostávajú pod kontrolou</strong>
+        <article class="trust-mini">
+          <span class="trust-mini__icon"></span>
+          <span>Bezpečný priebeh</span>
         </article>
-        <article class="trust-pill">
-          <span class="trust-pill__eyebrow">Dôvera</span>
-          <strong class="trust-pill__text">Pripravené pre GDPR procesy</strong>
+        <article class="trust-mini">
+          <span class="trust-mini__icon"></span>
+          <span>GDPR pripravené</span>
+        </article>
+        <article class="trust-mini">
+          <span class="trust-mini__icon"></span>
+          <span>Mailchimp a Ecomail ready</span>
         </article>
       </section>
 
-      <main class="layout">
-        <section class="card card--wide card--simple">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Prečo to používať</p>
-              <h2>Menej chaosu. Menej duplicit. Menej ručnej práce.</h2>
-            </div>
-          </div>
-
-          <div class="problem-grid">
-            <article class="problem-card">
-              <span>Neprehľadné kontakty</span>
-              <p>Viac exportov a nejednotné dáta v jednom zozname.</p>
-            </article>
-            <article class="problem-card">
-              <span>Duplicitné záznamy</span>
-              <p>Rovnaké kontakty cez e-mail, telefón alebo podobné mená.</p>
-            </article>
-            <article class="problem-card">
-              <span>Stratený čas</span>
-              <p>Ručné opravy databáz pred CRM alebo newsletter importom.</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="card card--wide card--simple">
+      <main class="layout layout--marketing">
+        <section id="vysledok-preview" class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">Predtým → Potom</p>
-              <h2>Uvidíš presne, čo sa zmení vo finálnom exporte</h2>
+              <h2>Duplicitný chaos na vstupe. Jeden čistý zoznam na výstupe.</h2>
             </div>
           </div>
 
           <div class="compare-grid">
             <article class="compare-card">
               <div class="compare-card__head">
-                <span class="pill pill--warn">Predtým</span>
-                <strong>Neusporiadané vstupné dáta</strong>
+                <span class="pill pill--warn">Pred importom</span>
+                <strong>Duplicitné a nejednotné dáta</strong>
               </div>
               <div class="table-wrap table-wrap--preview">
                 <table>
@@ -158,13 +172,13 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
+                    <tr class="preview-row preview-row--duplicate">
                       <td>Jana</td>
                       <td>Jana</td>
                       <td class="mono"> JANA.NOVAKOVA@example.com </td>
                       <td class="mono">0905 123 456</td>
                     </tr>
-                    <tr>
+                    <tr class="preview-row preview-row--duplicate">
                       <td>Jana</td>
                       <td>Nováková</td>
                       <td class="mono">jana.novakova@example.com</td>
@@ -177,8 +191,8 @@
 
             <article class="compare-card compare-card--after">
               <div class="compare-card__head">
-                <span class="pill">Potom</span>
-                <strong>Čistý finálny export</strong>
+                <span class="pill">Po spracovaní</span>
+                <strong>Výstup pripravený na ďalší import</strong>
               </div>
               <div class="table-wrap table-wrap--preview">
                 <table>
@@ -191,13 +205,13 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
+                    <tr class="preview-row preview-row--clean">
                       <td>Jana</td>
                       <td>Nováková</td>
                       <td class="mono">jana.novakova@example.com</td>
                       <td class="mono">+421 905 123 456</td>
                     </tr>
-                    <tr>
+                    <tr class="preview-row preview-row--clean">
                       <td>Peter</td>
                       <td>Mravec</td>
                       <td class="mono">peter.mravec@example.com</td>
@@ -208,29 +222,52 @@
               </div>
             </article>
           </div>
-          <p class="table-subnote">Výstup obsahuje len meno, priezvisko, email a telefón.</p>
         </section>
 
-        <section class="card card--wide card--simple">
+        <section id="ako-to-funguje" class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">Ako to funguje</p>
-              <h2>Tri kroky a hotovo.</h2>
+              <h2>Tri kroky a hotovo</h2>
             </div>
           </div>
 
           <div class="info-grid">
             <article class="info-card">
-              <strong>1. Nahraj súbory</strong>
-              <p>Vyber CSV, XLSX alebo XLS.</p>
+              <strong>1. Nahraj súbor</strong>
+              <p>Podporujeme CSV, XLSX aj XLS.</p>
             </article>
             <article class="info-card">
-              <strong>2. Vyčisti automaticky</strong>
-              <p>Systém odstráni duplicity a vyčistí dáta.</p>
+              <strong>2. Automatické čistenie</strong>
+              <p>Unifyo odstráni duplicity a zjednotí údaje.</p>
             </article>
             <article class="info-card">
               <strong>3. Stiahni výsledok</strong>
-              <p>Hotový export vieš ihneď použiť ďalej.</p>
+              <p>Hotový export hneď použiješ v ďalšom systéme.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="preco-unifyo" class="card card--wide card--simple">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Prečo Unifyo</p>
+              <h2>Keď kontakty robia chaos, Unifyo ich dá do poriadku</h2>
+            </div>
+          </div>
+
+          <div class="problem-grid">
+            <article class="problem-card">
+              <span>Neusporiadané kontakty?</span>
+              <p>Viac exportov, rôzne formáty a nejednotné údaje v jednom zozname.</p>
+            </article>
+            <article class="problem-card">
+              <span>Duplicitné záznamy?</span>
+              <p>Rovnaký kontakt viackrát cez e-mail, telefón alebo podobné meno.</p>
+            </article>
+            <article class="problem-card">
+              <span>Strata času ručným čistením?</span>
+              <p>To, čo trvá ručne hodiny, vyriešiš za pár sekúnd.</p>
             </article>
           </div>
         </section>
@@ -238,10 +275,10 @@
         <section class="card card--wide card--simple">
           <div class="cta-strip">
             <div>
-              <strong>Pripravený vyčistiť svoju databázu kontaktov?</strong>
-              <p>Spusť aplikáciu a vyčisti svoj zoznam bez ručného chaosu.</p>
+              <strong>Začni čistiť kontakty bez chaosu</strong>
+              <p>Jeden čistý výstup. Bez duplicít. Bez ručnej práce.</p>
             </div>
-            <a class="button button--primary" href="/app.html">Vyčistiť moje kontakty</a>
+            <a class="button button--primary" href="/app.html">Začni čistiť kontakty</a>
           </div>
         </section>
       </main>
@@ -251,7 +288,7 @@
         <a href="/privacy.html">Ochrana súkromia</a>
         <a href="/terms.html">Podmienky používania</a>
         <a href="/cookie-policy.html">Cookies</a>
-        <a href="mailto:rampacek.alan@gmail.com">Kontakt</a>
+        <a href="mailto:info@unifyo.online">Kontakt</a>
       </footer>
     </div>
   </div>
@@ -260,20 +297,16 @@
     <div id="landingPromoBackdrop" class="modal__backdrop"></div>
     <div class="modal__dialog modal__dialog--promo modal__dialog--landing-promo">
       <button id="landingPromoClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <div class="landing-promo__brand">
-        <span class="landing-promo__wordmark">Unifyo</span>
-      </div>
-      <p class="landing-promo__caption">Limitovaná uvádzacia ponuka pre prvé čisté databázy bez chaosu a bez duplicit.</p>
-      <p class="section-kicker">Štartovacia akcia</p>
-      <h2>Vyčisti svoje kontakty profesionálne za cenu, ktorú nepustíš z hlavy.</h2>
-      <p class="modal__lead">Mesačný prístup k plnému importu, deduplikácii a finálnemu exportu teraz aktivuješ za zvýhodnenú cenu. Jednoducho, bezpečne a bez chaosu.</p>
+      <p class="section-kicker">Limitovaná cena</p>
+      <h2>Aktivuj mesačný prístup teraz za 0,99 €</h2>
+      <p class="modal__lead">Získaj plný import vlastných databáz, audit duplicit a finálny export pripravený na ďalší systém.</p>
       <div class="promo-price promo-price--featured">
         <span class="promo-price__old">4,99 € / mesiac</span>
         <span class="promo-price__deal">Teraz len 0,99 € / mesiac</span>
-        <strong class="promo-price__current">Spusti Unifyo za 0,99 €</strong>
+        <strong class="promo-price__current">Mesačný prístup v akcii</strong>
       </div>
       <div class="modal__promo-points landing-promo__points">
-        <span>Plný import vlastných súborov</span>
+        <span>Import vlastných súborov</span>
         <span>Audit odstránených duplicit</span>
         <span>Export do CSV aj XLSX</span>
       </div>
@@ -316,7 +349,7 @@
         }
       });
 
-      window.setTimeout(openModal, 650);
+      window.setTimeout(openModal, 700);
     }());
   </script>
 </body>

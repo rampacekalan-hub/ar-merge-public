@@ -10,45 +10,46 @@
   <div class="ambient ambient--one"></div>
   <div class="ambient ambient--two"></div>
 
-  <div class="app-shell app-shell--dashboard">
+  <div class="app-shell app-shell--site">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar__brand sidebar__brand--wordmark">
-        <span class="sidebar__wordmark">Unifyo</span>
+      <div class="sidebar__header">
+        <a href="/index.html" class="sidebar__wordmark">Unifyo</a>
+        <button id="sidebarRailToggle" class="sidebar__collapse" type="button" aria-label="Zbaliť menu">⟨</button>
       </div>
 
       <nav class="sidebar__nav" aria-label="Navigácia">
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="main" aria-expanded="true">
-            <span>Stránky</span>
+            <span>Produkt</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="main">
-            <a href="/index.html" class="sidebar__link">Domov</a>
-            <a href="/app.html" class="sidebar__link">Aplikácia</a>
-            <a href="/pricing.html" class="sidebar__link" aria-current="page">Cenník</a>
+            <a href="/index.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Domov</span></a>
+            <a href="/app.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Aplikácia</span></a>
+            <a href="/pricing.html" class="sidebar__link" aria-current="page"><span class="sidebar__link-icon"></span><span>Cenník</span></a>
           </div>
         </div>
 
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="info" aria-expanded="true">
-            <span>Informácie</span>
+            <span>Obsah</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content" data-sidebar-group-content="info">
-            <a href="#co-ziskas" class="sidebar__link">Čo získaš</a>
-            <a href="#faq" class="sidebar__link">FAQ</a>
+            <a href="#co-ziskas" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Čo získaš</span></a>
+            <a href="#faq" class="sidebar__link"><span class="sidebar__link-icon"></span><span>FAQ</span></a>
           </div>
         </div>
 
         <div class="sidebar-group">
           <button class="sidebar-group__toggle" type="button" data-sidebar-group="trust" aria-expanded="false">
-            <span>Dôvera a podmienky</span>
+            <span>Podmienky</span>
             <span class="sidebar-group__chevron">⌄</span>
           </button>
           <div class="sidebar-group__content is-collapsed" data-sidebar-group-content="trust">
-            <a href="/privacy.html" class="sidebar__link">Ochrana súkromia</a>
-            <a href="/terms.html" class="sidebar__link">Podmienky používania</a>
-            <a href="/cookie-policy.html" class="sidebar__link">Cookies</a>
+            <a href="/privacy.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Ochrana súkromia</span></a>
+            <a href="/terms.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Podmienky používania</span></a>
+            <a href="/cookie-policy.html" class="sidebar__link"><span class="sidebar__link-icon"></span><span>Cookies</span></a>
           </div>
         </div>
       </nav>
@@ -61,92 +62,104 @@
 
     <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 
-    <div class="content-shell">
-      <header class="hero">
-        <div class="hero__content">
+    <div class="content-shell content-shell--site">
+      <header class="hero hero--compact">
+        <div class="hero__content hero__content--compact">
           <div class="hero__topbar">
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
           </div>
           <p class="hero__eyebrow">Cenník</p>
-          <h1>Jedno členstvo. Plný prístup bez komplikácií.</h1>
-          <p class="hero__lede">Získaj prístup k nahrávaniu vlastných databáz, automatickému čisteniu kontaktov, exportu do CSV/XLSX a auditu odstránených duplicit.</p>
+          <h1>Jedno členstvo. Plný prístup bez zbytočností.</h1>
+          <p class="hero__lede">Mesačný prístup odomkne nahrávanie vlastných databáz, automatické čistenie kontaktov, audit odstránených duplicit a export do CSV aj XLSX.</p>
           <div class="hero__actions">
             <a class="button button--primary" href="/app.html">Prejsť do aplikácie</a>
           </div>
         </div>
       </header>
 
-      <main class="layout">
-        <section class="card card--wide">
-          <div class="section-head">
-            <div>
-              <p class="section-kicker">Členstvo</p>
-              <h2>Jednoduchý plán bez zbytočných vrstiev.</h2>
-            </div>
-          </div>
-
+      <main class="layout layout--pricing">
+        <section class="card card--wide card--pricing-hero">
           <div class="pricing-grid">
-            <article class="pricing-card pricing-card--pro">
+            <article class="pricing-card pricing-card--featured">
               <span class="pricing-card__label">Mesačný prístup</span>
-              <p class="pricing-card__intro">Plný produktový prístup v rámci jedného účtu s ukladaním histórie a členstva.</p>
+              <h2>Všetko potrebné pre čistý export kontaktov.</h2>
+              <p class="pricing-card__intro">Jedna cena, jeden účet, plný import vlastných súborov a výsledok pripravený na ďalší systém.</p>
               <div class="pricing-card__price-wrap">
                 <span class="pricing-card__price-old">4,99 € / mesiac</span>
                 <span class="pricing-card__deal">Akciová cena</span>
                 <strong class="pricing-card__price">0,99 € / mesiac</strong>
               </div>
-              <p class="pricing-card__copy">Platba prebieha bezpečne cez Stripe. Po zaplatení sa členstvo aktivuje priamo na tvojom účte.</p>
-              <a class="pricing-card__link button button--primary" href="/app.html">Začať v aplikácii</a>
-              <p class="pricing-card__note">Vhodné pre CRM databázy, mailing listy, Mailchimp, Ecomail a ďalšie newsletter systémy.</p>
+              <p class="pricing-card__copy">Po zaplatení sa členstvo aktivuje priamo na tvojom účte. Platba prebieha bezpečne cez Stripe.</p>
+              <a class="button button--primary pricing-card__link" href="/app.html">Začať v aplikácii</a>
+            </article>
+
+            <article class="pricing-sidecard">
+              <div class="pricing-sidecard__item">
+                <strong>CSV, XLSX aj XLS</strong>
+                <span>Nahraj jeden alebo viac súborov naraz.</span>
+              </div>
+              <div class="pricing-sidecard__item">
+                <strong>Presná deduplikácia</strong>
+                <span>Odstránenie duplicit podľa e-mailu, telefónu aj podobných údajov.</span>
+              </div>
+              <div class="pricing-sidecard__item">
+                <strong>Audit odstránených záznamov</strong>
+                <span>Vidíš, čo bolo odstránené a prečo.</span>
+              </div>
+              <div class="pricing-sidecard__item">
+                <strong>Pripravené pre CRM a newslettery</strong>
+                <span>Mailchimp, Ecomail a ďalšie importné workflow.</span>
+              </div>
             </article>
           </div>
         </section>
 
-        <section id="co-ziskas" class="card card--wide card--info">
+        <section id="co-ziskas" class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">Čo získaš</p>
-              <h2>Všetko, čo potrebuješ na čistý export kontaktov.</h2>
+              <h2>Bez ručného čistenia a bez prepisovania kontaktov.</h2>
             </div>
           </div>
           <div class="info-grid">
             <article class="info-card">
               <strong>Import viacerých súborov</strong>
-              <p>Nahraj jeden alebo viac CSV, XLSX alebo XLS súborov naraz.</p>
+              <p>Nahraj viac exportov naraz a spracuj ich v jednom kroku.</p>
             </article>
             <article class="info-card">
-              <strong>Automatická deduplikácia</strong>
-              <p>Odstránenie duplicit podľa e-mailu, telefónu a opatrných pravidiel podobnosti.</p>
+              <strong>Automatické čistenie</strong>
+              <p>Odstránenie duplicit a zjednotenie kľúčových údajov.</p>
             </article>
             <article class="info-card">
-              <strong>Audit odstránených záznamov</strong>
-              <p>Vidíš, čo sa vymazalo, čo ostalo a prečo bol záznam považovaný za duplicitu.</p>
+              <strong>Audit rozhodnutí</strong>
+              <p>Jasne vidíš, čo zostalo a čo bolo vymazané.</p>
             </article>
             <article class="info-card">
-              <strong>Export pripravený na import</strong>
-              <p>Finálny výstup len so stĺpcami meno, priezvisko, email a telefón.</p>
+              <strong>Čistý finálny export</strong>
+              <p>Výstup pripravený na ďalší import bez ďalších zásahov.</p>
             </article>
           </div>
         </section>
 
-        <section id="faq" class="card card--wide">
+        <section id="faq" class="card card--wide card--simple">
           <div class="section-head">
             <div>
               <p class="section-kicker">FAQ</p>
-              <h2>Časté otázky pred kúpou.</h2>
+              <h2>Krátke odpovede pred aktiváciou členstva.</h2>
             </div>
           </div>
           <div class="faq-list">
             <article class="faq-item">
               <strong>Je členstvo viazané na účet?</strong>
-              <p>Áno. Po prihlásení vidíš svoj stav členstva, platnosť aj históriu aktivít.</p>
+              <p>Áno. Po prihlásení vidíš stav členstva, platnosť aj históriu aktivít.</p>
             </article>
             <article class="faq-item">
               <strong>Čo ak zabudnem heslo?</strong>
-              <p>Na prihlásení si vieš vyžiadať reset link, ktorý príde na registrovaný e-mail.</p>
+              <p>Obnovu hesla si vieš vyžiadať priamo na prihlasovacej obrazovke.</p>
             </article>
             <article class="faq-item">
               <strong>Kam sa hodí finálny export?</strong>
-              <p>Je pripravený na CRM importy a newsletter systémy ako Mailchimp alebo Ecomail.</p>
+              <p>Do CRM, newsletter systémov aj interných databázových importov.</p>
             </article>
           </div>
         </section>
