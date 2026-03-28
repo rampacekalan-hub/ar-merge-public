@@ -3337,3 +3337,120 @@ tbody tr:hover td {
     width: 100%;
   }
 }
+
+/* -------- Landing polish: stable layout + price-first promo -------- */
+
+.hero__grid--landing {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px) !important;
+  align-items: stretch !important;
+}
+
+.hero-preview {
+  height: 100%;
+}
+
+.hero-preview__window {
+  height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.hero-preview__rows {
+  gap: 9px;
+}
+
+.hero-preview__row {
+  display: grid;
+  gap: 4px;
+  min-height: 68px;
+}
+
+.hero-preview__row span {
+  word-break: break-word;
+}
+
+.compare-grid {
+  align-items: stretch;
+}
+
+.compare-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.table-wrap--preview {
+  height: 100%;
+}
+
+.table-wrap--preview table {
+  min-height: 100%;
+}
+
+.modal__dialog--landing-promo,
+.modal__dialog--promo {
+  overflow: hidden;
+}
+
+.promo-price--featured,
+.modal__dialog--promo .promo-price {
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 36%),
+    linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(255, 255, 255, 0.98));
+}
+
+.promo-price__old {
+  font-size: 1.05rem;
+}
+
+.promo-price__deal {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+}
+
+.promo-price__current {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 56px;
+  padding: 6px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1459c8, #1d73ea);
+  color: #ffffff;
+  font-size: clamp(2.1rem, 4.8vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  box-shadow: 0 20px 42px rgba(29, 115, 234, 0.34);
+  animation: pricePulse 2.4s ease-in-out infinite;
+}
+
+.promo-price__note {
+  color: #b42318;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@keyframes pricePulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 20px 42px rgba(29, 115, 234, 0.34);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 26px 52px rgba(29, 115, 234, 0.42);
+  }
+}
+
+@media (max-width: 1040px) {
+  .hero__grid--landing {
+    grid-template-columns: 1fr !important;
+  }
+}
