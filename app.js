@@ -170,7 +170,7 @@ const elements = {
 const SIDEBAR_COLLAPSED_KEY = "unifyo_sidebar_collapsed";
 const STICKY_DEAL_DISMISSED_KEY = "unifyo_sticky_deal_dismissed";
 const COMPRESS_EXTENSIONS = new Set(["pdf", "jpg", "jpeg", "png", "webp"]);
-const ONLINE_COMPRESS_UI_LIMIT_BYTES = 12 * 1024 * 1024;
+const ONLINE_COMPRESS_UI_LIMIT_BYTES = 100 * 1024 * 1024;
 
 bootstrap();
 
@@ -1681,8 +1681,8 @@ function renderCompressionUploadState() {
     etaText = elapsedSeconds ? `Spracovanie trvalo približne ${formatDuration(elapsedSeconds)}.` : "Spracovanie je dokončené.";
   } else if (hasFile && state.compression.isOversize) {
     badge = "Limit online verzie";
-    text = `${state.compression.file.name} je väčší, než aktuálna online verzia bezpečne zvládne.`;
-    etaText = "Pre výrazne väčšie súbory bude potrebné výkonnejšie spracovanie na pozadí.";
+    text = `${state.compression.file.name} je väčší než 100 MB, čo je nad limit aktuálnej online verzie.`;
+    etaText = "Pre väčšie súbory než 100 MB bude potrebné výkonnejšie spracovanie na pozadí.";
   } else if (hasFile) {
     badge = "Súbor pripravený";
     text = `${state.compression.file.name} čaká na kompresiu.`;
@@ -1784,7 +1784,7 @@ function setCompressionFile(file) {
   state.compression.isOversize = file.size > ONLINE_COMPRESS_UI_LIMIT_BYTES;
   state.compression.result = state.compression.isOversize
     ? {
-        error: "Tento súbor je na aktuálnu online verziu príliš veľký. Pre väčšie súbory budeme potrebovať výkonnejší server a streamované spracovanie na pozadí.",
+        error: "Tento súbor je väčší než 100 MB. Aktuálna online verzia podporuje kompresiu do 100 MB.",
       }
     : null;
   state.compression.estimateSeconds = estimateCompressionSeconds(file, normalizeCompressionTarget());
