@@ -3379,6 +3379,18 @@ tbody tr:hover td {
   grid-template-rows: auto 1fr;
 }
 
+.compare-card__meta {
+  margin: 10px 2px 0;
+  color: #60758f;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.compare-card__meta--success {
+  color: #1f7f43;
+  font-weight: 650;
+}
+
 .table-wrap--preview {
   height: 100%;
 }
@@ -3452,5 +3464,20 @@ tbody tr:hover td {
 @media (max-width: 1040px) {
   .hero__grid--landing {
     grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 1041px) {
+  .hero--landing h1 {
+    max-width: 12ch !important;
+    font-size: clamp(2.05rem, 3.35vw, 3rem) !important;
+  }
+
+  .hero__grid--landing {
+    gap: 18px !important;
+  }
+
+  .compare-grid {
+    gap: 12px !important;
   }
 }

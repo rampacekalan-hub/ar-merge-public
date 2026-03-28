@@ -569,9 +569,34 @@ def table_from_csv(file_bytes):
     else:
         raise ValueError("CSV sa nepodarilo dekódovať.")
 
-    reader = csv.reader(io.StringIO(text))
+    reader = csv.reader(io.StringIO(text), delimiter=detect_csv_delimiter(text))
     rows = [row for row in reader if any(normalize_cell(cell) for cell in row)]
     return table_from_rows(rows)
+
+
+def detect_csv_delimiter(text):
+    sample = text[:8192]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
+        if dialect and dialect.delimiter:
+            return dialect.delimiter
+    except csv.Error:
+        pass
+
+    lines = [line for line in sample.splitlines() if line.strip()][:20]
+    if not lines:
+        return ","
+
+    candidates = [";", ",", "\t", "|"]
+    best = ","
+    best_score = -1
+    for delimiter in candidates:
+        counts = [line.count(delimiter) for line in lines]
+        score = sum(counts) + sum(1 for count in counts if count > 0) * 2
+        if score > best_score:
+            best_score = score
+            best = delimiter
+    return best
 
 
 def table_from_xlsx(file_bytes):

@@ -1228,7 +1228,7 @@ function handleUnlockUploadAction() {
 
 function handleOpenCompressorAction() {
   if (state.user?.membership_active) {
-    window.location.href = "/compressor.html";
+    window.location.href = "/compress.html";
     return;
   }
   if (!state.user) {

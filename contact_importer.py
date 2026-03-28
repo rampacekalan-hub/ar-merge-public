@@ -317,8 +317,33 @@ def read_csv_bytes(raw_bytes: bytes, file_name: str = "upload.csv") -> tuple[lis
     else:
         raise ValueError(f"CSV súbor sa nepodarilo dekódovať: {file_name}")
 
-    rows = list(csv.reader(io.StringIO(text)))
+    rows = list(csv.reader(io.StringIO(text), delimiter=detect_csv_delimiter(text)))
     return normalize_table_rows(rows)
+
+
+def detect_csv_delimiter(text: str) -> str:
+    sample = text[:8192]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
+        if dialect and dialect.delimiter:
+            return dialect.delimiter
+    except csv.Error:
+        pass
+
+    lines = [line for line in sample.splitlines() if line.strip()][:20]
+    if not lines:
+        return ","
+
+    candidates = [";", ",", "\t", "|"]
+    best = ","
+    best_score = -1
+    for delimiter in candidates:
+        counts = [line.count(delimiter) for line in lines]
+        score = sum(counts) + sum(1 for count in counts if count > 0) * 2
+        if score > best_score:
+            best_score = score
+            best = delimiter
+    return best
 
 
 def read_xlsx(path: Path) -> tuple[list[str], list[list[str]]]:
