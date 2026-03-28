@@ -10,11 +10,11 @@
   <div class="ambient ambient--one"></div>
   <div class="ambient ambient--two"></div>
 
-  <div class="ai-shell">
+  <div class="ai-shell ai-shell--chat">
     <header class="ai-topbar card">
       <div class="ai-topbar__brand">
         <a href="/index.html" class="ai-wordmark">Unifyo <span class="ai-wordmark__badge">AI</span></a>
-        <p class="ai-topbar__caption">Asistent pre finančných sprostredkovateľov</p>
+        <p class="ai-topbar__caption">Pracovný asistent pre slovenských sprostredkovateľov</p>
       </div>
       <nav class="ai-topbar__nav" aria-label="Sekcie">
         <a href="/index.html">Domov</a>
@@ -27,51 +27,51 @@
       </div>
     </header>
 
-    <main class="ai-layout">
+    <main class="ai-layout ai-layout--chat">
       <aside class="ai-rail card">
         <section class="ai-rail__section">
-          <p class="section-kicker">Rýchle akcie</p>
+          <p class="section-kicker">Rýchle štarty</p>
           <div class="ai-tool-list">
             <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi plán dňa ako finančný sprostredkovateľ na Slovensku. Zoradí priority, follow-upy, telefonáty a stretnutia.">
               <span class="ai-tool__icon">01</span>
               <div>
                 <strong>Plán dňa</strong>
-                <p>Priority na dnes</p>
+                <p>Denné priority</p>
               </div>
             </button>
             <button class="ai-tool js-ai-prompt" type="button" data-prompt="Napíš mi profesionálny follow-up e-mail klientovi po stretnutí. Buď stručný, profesionálny a predajný.">
               <span class="ai-tool__icon">02</span>
               <div>
                 <strong>Follow-up</strong>
-                <p>Mail alebo správa</p>
+                <p>Mail / správa</p>
               </div>
             </button>
             <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi call script pre klienta, ktorému sa dnes potrebujem ozvať. Chcem profesionálny a prirodzený priebeh hovoru.">
               <span class="ai-tool__icon">03</span>
               <div>
                 <strong>Call script</strong>
-                <p>Scenár hovoru</p>
+                <p>Scenár telefonátu</p>
               </div>
             </button>
             <button class="ai-tool js-ai-prompt" type="button" data-prompt="Pomôž mi zoradiť rozpracovaných klientov a povedz mi, kto má byť dnes priorita a prečo.">
               <span class="ai-tool__icon">04</span>
               <div>
                 <strong>Priority</strong>
-                <p>Kto je dnes prvý</p>
+                <p>Kto má byť prvý</p>
               </div>
             </button>
             <button class="ai-tool js-ai-prompt" type="button" data-prompt="Napíš mi krátku profesionálnu správu klientovi, ktorý prestal reagovať a potrebujem ho znovu aktivovať.">
               <span class="ai-tool__icon">05</span>
               <div>
                 <strong>Reaktivácia</strong>
-                <p>Krátke obnovenie kontaktu</p>
+                <p>Obnovenie kontaktu</p>
               </div>
             </button>
             <button class="ai-tool js-ai-prompt" type="button" data-prompt="Priprav mi checklist na stretnutie s klientom a otázky, ktoré si mám pripraviť ako finančný sprostredkovateľ.">
               <span class="ai-tool__icon">06</span>
               <div>
                 <strong>Stretnutie</strong>
-                <p>Príprava a checklist</p>
+                <p>Agenda + checklist</p>
               </div>
             </button>
           </div>
@@ -96,9 +96,9 @@
 
       <section class="ai-chat card">
         <div class="ai-chat__header">
-          <div>
-            <p class="section-kicker">Unifyo AI</p>
-            <h1 id="aiChatHeadline">AI asistent pre obchod a servis klientov</h1>
+          <div class="ai-chat__header-main">
+            <h1 id="aiChatHeadline">Unifyo AI</h1>
+            <p class="ai-chat__subtitle">Prirodzený, praktický asistent pre dennú prácu vo finančnom sprostredkovaní</p>
           </div>
           <span id="aiMembershipPill" class="pill">Načítavam</span>
         </div>
@@ -117,12 +117,12 @@
 
         <div id="aiChatReady" class="ai-chat__body is-hidden">
           <div id="aiChatFeed" class="ai-chat-feed empty-state">
-            AI asistent je pripravený. Začni otázkou alebo si vyber rýchlu akciu vľavo.
+            AI asistent je pripravený. Začni jednou otázkou.
           </div>
 
           <form id="aiChatForm" class="ai-composer">
             <label class="sr-only" for="aiChatInput">Tvoja správa</label>
-            <textarea id="aiChatInput" rows="1" placeholder="Napíš správu pre Unifyo AI..." required></textarea>
+            <textarea id="aiChatInput" rows="1" placeholder="Napíš otázku alebo úlohu..." required></textarea>
             <div class="ai-composer__actions">
               <p id="aiChatMessage" class="auth-message" hidden></p>
               <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>

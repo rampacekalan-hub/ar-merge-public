@@ -46,6 +46,7 @@ function bindAiEvents() {
   aiElements.logoutBtn?.addEventListener("click", handleLogout);
   aiElements.checkoutBtn?.addEventListener("click", startCheckoutFlow);
   aiElements.chatForm?.addEventListener("submit", handleChatSubmit);
+  aiElements.chatFeed?.addEventListener("click", handleChatFeedClick);
   aiElements.profileForm?.addEventListener("submit", handleProfileSubmit);
   aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
   aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
@@ -98,8 +99,8 @@ function renderAiState() {
   }
   if (aiElements.lockedText) {
     aiElements.lockedText.textContent = !isLoggedIn
-      ? "Vytvor si účet v Unifyo a získaj AI asistenta pre každodennú prax finančného sprostredkovateľa."
-      : "Po aktivácii členstva získaš AI chat s pamäťou, follow-upmi, plánom dňa a odporúčaniami na relevantné oficiálne zdroje.";
+      ? "Prihlás sa a získaj AI asistenta pre každodennú prácu finančného sprostredkovateľa."
+      : "Po aktivácii členstva môžeš chat používať bez obmedzení aj s pamäťou kontextu.";
   }
   if (aiElements.checkoutBtn) {
     aiElements.checkoutBtn.classList.toggle("is-hidden", !isLoggedIn || hasMembership);
@@ -141,11 +142,14 @@ function renderAssistantData() {
   }
   if (aiElements.chatHeadline) {
     aiElements.chatHeadline.textContent = aiState.messages.length
-      ? "Pokračuj tam, kde si skončil"
-      : "Napíš, čo dnes potrebuješ vyriešiť";
+      ? "Pokračuj v konverzácii"
+      : "Unifyo AI";
   }
   autoResizeTextarea(aiElements.chatInput);
   renderMessages();
+  if (aiElements.chatInput && aiState.user?.membership_active) {
+    aiElements.chatInput.focus();
+  }
 }
 
 function renderMessages() {
@@ -155,11 +159,12 @@ function renderMessages() {
   }
 
   aiElements.chatFeed.className = "ai-chat-feed";
-  aiElements.chatFeed.innerHTML = aiState.messages.map((message) => `
-    <article class="ai-chat-message ai-chat-message--${escapeHtml(message.role || "assistant")}">
+  aiElements.chatFeed.innerHTML = aiState.messages.map((message, index) => `
+    <article class="ai-chat-message ai-chat-message--${escapeHtml(message.role || "assistant")}" data-message-index="${index}">
       <div class="ai-chat-message__meta">
-        <span>${escapeHtml(message.role === "user" ? "Ty" : "Unifyo AI")}</span>
+        <span>${escapeHtml(message.role === "user" ? "Ty" : "Unifyo AI asistent")}</span>
         <span>${escapeHtml(formatDateTime(message.created_at))}</span>
+        ${message.role === "assistant" ? '<button class="ai-copy-btn js-ai-copy" type="button">Kopírovať</button>' : ""}
       </div>
       <div class="ai-chat-message__bubble">${formatMessageHtml(message.content || "")}</div>
     </article>
@@ -171,7 +176,7 @@ function renderMessages() {
       `
         <article class="ai-chat-message ai-chat-message--assistant">
           <div class="ai-chat-message__meta">
-            <span>Unifyo AI</span>
+            <span>Unifyo AI asistent</span>
             <span>práve teraz</span>
           </div>
           <div class="ai-chat-message__bubble ai-chat-message__bubble--typing">
@@ -196,10 +201,39 @@ function renderEmptyChat(message = "", isError = false) {
   aiElements.chatFeed.innerHTML = `
     <div class="ai-empty">
       <span class="pill">Pripravené</span>
-      <h3>Začni jednou vetou</h3>
-      <p>Napíš, čo potrebuješ dnes vyriešiť, a AI navrhne ďalší postup aj relevantné zdroje.</p>
+      <h3>Začni otázkou</h3>
+      <p>Napíš, čo riešiš. Dostaneš priamu odpoveď a konkrétny ďalší krok.</p>
     </div>
   `;
+}
+
+async function handleChatFeedClick(event) {
+  const button = event.target.closest(".js-ai-copy");
+  if (!button) {
+    return;
+  }
+  const messageContainer = button.closest(".ai-chat-message");
+  if (!messageContainer) {
+    return;
+  }
+  const index = Number(messageContainer.dataset.messageIndex || "-1");
+  if (Number.isNaN(index) || index < 0 || index >= aiState.messages.length) {
+    return;
+  }
+  const message = aiState.messages[index];
+  if (!message || message.role !== "assistant" || !message.content) {
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(String(message.content));
+    const previousLabel = button.textContent;
+    button.textContent = "Skopírované";
+    setTimeout(() => {
+      button.textContent = previousLabel;
+    }, 1400);
+  } catch (_error) {
+    setInlineMessage(aiElements.chatMessage, "Kopírovanie sa nepodarilo. Skús to znova.", true);
+  }
 }
 
 function handleChatKeydown(event) {
@@ -229,7 +263,7 @@ async function handleChatSubmit(event) {
   aiElements.chatForm.reset();
   autoResizeTextarea(aiElements.chatInput);
   aiElements.chatSubmit.disabled = true;
-  aiElements.chatSubmit.textContent = "Odosielam...";
+  aiElements.chatSubmit.textContent = "Posielam...";
 
   try {
     const response = await fetch("/api/assistant/chat", {
@@ -251,6 +285,7 @@ async function handleChatSubmit(event) {
     aiElements.chatSubmit.disabled = false;
     aiElements.chatSubmit.textContent = "Odoslať";
     renderMessages();
+    aiElements.chatInput?.focus();
   }
 }
 
