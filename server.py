@@ -42,7 +42,7 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5").strip() or "gpt-5"
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini"
 SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "").strip()
@@ -627,42 +627,33 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
 
-    input_messages = [
+    chat_messages = [
         {
             "role": "system",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": build_assistant_system_prompt(user_row, profile),
-                }
-            ],
+            "content": build_assistant_system_prompt(user_row, profile),
         }
     ]
-    for message in history_messages[-16:]:
-        is_assistant_message = message["role"] == "assistant"
-        input_messages.append(
+    for message in history_messages[-10:]:
+        chat_messages.append(
             {
-                "role": "assistant" if is_assistant_message else "user",
-                "content": [{
-                    "type": "output_text" if is_assistant_message else "input_text",
-                    "text": message["content"],
-                }],
+                "role": "assistant" if message["role"] == "assistant" else "user",
+                "content": message["content"],
             }
         )
-    input_messages.append(
+    chat_messages.append(
         {
             "role": "user",
-            "content": [{"type": "input_text", "text": user_message}],
+            "content": user_message,
         }
     )
 
     payload = {
         "model": OPENAI_MODEL,
-        "input": input_messages,
-        "max_output_tokens": 900,
+        "messages": chat_messages,
+        "max_completion_tokens": 500,
     }
     request = urllib_request.Request(
-        "https://api.openai.com/v1/responses",
+        "https://api.openai.com/v1/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -683,7 +674,11 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
         raise RuntimeError(f"OpenAI API nie je dostupné: {exc.reason}") from exc
 
     payload = json.loads(body)
-    text = extract_openai_response_text(payload)
+    text = ""
+    choices = payload.get("choices") or []
+    if choices:
+        message = choices[0].get("message") or {}
+        text = str(message.get("content") or "").strip()
     if not text:
         raise RuntimeError("AI asistent vrátil prázdnu odpoveď.")
     return text

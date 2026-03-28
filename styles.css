@@ -186,27 +186,27 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .hero__brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #1d73ea, #4bbb4f);
-  box-shadow: 0 16px 34px rgba(29, 115, 234, 0.18);
+  box-shadow: 0 14px 28px rgba(29, 115, 234, 0.14);
   color: #ffffff;
-  font-size: 1.25rem;
+  font-size: 1.12rem;
   font-weight: 900;
   letter-spacing: -0.04em;
 }
 
 .hero__brand-name {
   color: #10233f;
-  font-size: 1.35rem;
+  font-size: 1.22rem;
   font-weight: 800;
   letter-spacing: -0.04em;
 }
@@ -219,26 +219,26 @@ h1 {
 }
 
 .hero__lede {
-  max-width: 54rem;
-  margin-top: 16px;
+  max-width: 42rem;
+  margin-top: 12px;
   color: #536982;
-  font-size: 1.02rem;
-  line-height: 1.7;
+  font-size: 0.98rem;
+  line-height: 1.62;
   font-weight: 500;
 }
 
 .hero__eyebrow {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   color: #2563eb;
-  font-size: 0.78rem;
-  letter-spacing: 0.16em;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
 }
 
 .hero__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin-top: 22px;
+  margin-top: 18px;
   gap: 12px;
 }
 
@@ -391,44 +391,46 @@ h1 {
 .hero__microproof span {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(16, 35, 63, 0.08);
-  color: #294663;
-  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(16, 35, 63, 0.06);
+  color: #385572;
+  font-size: 0.88rem;
   font-weight: 700;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 10px 24px rgba(11, 33, 67, 0.04);
 }
 
 .trust-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 18px;
+  gap: 14px;
+  margin: 0 0 16px;
 }
 
 .trust-mini {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(16, 35, 63, 0.07);
-  color: #405976;
-  font-size: 0.88rem;
-  font-weight: 650;
+  gap: 10px;
+  min-height: 58px;
+  padding: 0 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(16, 35, 63, 0.05);
+  color: #445e7a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 14px 28px rgba(11, 33, 67, 0.04);
 }
 
 .trust-mini__icon {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #1d73ea, #4bbb4f);
-  flex: 0 0 10px;
+  background: linear-gradient(135deg, #1d73ea, #4bbb4f);
+  flex: 0 0 12px;
+  box-shadow: 0 0 0 6px rgba(29, 115, 234, 0.08);
 }
 
 .hero__trust-inline {
@@ -2937,6 +2939,11 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .trust-mini {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .brand-lockup {
     width: 100%;
     flex-direction: column;
@@ -3542,9 +3549,10 @@ h1 {
 }
 
 .hero--landing h1 {
-  white-space: nowrap;
-  font-size: clamp(2.15rem, 3.2vw, 3.7rem) !important;
-  line-height: 0.96 !important;
+  white-space: normal;
+  max-width: 20ch;
+  font-size: clamp(2.05rem, 3vw, 3.25rem) !important;
+  line-height: 0.98 !important;
 }
 
 .compare-grid {
@@ -3584,6 +3592,7 @@ h1 {
 @media (max-width: 1180px) {
   .hero--landing h1 {
     white-space: normal !important;
+    max-width: none;
   }
 }
 
@@ -3768,9 +3777,9 @@ h1 {
 
 @media (min-width: 1041px) {
   .hero--landing h1 {
-    max-width: none !important;
-    white-space: nowrap !important;
-    font-size: clamp(2.1rem, 3.05vw, 3.55rem) !important;
+    max-width: 18ch !important;
+    white-space: normal !important;
+    font-size: clamp(2rem, 2.85vw, 3.05rem) !important;
   }
 
   .hero__grid--landing {
