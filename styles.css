@@ -3057,6 +3057,27 @@ body {
   box-shadow: 0 32px 80px rgba(11, 33, 67, 0.08) !important;
 }
 
+.hero--pricing-wide .hero__content,
+.hero__content--pricing-wide {
+  width: 100%;
+}
+
+.hero--pricing-wide h1,
+.hero__content--pricing-wide h1 {
+  max-width: none !important;
+  width: 100%;
+  font-size: clamp(2.4rem, 4vw, 3.5rem) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.05em !important;
+}
+
+.hero--pricing-wide .hero__lede,
+.hero__content--pricing-wide .hero__lede {
+  max-width: none !important;
+  width: 100%;
+  font-size: 1.02rem !important;
+}
+
 .hero__grid {
   grid-template-columns: minmax(0, 1fr) minmax(320px, 360px) !important;
   gap: 28px !important;
@@ -3854,6 +3875,10 @@ body.mode-chooser .workspace-header__main {
   box-shadow: 0 30px 70px rgba(9, 28, 56, 0.18);
 }
 
+.sticky-deal[hidden] {
+  display: none !important;
+}
+
 .sticky-deal__text {
   display: flex;
   flex-wrap: wrap;
@@ -3910,6 +3935,7 @@ body.mode-chooser .workspace-header__main {
   background: rgba(29, 115, 234, 0.08);
   color: #124aa5;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .sticky-deal .button {

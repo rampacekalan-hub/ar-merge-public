@@ -79,12 +79,16 @@
 
   async function syncAuthEntries() {
     if (!authEntryLinks.length) {
+      window.unifyoCurrentUser = null;
+      window.dispatchEvent(new CustomEvent("unifyo-auth-ready", { detail: { user: null } }));
       return;
     }
     try {
       const response = await fetch("/api/me", { credentials: "same-origin" });
       const payload = await response.json();
-      const isAuthenticated = Boolean(payload?.user);
+      const user = payload?.user || null;
+      const isAuthenticated = Boolean(user);
+      window.unifyoCurrentUser = user;
       authEntryLinks.forEach((link) => {
         const guestHref = link.dataset.guestHref || "/app.html";
         const authHref = link.dataset.authHref || "/app.html";
@@ -96,12 +100,15 @@
           link.textContent = "Prihlásenie";
         }
       });
+      window.dispatchEvent(new CustomEvent("unifyo-auth-ready", { detail: { user } }));
     } catch (_error) {
+      window.unifyoCurrentUser = null;
       authEntryLinks.forEach((link) => {
         const guestHref = link.dataset.guestHref || "/app.html";
         link.setAttribute("href", guestHref);
         link.textContent = "Prihlásenie";
       });
+      window.dispatchEvent(new CustomEvent("unifyo-auth-ready", { detail: { user: null } }));
     }
   }
 

@@ -325,6 +325,17 @@
     </div>
   </div>
 
+  <div id="homeStickyDealBar" class="sticky-deal" hidden>
+    <button id="homeStickyDealClose" class="sticky-deal__close" type="button" aria-label="Zavrieť ponuku">×</button>
+    <div class="sticky-deal__text">
+      <span class="sticky-deal__label">Premium prístup</span>
+      <span class="sticky-deal__old">4,99 € / mesiac</span>
+      <strong class="sticky-deal__current">0,99 € / mesiac</strong>
+      <span class="sticky-deal__note">Limitovaná cena • odomkni kontakty aj kompresiu</span>
+    </div>
+    <a id="homeStickyDealBtn" class="button button--primary js-auth-entry" href="/app.html" data-auth-href="/app.html" data-guest-href="/app.html">Aktivovať teraz</a>
+  </div>
+
   <script src="consent.js"></script>
   <script src="site-nav.js"></script>
   <script>
@@ -358,6 +369,60 @@
       });
 
       window.setTimeout(openModal, 700);
+    }());
+
+    (function () {
+      const bar = document.getElementById("homeStickyDealBar");
+      const closeButton = document.getElementById("homeStickyDealClose");
+      const dismissedKey = "unifyo_home_sticky_deal_dismissed";
+      let authResolved = false;
+      let delayPassed = false;
+      let currentUser = null;
+
+      if (!bar) {
+        return;
+      }
+
+      function hideBar() {
+        bar.hidden = true;
+      }
+
+      function closeBar(event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        window.localStorage.setItem(dismissedKey, "1");
+        hideBar();
+      }
+
+      function maybeShowBar() {
+        if (!authResolved || !delayPassed) {
+          return;
+        }
+        if (window.localStorage.getItem(dismissedKey) === "1") {
+          hideBar();
+          return;
+        }
+        if (currentUser && currentUser.membership_active) {
+          hideBar();
+          return;
+        }
+        bar.hidden = false;
+      }
+
+      closeButton?.addEventListener("click", closeBar);
+
+      window.addEventListener("unifyo-auth-ready", function (event) {
+        authResolved = true;
+        currentUser = event.detail?.user || null;
+        maybeShowBar();
+      });
+
+      window.setTimeout(function () {
+        delayPassed = true;
+        maybeShowBar();
+      }, 2600);
     }());
   </script>
 </body>
