@@ -8,6 +8,143 @@ const aiState = {
   renaming: false,
 };
 
+const QUICK_ACTIONS = [
+  {
+    key: "client-explain",
+    labelSk: "Vysvetli klientovi",
+    labelEn: "Explain to client",
+    promptSk: "Vysvetli túto tému jednoducho a zrozumiteľne pre klienta na Slovensku:",
+    promptEn: "Explain this topic simply and clearly for a client in Slovakia:",
+  },
+  {
+    key: "objection",
+    labelSk: "Odpoveď na námietku",
+    labelEn: "Handle objection",
+    promptSk: "Navrhni profesionálnu odpoveď na túto námietku klienta:",
+    promptEn: "Draft a professional response to this client objection:",
+  },
+  {
+    key: "email",
+    labelSk: "Napíš email",
+    labelEn: "Write email",
+    promptSk: "Napíš stručný profesionálny email klientovi na základe tohto textu:",
+    promptEn: "Write a concise professional email to the client based on this text:",
+  },
+  {
+    key: "summary",
+    labelSk: "Zhrň text",
+    labelEn: "Summarize text",
+    promptSk: "Zhrň mi tento text do 5 prehľadných bodov:",
+    promptEn: "Summarize this text into 5 clear bullet points:",
+  },
+  {
+    key: "simplify",
+    labelSk: "Zjednoduš text",
+    labelEn: "Simplify text",
+    promptSk: "Zjednoduš tento text do bežného jazyka, aby mu klient rozumel:",
+    promptEn: "Simplify this text into plain language a client will understand:",
+  },
+  {
+    key: "client-message",
+    labelSk: "Správa pre klienta",
+    labelEn: "Client message",
+    promptSk: "Priprav krátku správu pre klienta na základe tejto situácie:",
+    promptEn: "Prepare a short message for the client based on this situation:",
+  },
+  {
+    key: "next-step",
+    labelSk: "Navrhni ďalší postup",
+    labelEn: "Suggest next steps",
+    promptSk: "Navrhni ďalší najlepší postup v tejto situácii:",
+    promptEn: "Suggest the best next step in this situation:",
+  },
+  {
+    key: "document-summary",
+    labelSk: "Zhrň dokument",
+    labelEn: "Summarize document",
+    promptSk: "Zhrň mi tento dokument stručne a prakticky:",
+    promptEn: "Summarize this document briefly and practically:",
+  },
+  {
+    key: "rewrite-pro",
+    labelSk: "Preformuluj profesionálne",
+    labelEn: "Rewrite professionally",
+    promptSk: "Preformuluj tento text profesionálnejšie a vecnejšie:",
+    promptEn: "Rewrite this text in a more professional and concise way:",
+  },
+  {
+    key: "short-version",
+    labelSk: "Urob stručnú verziu",
+    labelEn: "Make it shorter",
+    promptSk: "Skráť tento text na stručnú verziu s hlavnou pointou:",
+    promptEn: "Shorten this text into a concise version with the main point:",
+  },
+];
+
+const FOLLOWUP_ACTIONS = [
+  {
+    key: "shorten",
+    labelSk: "Skrátiť",
+    labelEn: "Shorter",
+    promptSk: "Skráť túto odpoveď na stručnú praktickú verziu:\n\n{content}",
+    promptEn: "Shorten this answer into a concise practical version:\n\n{content}",
+  },
+  {
+    key: "for-client",
+    labelSk: "Pre klienta",
+    labelEn: "For client",
+    promptSk: "Preformuluj túto odpoveď jednoducho pre klienta:\n\n{content}",
+    promptEn: "Rewrite this answer in simple language for a client:\n\n{content}",
+  },
+  {
+    key: "formal",
+    labelSk: "Formálnejšie",
+    labelEn: "More formal",
+    promptSk: "Preformuluj túto odpoveď formálnejšie a profesionálnejšie:\n\n{content}",
+    promptEn: "Rewrite this answer in a more formal professional tone:\n\n{content}",
+  },
+  {
+    key: "simple",
+    labelSk: "Jednoduchšie",
+    labelEn: "Simpler",
+    promptSk: "Zjednoduš túto odpoveď do bežného jazyka:\n\n{content}",
+    promptEn: "Simplify this answer into plain language:\n\n{content}",
+  },
+  {
+    key: "email",
+    labelSk: "Ako email",
+    labelEn: "As email",
+    promptSk: "Premeň túto odpoveď na stručný email klientovi:\n\n{content}",
+    promptEn: "Turn this answer into a concise client email:\n\n{content}",
+  },
+  {
+    key: "message",
+    labelSk: "Ako správa",
+    labelEn: "As message",
+    promptSk: "Premeň túto odpoveď na krátku správu pre klienta:\n\n{content}",
+    promptEn: "Turn this answer into a short message for the client:\n\n{content}",
+  },
+];
+
+const EMPTY_STATE_EXAMPLES = [
+  {
+    sk: "Vysvetli klientovi rozdiel medzi týmito možnosťami.",
+    en: "Explain the difference between these options to a client.",
+  },
+  {
+    sk: "Napíš mi stručnú odpoveď pre klienta.",
+    en: "Write a concise reply for the client.",
+  },
+  {
+    sk: "Zhrň mi tento dokument do dôležitých bodov.",
+    en: "Summarize this document into the key points.",
+  },
+  {
+    sk: "Preformuluj toto profesionálne a stručne.",
+    en: "Rewrite this professionally and concisely.",
+  },
+];
+
 function getCurrentLang() {
   return window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
 }
@@ -45,10 +182,11 @@ const aiElements = {
   renameForm: document.getElementById("aiRenameForm"),
   renameInput: document.getElementById("aiRenameInput"),
   renameCancelBtn: document.getElementById("aiRenameCancelBtn"),
-  promptButtons: Array.from(document.querySelectorAll(".js-ai-prompt")),
   newThreadBtn: document.getElementById("aiNewThreadBtn"),
   threadList: document.getElementById("aiThreadList"),
   threadCount: document.getElementById("aiThreadCount"),
+  sidebarQuickActions: document.getElementById("aiSidebarQuickActions"),
+  quickActionBar: document.getElementById("aiQuickActionBar"),
 };
 
 bootstrapAi();
@@ -90,16 +228,8 @@ function bindAiEvents() {
   aiElements.composerShell?.addEventListener("dragover", handleComposerDragOver);
   aiElements.composerShell?.addEventListener("dragleave", handleComposerDragLeave);
   aiElements.composerShell?.addEventListener("drop", handleComposerDrop);
-  aiElements.promptButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      if (!aiElements.chatInput) {
-        return;
-      }
-      aiElements.chatInput.value = button.dataset.prompt || "";
-      autoResizeTextarea(aiElements.chatInput);
-      aiElements.chatInput.focus();
-    });
-  });
+  aiElements.sidebarQuickActions?.addEventListener("click", handleQuickActionClick);
+  aiElements.quickActionBar?.addEventListener("click", handleQuickActionClick);
 }
 
 function startNowTicker() {
@@ -208,9 +338,7 @@ function renderAiState() {
       element.disabled = !hasMembership;
     }
   });
-  aiElements.promptButtons.forEach((button) => {
-    button.disabled = !hasMembership;
-  });
+  renderQuickActions();
   renderAttachmentBar();
   renderThreadList();
 }
@@ -305,6 +433,7 @@ function renderMessages() {
           </div>
           <div class="ai-message__content">${formatMessageHtml(message.content || "")}</div>
           ${renderMessageAttachment(message)}
+          ${renderFollowupActions(message, index)}
         </div>
       </div>
     </article>
@@ -354,6 +483,21 @@ function renderAttachmentBar() {
   `;
 }
 
+function renderQuickActions() {
+  const topActions = QUICK_ACTIONS.slice(0, 6);
+  const allActions = QUICK_ACTIONS.slice(0, 10);
+  if (aiElements.sidebarQuickActions) {
+    aiElements.sidebarQuickActions.innerHTML = allActions.map((action) => renderQuickActionButton(action, "stack")).join("");
+  }
+  if (aiElements.quickActionBar) {
+    aiElements.quickActionBar.innerHTML = topActions.map((action) => renderQuickActionButton(action, "chip")).join("");
+  }
+  const disabled = !aiState.user?.membership_active;
+  document.querySelectorAll(".js-ai-prompt").forEach((button) => {
+    button.disabled = disabled;
+  });
+}
+
 function renderEmptyChat(message = "", isError = false) {
   if (message) {
     aiElements.chatFeed.className = `ai-chatboard__feed empty-state${isError ? " auth-message auth-message--error" : ""}`;
@@ -364,14 +508,60 @@ function renderEmptyChat(message = "", isError = false) {
   aiElements.chatFeed.className = "ai-chatboard__feed empty-state";
   aiElements.chatFeed.innerHTML = `
     <div class="ai-empty-state">
-      <span class="pill">${escapeHtml(tr("Nový chat", "New chat"))}</span>
-      <h3>${escapeHtml(tr("Začni prvou otázkou", "Start with your first question"))}</h3>
-      <p>${escapeHtml(tr("Napíš situáciu z praxe, pridaj obrázok alebo screenshot a dostaneš stručnú, praktickú odpoveď s ďalším krokom.", "Describe the situation, add an image or screenshot, and get a concise practical answer with the next step."))}</p>
+      <div class="ai-empty-state__hero">
+        <span class="pill">${escapeHtml(tr("Pripravené na prácu", "Ready to work"))}</span>
+        <h3>${escapeHtml(tr("AI asistent pre slovenských finančných sprostredkovateľov", "AI assistant for Slovak financial intermediaries"))}</h3>
+        <p>${escapeHtml(tr("Pomôže ti s komunikáciou, zhrnutím, vysvetlením aj formuláciou odpovedí. Začni otázkou alebo klikni na jednu z pripravených akcií.", "It helps with communication, summaries, explanations and response drafting. Start with a question or use one of the prepared actions."))}</p>
+      </div>
+      <div class="ai-empty-state__grid">
+        <section class="ai-empty-panel">
+          <span class="ai-empty-panel__label">${escapeHtml(tr("Čo vie vybaviť", "What it can handle"))}</span>
+          <div class="ai-empty-panel__list">
+            <div class="ai-empty-panel__item">${escapeHtml(tr("Vysvetlenie témy klientovi jednoduchšie", "Explain a topic to a client more simply"))}</div>
+            <div class="ai-empty-panel__item">${escapeHtml(tr("Stručný email, správa alebo follow-up", "Concise email, message or follow-up"))}</div>
+            <div class="ai-empty-panel__item">${escapeHtml(tr("Zhrnutie dokumentu a dôležitých bodov", "Summary of a document and the key points"))}</div>
+            <div class="ai-empty-panel__item">${escapeHtml(tr("Návrh ďalšieho postupu v situácii", "Suggested next step in a situation"))}</div>
+          </div>
+        </section>
+        <section class="ai-empty-panel">
+          <span class="ai-empty-panel__label">${escapeHtml(tr("Najpoužívanejšie akcie", "Most used actions"))}</span>
+          <div class="ai-empty-state__actions">
+            ${QUICK_ACTIONS.slice(0, 8).map((action) => renderQuickActionButton(action, "chip")).join("")}
+          </div>
+        </section>
+      </div>
+      <section class="ai-empty-panel ai-empty-panel--examples">
+        <span class="ai-empty-panel__label">${escapeHtml(tr("Príklady otázok", "Example questions"))}</span>
+        <div class="ai-empty-state__examples">
+          ${EMPTY_STATE_EXAMPLES.map((example) => `
+            <button class="ai-example-chip js-ai-prompt" type="button" data-prompt="${escapeHtml(getCurrentLang() === "en" ? example.en : example.sk)}">
+              ${escapeHtml(getCurrentLang() === "en" ? example.en : example.sk)}
+            </button>
+          `).join("")}
+        </div>
+      </section>
     </div>
   `;
 }
 
 async function handleChatFeedClick(event) {
+  const followupButton = event.target.closest(".js-ai-followup");
+  if (followupButton) {
+    const messageContainer = followupButton.closest(".ai-message");
+    const index = Number(messageContainer?.dataset.messageIndex || "-1");
+    const actionKey = followupButton.dataset.followupAction || "";
+    if (!Number.isNaN(index) && aiState.messages[index] && actionKey) {
+      applyFollowupAction(actionKey, aiState.messages[index]);
+    }
+    return;
+  }
+
+  const promptButton = event.target.closest(".js-ai-prompt");
+  if (promptButton) {
+    applyPromptToComposer(promptButton.dataset.prompt || "");
+    return;
+  }
+
   const button = event.target.closest(".js-ai-copy");
   if (!button) {
     return;
@@ -398,6 +588,14 @@ async function handleChatFeedClick(event) {
   } catch (_error) {
     setInlineMessage(aiElements.chatMessage, tr("Kopírovanie sa nepodarilo. Skús to znova.", "Copy failed. Try again."), true);
   }
+}
+
+function handleQuickActionClick(event) {
+  const button = event.target.closest(".js-ai-prompt");
+  if (!button) {
+    return;
+  }
+  applyPromptToComposer(button.dataset.prompt || "");
 }
 
 async function handleThreadListClick(event) {
@@ -570,6 +768,24 @@ function handleChatPaste(event) {
   }
   event.preventDefault();
   setAttachment(file);
+}
+
+function applyPromptToComposer(prompt) {
+  if (!aiElements.chatInput || !aiState.user?.membership_active) {
+    return;
+  }
+  aiElements.chatInput.value = String(prompt || "");
+  autoResizeTextarea(aiElements.chatInput);
+  aiElements.chatInput.focus();
+}
+
+function applyFollowupAction(actionKey, message) {
+  const config = FOLLOWUP_ACTIONS.find((item) => item.key === actionKey);
+  if (!config || !message?.content) {
+    return;
+  }
+  const template = getCurrentLang() === "en" ? config.promptEn : config.promptSk;
+  applyPromptToComposer(template.replace("{content}", String(message.content).trim()));
 }
 
 async function handleChatSubmit(event) {
@@ -753,6 +969,35 @@ function formatInlineText(value) {
     (_match, prefix, url) => `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
   );
   return formatted;
+}
+
+function renderQuickActionButton(action, variant = "chip") {
+  const label = getCurrentLang() === "en" ? action.labelEn : action.labelSk;
+  const prompt = getCurrentLang() === "en" ? action.promptEn : action.promptSk;
+  return `
+    <button
+      class="ai-quick-action ai-quick-action--${variant} js-ai-prompt"
+      type="button"
+      data-prompt="${escapeHtml(prompt)}"
+    >
+      ${escapeHtml(label)}
+    </button>
+  `;
+}
+
+function renderFollowupActions(message, index) {
+  if (message.role !== "assistant" || !message.content) {
+    return "";
+  }
+  return `
+    <div class="ai-message__actions" data-message-index="${index}">
+      ${FOLLOWUP_ACTIONS.map((action) => `
+        <button class="ai-followup-chip js-ai-followup" type="button" data-followup-action="${escapeHtml(action.key)}">
+          ${escapeHtml(getCurrentLang() === "en" ? action.labelEn : action.labelSk)}
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function formatReviewStatus(value) {
