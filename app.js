@@ -31,6 +31,9 @@ const elements = {
   accountBtn: document.getElementById("accountBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
   accountStatus: document.getElementById("accountStatus"),
+  premiumHeroCard: document.getElementById("premiumHeroCard"),
+  premiumHeroLabel: document.getElementById("premiumHeroLabel"),
+  premiumHeroNote: document.getElementById("premiumHeroNote"),
   accountSummary: document.getElementById("accountSummary"),
   accountMenuBtn: document.getElementById("accountMenuBtn"),
   adminMenuBtn: document.getElementById("adminMenuBtn"),
@@ -283,6 +286,17 @@ function renderAccessState() {
     } else {
       elements.accountStatus.textContent = "Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.";
     }
+  }
+  if (elements.premiumHeroCard) {
+    elements.premiumHeroCard.classList.toggle("is-active", hasMembership);
+  }
+  if (elements.premiumHeroLabel) {
+    elements.premiumHeroLabel.textContent = hasMembership ? "Členstvo aktívne" : "Limitovaná akcia";
+  }
+  if (elements.premiumHeroNote) {
+    elements.premiumHeroNote.textContent = hasMembership
+      ? `Premium prístup je aktívny${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}`
+      : "Premium prístup • cena platí iba teraz";
   }
   const accountGroupToggle = document.querySelector('[data-sidebar-group="account"]');
   const accountGroupContent = document.querySelector('[data-sidebar-group-content="account"]');
