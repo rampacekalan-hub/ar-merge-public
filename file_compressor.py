@@ -36,14 +36,10 @@ RESAMPLE_FILTER = (
     else (Image.LANCZOS if Image is not None else None)
 )
 PDF_RENDER_PRESETS = [
-    (1.65, 88),
-    (1.45, 82),
-    (1.25, 76),
-    (1.10, 70),
-    (0.95, 64),
-    (0.80, 58),
-    (0.68, 52),
-    (0.56, 46),
+    (1.20, 76),
+    (0.92, 64),
+    (0.74, 54),
+    (0.58, 44),
 ]
 
 
@@ -262,16 +258,26 @@ def compress_image(file_name, file_bytes, target_bytes):
 
     best_under_target = None
     smallest_candidate = None
-    scales = [1.0, 0.92, 0.84, 0.76, 0.68, 0.60, 0.52, 0.44, 0.36]
+    scales = build_image_scale_plan(original_bytes, target_bytes)
 
     for scale in scales:
         working_image = resize_image(image, scale)
-        for candidate in iter_image_candidates(working_image, extension):
-            if smallest_candidate is None or candidate["size"] < smallest_candidate["size"]:
-                smallest_candidate = candidate
-            if candidate["size"] <= target_bytes:
-                if best_under_target is None or candidate["size"] > best_under_target["size"]:
-                    best_under_target = candidate
+        try:
+            for candidate in iter_image_candidates(working_image, extension):
+                if smallest_candidate is None or candidate["size"] < smallest_candidate["size"]:
+                    smallest_candidate = candidate
+                if candidate["size"] <= target_bytes:
+                    if best_under_target is None or candidate["size"] > best_under_target["size"]:
+                        best_under_target = candidate
+                    if candidate["size"] >= int(target_bytes * 0.82):
+                        break
+            if best_under_target and best_under_target["size"] >= int(target_bytes * 0.82):
+                break
+        finally:
+            if working_image is not image:
+                working_image.close()
+
+    image.close()
 
     chosen = best_under_target or smallest_candidate
     if chosen is None:
@@ -299,9 +305,9 @@ def compress_image(file_name, file_bytes, target_bytes):
 
 def iter_image_candidates(image, extension):
     has_alpha = image_has_alpha(image)
-    quality_steps = [92, 86, 80, 74, 68, 62, 56, 50, 44, 38, 32, 26]
-    webp_steps = [90, 84, 78, 72, 66, 60, 54, 48, 42, 36, 30]
-    png_colors = [256, 192, 128, 96, 64, 48, 32]
+    quality_steps = [82, 68, 54, 42]
+    webp_steps = [80, 64, 48, 36]
+    png_colors = [128, 64, 32]
 
     if extension in {"jpg", "jpeg"}:
         for quality in quality_steps:
@@ -325,30 +331,41 @@ def iter_image_candidates(image, extension):
         return
 
     if extension == "png":
-        for colors in png_colors:
-            data = save_as_png(image, colors)
-            if data:
-                yield {"data": data, "size": len(data), "extension": "png", "mime_type": "image/png"}
         for quality in webp_steps:
             data = save_as_webp(image, quality)
             if data:
                 yield {"data": data, "size": len(data), "extension": "webp", "mime_type": "image/webp"}
+        for colors in png_colors:
+            data = save_as_png(image, colors)
+            if data:
+                yield {"data": data, "size": len(data), "extension": "png", "mime_type": "image/png"}
         if not has_alpha:
             for quality in quality_steps:
                 data = save_as_jpeg(image, quality)
                 yield {"data": data, "size": len(data), "extension": "jpg", "mime_type": "image/jpeg"}
 
 
+def build_image_scale_plan(original_bytes, target_bytes):
+    ratio = original_bytes / max(target_bytes, 1)
+    if ratio <= 1.4:
+        return [1.0, 0.9, 0.78]
+    if ratio <= 2.2:
+        return [0.94, 0.82, 0.68, 0.56]
+    if ratio <= 3.5:
+        return [0.86, 0.72, 0.58, 0.46]
+    return [0.76, 0.62, 0.50, 0.38]
+
+
 def save_as_jpeg(image, quality):
     buffer = io.BytesIO()
-    convert_for_jpeg(image).save(buffer, format="JPEG", quality=quality, optimize=True, progressive=True)
+    convert_for_jpeg(image).save(buffer, format="JPEG", quality=quality, optimize=False, progressive=False)
     return buffer.getvalue()
 
 
 def save_as_webp(image, quality):
     buffer = io.BytesIO()
     try:
-        image.save(buffer, format="WEBP", quality=quality, method=6)
+        image.save(buffer, format="WEBP", quality=quality, method=4)
     except Exception:
         return None
     return buffer.getvalue()
@@ -365,7 +382,7 @@ def save_as_png(image, colors):
     except Exception:
         quantized = image.convert("P", palette=Image.ADAPTIVE, colors=colors)
     try:
-        quantized.save(buffer, format="PNG", optimize=True, compress_level=9)
+        quantized.save(buffer, format="PNG", optimize=True, compress_level=7)
     except Exception:
         return None
     return buffer.getvalue()
