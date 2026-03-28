@@ -147,6 +147,22 @@ def init_db():
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
             );
+
+            CREATE TABLE IF NOT EXISTS assistant_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                client_name TEXT NOT NULL DEFAULT '',
+                due_date TEXT NOT NULL DEFAULT '',
+                priority TEXT NOT NULL DEFAULT 'medium',
+                channel TEXT NOT NULL DEFAULT 'followup',
+                details TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'open',
+                completed_at TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
             """
         )
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()}
@@ -173,6 +189,10 @@ def parse_positive_int(value, default=0):
 
 def format_mb(size_bytes):
     return f"{size_bytes / (1024 * 1024):.2f} MB"
+
+
+def today_iso():
+    return datetime.now().astimezone().date().isoformat()
 
 
 def is_admin_email(email):
@@ -395,6 +415,108 @@ def get_recent_activity(connection, user_id=None, limit=20):
             }
         )
     return activity
+
+
+def row_to_task(row):
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "client_name": row["client_name"] or "",
+        "due_date": row["due_date"] or "",
+        "priority": row["priority"] or "medium",
+        "channel": row["channel"] or "followup",
+        "details": row["details"] or "",
+        "status": row["status"] or "open",
+        "completed_at": row["completed_at"] or "",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def get_assistant_tasks(connection, user_id, include_done=True):
+    query = """
+        SELECT *
+        FROM assistant_tasks
+        WHERE user_id = ?
+    """
+    params = [user_id]
+    if not include_done:
+        query += " AND status != 'done'"
+    query += """
+        ORDER BY
+            CASE priority
+                WHEN 'high' THEN 0
+                WHEN 'medium' THEN 1
+                ELSE 2
+            END,
+            CASE
+                WHEN due_date = '' THEN 1
+                ELSE 0
+            END,
+            due_date ASC,
+            created_at DESC
+    """
+    return [row_to_task(row) for row in connection.execute(query, tuple(params)).fetchall()]
+
+
+def build_assistant_brief(tasks):
+    today = today_iso()
+    open_tasks = [task for task in tasks if task["status"] != "done"]
+    done_tasks = [task for task in tasks if task["status"] == "done"]
+    overdue = [task for task in open_tasks if task["due_date"] and task["due_date"] < today]
+    due_today = [task for task in open_tasks if task["due_date"] == today]
+    high_priority = [task for task in open_tasks if task["priority"] == "high"]
+
+    counts = {
+        "open_tasks": len(open_tasks),
+        "due_today": len(due_today),
+        "overdue": len(overdue),
+        "completed": len(done_tasks),
+        "high_priority": len(high_priority),
+    }
+
+    focus = []
+    if overdue:
+        focus.append(f"Najprv vybav {len(overdue)} omeškaných úloh.")
+    if due_today:
+        focus.append(f"Dnes máš {len(due_today)} úloh na follow-up alebo kontakt.")
+    if high_priority:
+        focus.append(f"Prioritu má {len(high_priority)} dôležitých klientskych krokov.")
+    if not focus:
+        focus.append("Dnes máš priestor pripraviť nové follow-upy a upratať pipeline.")
+
+    suggestions = []
+    top_tasks = open_tasks[:3]
+    for task in top_tasks:
+        client = task["client_name"] or "klienta"
+        if task["channel"] == "email":
+            suggestions.append({
+                "title": f"E-mail follow-up: {client}",
+                "body": f"Dobrý deň {client}, ozývam sa k nášmu poslednému kontaktu. Navrhujem krátke doplnenie podkladov a dohodnutie ďalšieho kroku ešte dnes.",
+            })
+        elif task["channel"] == "call":
+            suggestions.append({
+                "title": f"Call script: {client}",
+                "body": f"Dnes kontaktuj {client} telefonicky, over stav rozpracovania a navrhni konkrétny termín ďalšieho kroku.",
+            })
+        else:
+            suggestions.append({
+                "title": f"Ďalší krok: {client}",
+                "body": f"Skontroluj úlohu „{task['title']}“ a posuň klienta {client} do ďalšej fázy bez zbytočného odkladu.",
+            })
+
+    if not suggestions:
+        suggestions.append({
+            "title": "Denný štart",
+            "body": "Začni kontrolou nových leadov, obnov termíny follow-upov a priprav si tri najdôležitejšie klientské kroky na dnes.",
+        })
+
+    return {
+        "today": today,
+        "counts": counts,
+        "focus": focus,
+        "suggestions": suggestions,
+    }
 
 
 def is_membership_active(membership):
@@ -746,6 +868,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/account"):
             self.handle_account()
             return
+        if self.path.startswith("/api/assistant"):
+            self.handle_assistant()
+            return
         if self.path.startswith("/api/admin/user-detail"):
             self.handle_admin_user_detail()
             return
@@ -778,6 +903,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/account/change-password":
             self.handle_account_change_password()
+            return
+        if self.path == "/api/assistant/tasks":
+            self.handle_assistant_tasks()
             return
         if self.path == "/api/create-checkout-session":
             self.handle_create_checkout_session()
@@ -894,6 +1022,24 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "activity": get_recent_activity(connection, user["id"], limit=25),
                 }
             )
+        finally:
+            connection.close()
+
+    def handle_assistant(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return
+
+            tasks = get_assistant_tasks(connection, user["id"], include_done=True)
+            brief = build_assistant_brief(tasks)
+            self.write_json({"tasks": tasks, "brief": brief})
         finally:
             connection.close()
 
@@ -1264,6 +1410,97 @@ class AppHandler(SimpleHTTPRequestHandler):
             connection.commit()
             log_activity(connection, "password_changed", "Používateľ zmenil heslo v účte.", user["id"])
             self.write_json({"ok": True})
+        finally:
+            connection.close()
+
+    def handle_assistant_tasks(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return
+
+            payload = require_json(self)
+            action = str(payload.get("action") or "create").strip().lower()
+
+            if action == "create":
+                title = str(payload.get("title") or "").strip()
+                client_name = str(payload.get("client_name") or "").strip()
+                due_date = str(payload.get("due_date") or "").strip()
+                priority = str(payload.get("priority") or "medium").strip().lower()
+                channel = str(payload.get("channel") or "followup").strip().lower()
+                details = str(payload.get("details") or "").strip()
+
+                if len(title) < 3:
+                    self.write_json({"error": "Zadajte názov úlohy."}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                if priority not in {"high", "medium", "low"}:
+                    priority = "medium"
+                if channel not in {"followup", "email", "call", "meeting"}:
+                    channel = "followup"
+
+                now_value = format_timestamp(utc_now())
+                connection.execute(
+                    """
+                    INSERT INTO assistant_tasks (
+                        user_id, title, client_name, due_date, priority, channel, details, status, completed_at, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'open', '', ?, ?)
+                    """,
+                    (user["id"], title, client_name, due_date, priority, channel, details, now_value, now_value),
+                )
+                connection.commit()
+                log_activity(connection, "assistant_task_created", "Používateľ pridal úlohu do AI asistenta.", user["id"], title=title, client_name=client_name, priority=priority)
+                self.write_json({"ok": True})
+                return
+
+            task_id = parse_positive_int(payload.get("task_id"), 0)
+            if not task_id:
+                self.write_json({"error": "Chýba ID úlohy."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            task_row = connection.execute(
+                "SELECT * FROM assistant_tasks WHERE id = ? AND user_id = ?",
+                (task_id, user["id"]),
+            ).fetchone()
+            if not task_row:
+                self.write_json({"error": "Úloha neexistuje."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            if action == "complete":
+                connection.execute(
+                    "UPDATE assistant_tasks SET status = 'done', completed_at = ?, updated_at = ? WHERE id = ?",
+                    (format_timestamp(utc_now()), format_timestamp(utc_now()), task_id),
+                )
+                connection.commit()
+                log_activity(connection, "assistant_task_completed", "Používateľ označil úlohu ako hotovú.", user["id"], task_id=task_id, title=task_row["title"])
+                self.write_json({"ok": True})
+                return
+
+            if action == "reopen":
+                connection.execute(
+                    "UPDATE assistant_tasks SET status = 'open', completed_at = '', updated_at = ? WHERE id = ?",
+                    (format_timestamp(utc_now()), task_id),
+                )
+                connection.commit()
+                log_activity(connection, "assistant_task_reopened", "Používateľ znova otvoril úlohu.", user["id"], task_id=task_id, title=task_row["title"])
+                self.write_json({"ok": True})
+                return
+
+            if action == "delete":
+                connection.execute("DELETE FROM assistant_tasks WHERE id = ?", (task_id,))
+                connection.commit()
+                log_activity(connection, "assistant_task_deleted", "Používateľ vymazal úlohu z AI asistenta.", user["id"], task_id=task_id, title=task_row["title"])
+                self.write_json({"ok": True})
+                return
+
+            self.write_json({"error": "Neplatná akcia pre AI asistenta."}, status=HTTPStatus.BAD_REQUEST)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:
             connection.close()
 

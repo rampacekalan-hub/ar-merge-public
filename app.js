@@ -2,6 +2,10 @@ const state = {
   user: null,
   account: null,
   admin: null,
+  assistant: {
+    tasks: [],
+    brief: null,
+  },
   mode: "chooser",
   authMode: "register",
   files: [],
@@ -59,10 +63,28 @@ const elements = {
   buyProBtn: document.getElementById("buyProBtn"),
   pricingCtaBtn: document.getElementById("pricingCtaBtn"),
   pricingCard: document.getElementById("pricingCard"),
+  openContactsBtn: document.getElementById("openContactsBtn"),
   openCompressorBtn: document.getElementById("openCompressorBtn"),
+  openAssistantBtn: document.getElementById("openAssistantBtn"),
   compressFeatureStatus: document.getElementById("compressFeatureStatus"),
+  assistantSubtitle: document.getElementById("assistantSubtitle"),
+  assistantHeadline: document.getElementById("assistantHeadline"),
+  assistantFocus: document.getElementById("assistantFocus"),
+  assistantStats: document.getElementById("assistantStats"),
+  assistantRefreshBtn: document.getElementById("assistantRefreshBtn"),
+  assistantTaskForm: document.getElementById("assistantTaskForm"),
+  assistantTaskTitle: document.getElementById("assistantTaskTitle"),
+  assistantTaskClient: document.getElementById("assistantTaskClient"),
+  assistantTaskDueDate: document.getElementById("assistantTaskDueDate"),
+  assistantTaskPriority: document.getElementById("assistantTaskPriority"),
+  assistantTaskChannel: document.getElementById("assistantTaskChannel"),
+  assistantTaskDetails: document.getElementById("assistantTaskDetails"),
+  assistantTaskMessage: document.getElementById("assistantTaskMessage"),
+  assistantSuggestions: document.getElementById("assistantSuggestions"),
+  assistantTaskList: document.getElementById("assistantTaskList"),
   modeContactsBtn: document.getElementById("modeContactsBtn"),
   modeCompressBtn: document.getElementById("modeCompressBtn"),
+  modeAssistantBtn: document.getElementById("modeAssistantBtn"),
   heroModeContactsBtn: document.getElementById("heroModeContactsBtn"),
   heroModeCompressBtn: document.getElementById("heroModeCompressBtn"),
   appModesSection: document.getElementById("aplikacia-mody"),
@@ -71,7 +93,9 @@ const elements = {
   workspaceGrid: document.getElementById("workspaceGrid"),
   contactsWorkspace: document.getElementById("contactsWorkspace"),
   compressWorkspace: document.getElementById("compressWorkspace"),
+  assistantWorkspace: document.getElementById("assistantWorkspace"),
   contactsNavLinks: document.querySelectorAll(".js-contacts-link"),
+  assistantNavLinks: document.querySelectorAll(".js-assistant-link"),
   mergeBtn: document.getElementById("mergeBtn"),
   resetBtn: document.getElementById("resetBtn"),
   datasetList: document.getElementById("datasetList"),
@@ -211,11 +235,16 @@ async function bootstrap() {
   elements.buyToolbarBtn?.addEventListener("click", startCheckoutFlow);
   elements.buyProBtn?.addEventListener("click", startCheckoutFlow);
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
+  elements.openContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.openCompressorBtn?.addEventListener("click", handleOpenCompressorAction);
+  elements.openAssistantBtn?.addEventListener("click", () => navigateToMode("assistant"));
   elements.modeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.modeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
+  elements.modeAssistantBtn?.addEventListener("click", () => navigateToMode("assistant"));
   elements.heroModeContactsBtn?.addEventListener("click", () => navigateToMode("contacts"));
   elements.heroModeCompressBtn?.addEventListener("click", () => navigateToMode("compress"));
+  elements.assistantRefreshBtn?.addEventListener("click", fetchAssistantDashboard);
+  elements.assistantTaskForm?.addEventListener("submit", handleAssistantTaskSubmit);
   elements.mergeBtn.addEventListener("click", processFiles);
   elements.resetBtn.addEventListener("click", resetApp);
   elements.compressUploadBox?.addEventListener("click", handleCompressionUploadClick);
@@ -344,7 +373,7 @@ function renderAccessState() {
   }
   if (elements.compressFeatureStatus) {
     elements.compressFeatureStatus.textContent = hasMembership
-      ? "Funkcia je odomknutá. Môžeš pokračovať do kompresie PDF a obrázkov."
+      ? "Všetky pracovné moduly sú odomknuté. Môžeš prepínať medzi kontaktmi, kompresiou aj AI asistentom."
       : isLoggedIn
         ? "Kompresia sa odomkne hneď po aktivácii členstva."
         : "Dostupné po prihlásení a aktivácii členstva.";
@@ -405,20 +434,21 @@ function renderAccessState() {
   renderAccountSummary();
   renderUploadState();
   renderCompressionAccessState();
+  renderAssistantAccessState();
   renderMode();
   renderStickyDealBar();
 }
 
 function getModeFromUrl() {
   const view = new URL(window.location.href).searchParams.get("view");
-  if (view === "contacts" || view === "compress") {
+  if (view === "contacts" || view === "compress" || view === "assistant") {
     return view;
   }
   return "chooser";
 }
 
 function setMode(mode) {
-  if (!["chooser", "contacts", "compress"].includes(mode)) {
+  if (!["chooser", "contacts", "compress", "assistant"].includes(mode)) {
     return;
   }
   state.mode = mode;
@@ -426,7 +456,7 @@ function setMode(mode) {
 }
 
 function navigateToMode(mode) {
-  const nextMode = mode === "contacts" || mode === "compress" ? mode : "chooser";
+  const nextMode = mode === "contacts" || mode === "compress" || mode === "assistant" ? mode : "chooser";
   const url = new URL(window.location.href);
   if (nextMode === "chooser") {
     url.searchParams.delete("view");
@@ -440,20 +470,25 @@ function renderMode() {
   const isChooser = state.mode === "chooser";
   const isContacts = state.mode === "contacts";
   const isCompress = state.mode === "compress";
+  const isAssistant = state.mode === "assistant";
 
   document.body.classList.toggle("mode-chooser", isChooser);
   document.body.classList.toggle("mode-contacts", isContacts);
   document.body.classList.toggle("mode-compress", isCompress);
+  document.body.classList.toggle("mode-assistant", isAssistant);
 
   elements.appModesSection?.classList.toggle("is-hidden", !isChooser);
   elements.workspaceGrid?.classList.toggle("is-hidden", isChooser);
   elements.contactsWorkspace?.classList.toggle("is-hidden", !isContacts);
   elements.compressWorkspace?.classList.toggle("is-hidden", !isCompress);
+  elements.assistantWorkspace?.classList.toggle("is-hidden", !isAssistant);
   elements.modeContactsBtn?.classList.toggle("is-active", isContacts);
   elements.modeCompressBtn?.classList.toggle("is-active", isCompress);
+  elements.modeAssistantBtn?.classList.toggle("is-active", isAssistant);
   elements.heroModeContactsBtn?.classList.toggle("is-active", isContacts);
   elements.heroModeCompressBtn?.classList.toggle("is-active", isCompress);
   elements.contactsNavLinks.forEach((link) => link.classList.toggle("is-hidden", !isContacts));
+  elements.assistantNavLinks.forEach((link) => link.classList.toggle("is-hidden", !isAssistant));
 
   if (elements.modeContactsBtn) {
     elements.modeContactsBtn.setAttribute("aria-pressed", String(isContacts));
@@ -461,11 +496,17 @@ function renderMode() {
   if (elements.modeCompressBtn) {
     elements.modeCompressBtn.setAttribute("aria-pressed", String(isCompress));
   }
+  if (elements.modeAssistantBtn) {
+    elements.modeAssistantBtn.setAttribute("aria-pressed", String(isAssistant));
+  }
   if (elements.heroModeContactsBtn) {
     elements.heroModeContactsBtn.setAttribute("aria-pressed", String(isContacts));
   }
   if (elements.heroModeCompressBtn) {
     elements.heroModeCompressBtn.setAttribute("aria-pressed", String(isCompress));
+  }
+  if (isAssistant && state.user?.membership_active) {
+    fetchAssistantDashboard();
   }
 }
 
@@ -1314,6 +1355,7 @@ async function logout() {
   state.user = null;
   state.account = null;
   state.admin = null;
+  state.assistant = { tasks: [], brief: null };
   resetApp();
   renderAccessState();
 }
@@ -1573,6 +1615,178 @@ function renderCompressionAccessState() {
     elements.compressRunBtn.disabled = !hasMembership || !hasFile || state.compression.isBusy || state.compression.isOversize;
   }
   renderCompressionUploadState();
+}
+
+function renderAssistantAccessState() {
+  const hasMembership = Boolean(state.user?.membership_active);
+  if (elements.assistantSubtitle) {
+    elements.assistantSubtitle.textContent = hasMembership
+      ? "Spravuj úlohy, follow-upy a klientské priority v jednom asistentskom paneli."
+      : state.user
+        ? "AI asistent sa odomkne hneď po aktivácii členstva."
+        : "Prihlás sa a aktivuj členstvo, aby sa odomkol AI pracovný asistent.";
+  }
+  if (elements.assistantTaskForm) {
+    elements.assistantTaskForm.querySelectorAll("input, select, textarea, button").forEach((field) => {
+      field.disabled = !hasMembership;
+    });
+  }
+  if (!hasMembership) {
+    renderAssistantLockedState();
+    return;
+  }
+  renderAssistantDashboard();
+}
+
+function renderAssistantLockedState() {
+  if (elements.assistantHeadline) {
+    elements.assistantHeadline.textContent = "AI asistent sa odomkne po aktivácii členstva.";
+  }
+  if (elements.assistantFocus) {
+    elements.assistantFocus.textContent = "Po odomknutí uvidíš dnešné priority, follow-up návrhy a pracovné úlohy pre klientov.";
+  }
+  if (elements.assistantStats) {
+    elements.assistantStats.innerHTML = `
+      <article class="summary-card">
+        <span>AI briefing</span>
+        <strong>Uzamknuté</strong>
+      </article>
+      <article class="summary-card">
+        <span>Denné úlohy</span>
+        <strong>Členstvo</strong>
+      </article>
+      <article class="summary-card">
+        <span>Follow-upy</span>
+        <strong>Potrebné</strong>
+      </article>
+    `;
+  }
+  if (elements.assistantSuggestions) {
+    elements.assistantSuggestions.className = "assistant-suggestions empty-state";
+    elements.assistantSuggestions.textContent = "Aktivuj členstvo a AI asistent pripraví odporúčania pre tvoj deň.";
+  }
+  if (elements.assistantTaskList) {
+    elements.assistantTaskList.className = "assistant-task-list empty-state";
+    elements.assistantTaskList.textContent = "Po odomknutí tu uvidíš úlohy, follow-upy a dokončené kroky.";
+  }
+}
+
+async function fetchAssistantDashboard() {
+  if (!state.user?.membership_active || state.mode !== "assistant") {
+    return;
+  }
+  try {
+    const response = await fetch("/api/assistant");
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "AI asistent sa nepodarilo načítať.");
+    }
+    state.assistant = payload;
+    renderAssistantDashboard();
+  } catch (error) {
+    if (elements.assistantSuggestions) {
+      elements.assistantSuggestions.className = "assistant-suggestions empty-state";
+      elements.assistantSuggestions.textContent = error.message;
+    }
+    if (elements.assistantTaskList) {
+      elements.assistantTaskList.className = "assistant-task-list empty-state";
+      elements.assistantTaskList.textContent = error.message;
+    }
+  }
+}
+
+function renderAssistantDashboard() {
+  const brief = state.assistant?.brief;
+  const tasks = Array.isArray(state.assistant?.tasks) ? state.assistant.tasks : [];
+  if (!brief) {
+    if (elements.assistantHeadline) {
+      elements.assistantHeadline.textContent = "AI asistent je pripravený pomôcť s tvojím dňom.";
+    }
+    if (elements.assistantFocus) {
+      elements.assistantFocus.textContent = "Pridaj prvú úlohu a pripravíme priority, follow-up odporúčania aj denný prehľad.";
+    }
+  } else {
+    if (elements.assistantHeadline) {
+      elements.assistantHeadline.textContent = brief.counts?.overdue
+        ? `Dnes potrebuješ vyriešiť ${brief.counts.overdue} omeškané úlohy.`
+        : brief.counts?.due_today
+          ? `Na dnes máš pripravených ${brief.counts.due_today} úloh.`
+          : "Dnešný plán je pripravený.";
+    }
+    if (elements.assistantFocus) {
+      elements.assistantFocus.textContent = Array.isArray(brief.focus) && brief.focus.length
+        ? brief.focus.join(" ")
+        : "Dnes máš priestor pripraviť nové follow-upy a upratať klientsku pipeline.";
+    }
+  }
+
+  if (elements.assistantStats) {
+    const counts = brief?.counts || {};
+    elements.assistantStats.innerHTML = `
+      <article class="summary-card">
+        <span>Otvorené úlohy</span>
+        <strong>${escapeHtml(String(counts.open_tasks || 0))}</strong>
+      </article>
+      <article class="summary-card">
+        <span>Dnes</span>
+        <strong>${escapeHtml(String(counts.due_today || 0))}</strong>
+      </article>
+      <article class="summary-card">
+        <span>Omeškané</span>
+        <strong>${escapeHtml(String(counts.overdue || 0))}</strong>
+      </article>
+      <article class="summary-card">
+        <span>High priority</span>
+        <strong>${escapeHtml(String(counts.high_priority || 0))}</strong>
+      </article>
+    `;
+  }
+
+  if (elements.assistantSuggestions) {
+    const suggestions = brief?.suggestions || [];
+    if (!suggestions.length) {
+      elements.assistantSuggestions.className = "assistant-suggestions empty-state";
+      elements.assistantSuggestions.textContent = "Po načítaní úloh tu uvidíš odporúčané ďalšie kroky.";
+    } else {
+      elements.assistantSuggestions.className = "assistant-suggestions";
+      elements.assistantSuggestions.innerHTML = suggestions.map((item) => `
+        <article class="assistant-suggestion">
+          <strong>${escapeHtml(item.title || "Odporúčanie")}</strong>
+          <p>${escapeHtml(item.body || "")}</p>
+        </article>
+      `).join("");
+    }
+  }
+
+  if (elements.assistantTaskList) {
+    if (!tasks.length) {
+      elements.assistantTaskList.className = "assistant-task-list empty-state";
+      elements.assistantTaskList.textContent = "Zatiaľ bez úloh. Pridaj prvú položku a AI asistent pripraví denný prehľad.";
+    } else {
+      elements.assistantTaskList.className = "assistant-task-list";
+      elements.assistantTaskList.innerHTML = tasks.map((task) => `
+        <article class="assistant-task ${task.status === "done" ? "assistant-task--done" : ""}">
+          <div class="assistant-task__head">
+            <div>
+              <strong>${escapeHtml(task.title || "Úloha")}</strong>
+              <p>${escapeHtml(task.client_name || "Bez klienta")} • ${escapeHtml(formatAssistantMeta(task))}</p>
+            </div>
+            <span class="pill">${escapeHtml(formatAssistantStatus(task.status, task.priority))}</span>
+          </div>
+          ${task.details ? `<p class="assistant-task__details">${escapeHtml(task.details)}</p>` : ""}
+          <div class="assistant-task__actions">
+            ${task.status === "done"
+              ? `<button class="button button--ghost assistant-task-action" data-action="reopen" data-task-id="${task.id}" type="button">Znova otvoriť</button>`
+              : `<button class="button button--ghost assistant-task-action" data-action="complete" data-task-id="${task.id}" type="button">Označiť ako hotové</button>`}
+            <button class="button button--ghost assistant-task-action" data-action="delete" data-task-id="${task.id}" type="button">Vymazať</button>
+          </div>
+        </article>
+      `).join("");
+      elements.assistantTaskList.querySelectorAll(".assistant-task-action").forEach((button) => {
+        button.addEventListener("click", handleAssistantTaskAction);
+      });
+    }
+  }
 }
 
 function estimateCompressionSeconds(file, targetMb) {
@@ -1959,6 +2173,74 @@ function handleCompressionDownload() {
   triggerDownload(result.blob, result.fileName || "subor-zmenseny");
 }
 
+async function handleAssistantTaskSubmit(event) {
+  event.preventDefault();
+  if (!state.user?.membership_active) {
+    startCheckoutFlow();
+    return;
+  }
+  try {
+    const response = await fetch("/api/assistant/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        title: elements.assistantTaskTitle?.value.trim(),
+        client_name: elements.assistantTaskClient?.value.trim(),
+        due_date: elements.assistantTaskDueDate?.value || "",
+        priority: elements.assistantTaskPriority?.value || "medium",
+        channel: elements.assistantTaskChannel?.value || "followup",
+        details: elements.assistantTaskDetails?.value.trim(),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Úlohu sa nepodarilo uložiť.");
+    }
+    if (elements.assistantTaskForm) {
+      elements.assistantTaskForm.reset();
+    }
+    if (elements.assistantTaskMessage) {
+      elements.assistantTaskMessage.hidden = false;
+      elements.assistantTaskMessage.textContent = "Úloha bola uložená.";
+      elements.assistantTaskMessage.classList.remove("auth-message--error");
+    }
+    await fetchAssistantDashboard();
+  } catch (error) {
+    if (elements.assistantTaskMessage) {
+      elements.assistantTaskMessage.hidden = false;
+      elements.assistantTaskMessage.textContent = error.message;
+      elements.assistantTaskMessage.classList.add("auth-message--error");
+    }
+  }
+}
+
+async function handleAssistantTaskAction(event) {
+  const button = event.currentTarget;
+  const taskId = Number(button.dataset.taskId);
+  const action = button.dataset.action;
+  if (!taskId || !action) {
+    return;
+  }
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/assistant/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_id: taskId, action }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Zmena úlohy zlyhala.");
+    }
+    await fetchAssistantDashboard();
+  } catch (error) {
+    window.alert(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function resetCompressionState() {
   state.compression.file = null;
   state.compression.result = null;
@@ -1990,6 +2272,32 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(parsed);
+}
+
+function formatAssistantMeta(task) {
+  const parts = [];
+  if (task.due_date) {
+    parts.push(`termín ${formatDate(task.due_date)}`);
+  }
+  const channelLabel = {
+    followup: "follow-up",
+    email: "e-mail",
+    call: "telefonát",
+    meeting: "stretnutie",
+  }[task.channel] || "úloha";
+  parts.push(channelLabel);
+  return parts.join(" • ");
+}
+
+function formatAssistantStatus(status, priority) {
+  if (status === "done") {
+    return "Hotovo";
+  }
+  return {
+    high: "Vysoká priorita",
+    medium: "Stredná priorita",
+    low: "Nízka priorita",
+  }[priority] || "Otvorené";
 }
 
 async function disableServiceWorkers() {

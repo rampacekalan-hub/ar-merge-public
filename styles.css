@@ -3881,7 +3881,7 @@ body.mode-chooser .workspace-header__main {
 
 .app-modes__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -3946,6 +3946,97 @@ body.mode-chooser .workspace-header__main {
 
 .summary-grid--compress {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summary-grid--assistant {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.assistant-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(241, 247, 255, 0.94), rgba(245, 255, 248, 0.96));
+  border: 1px solid rgba(29, 115, 234, 0.1);
+}
+
+.assistant-hero__copy {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-hero__copy h3 {
+  margin: 0;
+  color: var(--surface-dark);
+  font-size: 1.28rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.assistant-hero__text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.assistant-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.assistant-suggestions,
+.assistant-task-list {
+  display: grid;
+  gap: 14px;
+}
+
+.assistant-suggestion,
+.assistant-task {
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(16, 35, 63, 0.06);
+  box-shadow: var(--shadow-soft);
+}
+
+.assistant-suggestion strong,
+.assistant-task strong {
+  color: var(--surface-dark);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.assistant-suggestion p,
+.assistant-task p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.assistant-task__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.assistant-task__details {
+  margin-top: 12px;
+}
+
+.assistant-task__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.assistant-task--done {
+  opacity: 0.84;
 }
 
 .sticky-deal {
@@ -4074,6 +4165,10 @@ body.discount-effect .sticky-deal__current {
     grid-template-columns: 1fr;
   }
 
+  .app-modes__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .workspace-side {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4081,8 +4176,14 @@ body.discount-effect .sticky-deal__current {
 
 @media (max-width: 820px) {
   .app-modes__grid,
+  .assistant-form-grid,
+  .summary-grid--assistant,
   .summary-grid--compress,
   .workspace-side {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-hero {
     grid-template-columns: 1fr;
   }
 
