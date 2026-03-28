@@ -1396,7 +1396,7 @@ function handleWindowScroll() {
 }
 
 function dismissStickyDealBar() {
-  window.sessionStorage.setItem(STICKY_DEAL_DISMISSED_KEY, "1");
+  window.localStorage.setItem(STICKY_DEAL_DISMISSED_KEY, "1");
   renderStickyDealBar();
 }
 
@@ -1404,7 +1404,7 @@ function renderStickyDealBar() {
   if (!elements.stickyDealBar) {
     return;
   }
-  const dismissed = window.sessionStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
+  const dismissed = window.localStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
   const shouldShow =
     !dismissed &&
     !state.user?.membership_active &&

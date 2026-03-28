@@ -3688,16 +3688,15 @@ tbody tr:hover td {
 
 .sticky-deal {
   position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
+  right: 20px;
+  bottom: 20px;
   z-index: 95;
-  width: min(980px, calc(100vw - 24px));
+  width: min(430px, calc(100vw - 24px));
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   gap: 14px;
-  align-items: center;
-  padding: 14px 16px;
+  align-items: stretch;
+  padding: 14px 14px 14px;
   border-radius: 18px;
   border: 1px solid rgba(29, 115, 234, 0.2);
   background:
@@ -3711,6 +3710,7 @@ tbody tr:hover td {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 8px 12px;
+  padding-right: 26px;
 }
 
 .sticky-deal__label {
@@ -3762,6 +3762,10 @@ tbody tr:hover td {
   cursor: pointer;
 }
 
+.sticky-deal .button {
+  width: 100%;
+}
+
 body.discount-effect .premium-hero__old,
 body.discount-effect .pricing-card__price-old,
 body.discount-effect .promo-price__old,
@@ -3811,8 +3815,11 @@ body.discount-effect .sticky-deal__current {
   }
 
   .sticky-deal {
-    grid-template-columns: 1fr;
-    padding-right: 42px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    bottom: 12px;
+    padding-right: 12px;
   }
 
   .sticky-deal .button {
