@@ -639,10 +639,14 @@ def call_openai_assistant(user_row, profile, history_messages, user_message):
         }
     ]
     for message in history_messages[-16:]:
+        is_assistant_message = message["role"] == "assistant"
         input_messages.append(
             {
-                "role": "assistant" if message["role"] == "assistant" else "user",
-                "content": [{"type": "input_text", "text": message["content"]}],
+                "role": "assistant" if is_assistant_message else "user",
+                "content": [{
+                    "type": "output_text" if is_assistant_message else "input_text",
+                    "text": message["content"],
+                }],
             }
         )
     input_messages.append(

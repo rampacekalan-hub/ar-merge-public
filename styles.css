@@ -4304,7 +4304,7 @@ body.discount-effect .sticky-deal__current {
 
 .ai-workspace {
   display: grid;
-  grid-template-columns: minmax(270px, 0.78fr) minmax(0, 1.5fr) minmax(320px, 0.86fr);
+  grid-template-columns: minmax(320px, 0.88fr) minmax(0, 1.72fr) minmax(290px, 0.78fr);
   gap: 18px;
   align-items: start;
 }
@@ -4326,6 +4326,7 @@ body.discount-effect .sticky-deal__current {
 .ai-sidebar {
   padding: 24px;
   align-self: start;
+  overflow: hidden;
 }
 
 .ai-sidebar__section {
@@ -4402,6 +4403,7 @@ body.discount-effect .sticky-deal__current {
   color: var(--surface-dark);
   font-size: 0.97rem;
   letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .ai-tool p {
@@ -4409,6 +4411,9 @@ body.discount-effect .sticky-deal__current {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.6;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .ai-chat-panel {
@@ -4455,7 +4460,7 @@ body.discount-effect .sticky-deal__current {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 10px 4px 14px;
+  padding: 10px 10px 18px;
   display: grid;
   gap: 18px;
 }
@@ -4479,7 +4484,7 @@ body.discount-effect .sticky-deal__current {
 }
 
 .ai-chat-message__bubble {
-  width: min(100%, 860px);
+  width: min(100%, 940px);
   padding: 18px 20px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.98);
@@ -4494,7 +4499,7 @@ body.discount-effect .sticky-deal__current {
 }
 
 .ai-chat-message--user .ai-chat-message__bubble {
-  width: min(100%, 720px);
+  width: min(100%, 760px);
   border-top-right-radius: 14px;
   background: linear-gradient(135deg, #1d73ea, #1459c8);
   color: #ffffff;
@@ -4686,7 +4691,7 @@ body.discount-effect .sticky-deal__current {
 
 @media (max-width: 1360px) {
   .ai-workspace {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 320px minmax(0, 1fr);
   }
 
   .ai-context {
