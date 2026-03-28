@@ -140,6 +140,17 @@ body.sidebar-open .sidebar {
   filter: none;
 }
 
+.sidebar__wordmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: var(--surface-dark);
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
 .sidebar__brand strong {
   display: block;
   color: #ffffff;
@@ -313,6 +324,26 @@ body.sidebar-open .sidebar-backdrop {
   object-fit: contain;
   padding: 0;
   filter: none;
+}
+
+.brand-lockup__wordmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--surface-dark);
+  font-size: clamp(2.2rem, 4vw, 3.8rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.landing-promo__wordmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--surface-dark);
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
 }
 
 .brand-lockup__text {
