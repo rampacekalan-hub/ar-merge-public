@@ -471,13 +471,20 @@ function renderAttachmentBar() {
 }
 
 function renderQuickActions() {
-  const topActions = QUICK_ACTIONS.slice(0, 6);
+  const topActions = QUICK_ACTIONS.slice(0, 3);
   const allActions = QUICK_ACTIONS.slice(0, 10);
   if (aiElements.sidebarQuickActions) {
-    aiElements.sidebarQuickActions.innerHTML = allActions.map((action) => renderQuickActionButton(action, "stack")).join("");
+    aiElements.sidebarQuickActions.innerHTML = renderQuickActionRollup(
+      tr("Vybrať akciu", "Choose action"),
+      allActions,
+      "stack"
+    );
   }
   if (aiElements.quickActionBar) {
-    aiElements.quickActionBar.innerHTML = topActions.map((action) => renderQuickActionButton(action, "chip")).join("");
+    aiElements.quickActionBar.innerHTML = `
+      ${topActions.map((action) => renderQuickActionButton(action, "chip")).join("")}
+      ${renderQuickActionRollup(tr("Viac akcií", "More actions"), allActions.slice(3), "chip")}
+    `;
   }
   const disabled = !aiState.user?.membership_active;
   document.querySelectorAll(".js-ai-prompt").forEach((button) => {
@@ -513,7 +520,8 @@ function renderEmptyChat(message = "", isError = false) {
         <section class="ai-empty-panel">
           <span class="ai-empty-panel__label">${escapeHtml(tr("Najpoužívanejšie akcie", "Most used actions"))}</span>
           <div class="ai-empty-state__actions">
-            ${QUICK_ACTIONS.slice(0, 8).map((action) => renderQuickActionButton(action, "chip")).join("")}
+            ${QUICK_ACTIONS.slice(0, 3).map((action) => renderQuickActionButton(action, "chip")).join("")}
+            ${renderQuickActionRollup(tr("Viac akcií", "More actions"), QUICK_ACTIONS.slice(3, 10), "chip")}
           </div>
         </section>
       </div>
@@ -920,6 +928,17 @@ function renderQuickActionButton(action, variant = "chip") {
     >
       ${escapeHtml(label)}
     </button>
+  `;
+}
+
+function renderQuickActionRollup(label, actions, variant = "chip", openByDefault = false) {
+  return `
+    <details class="ai-actions-rollup ai-actions-rollup--${variant}"${openByDefault ? " open" : ""}>
+      <summary>${escapeHtml(label)}</summary>
+      <div class="ai-actions-rollup__menu">
+        ${actions.map((action) => renderQuickActionButton(action, variant)).join("")}
+      </div>
+    </details>
   `;
 }
 

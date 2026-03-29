@@ -516,6 +516,14 @@
       <button id="authModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
       <p class="section-kicker">Účet</p>
       <h2>Prihlásenie a registrácia</h2>
+      <div id="authOfferNote" class="auth-offer-note">
+        <span class="auth-offer-note__label">Aktuálna cena</span>
+        <div class="auth-offer-note__price">
+          <strong>1,99 € / mesiac</strong>
+          <span>6,99 € / mesiac</span>
+        </div>
+        <p>Kontakty, kompresia aj AI v jednom účte. Aktivácia trvá len chvíľu.</p>
+      </div>
       <div class="auth-switch">
         <button id="authRegisterTab" class="button button--ghost auth-switch__button auth-switch__button--active" type="button">Registrácia</button>
         <button id="authLoginTab" class="button button--ghost auth-switch__button" type="button">Prihlásenie</button>
@@ -723,6 +731,10 @@
       { selector: "#modeAssistantBtn .mode-card__cta", text: { sk: "Otvoriť AI chat", en: "Open AI chat" } },
       { selector: "#chooserDealMini .chooser-deal-mini__label", text: { sk: "Akciová cena", en: "Special price" } },
       { selector: "#chooserDealMini .chooser-deal-mini__note", text: { sk: "Čistenie kontaktov, kompresia súborov a AI asistent v jednom účte.", en: "Contact cleanup, file compression and an AI assistant in one account." } },
+      { selector: "#authOfferNote .auth-offer-note__label", text: { sk: "Aktuálna cena", en: "Current price" } },
+      { selector: "#authOfferNote .auth-offer-note__price strong", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
+      { selector: "#authOfferNote .auth-offer-note__price span", text: { sk: "6,99 € / mesiac", en: "€6.99 / month" } },
+      { selector: "#authOfferNote p", text: { sk: "Kontakty, kompresia aj AI v jednom účte. Aktivácia trvá len chvíľu.", en: "Contacts, compression and AI in one account. Activation only takes a moment." } },
       { selector: ".site-footer a[href=\"/index.html\"]", text: { sk: "Domov", en: "Home" } },
       { selector: ".site-footer a[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
       { selector: ".site-footer a[href=\"/privacy.html\"]", text: { sk: "Ochrana súkromia", en: "Privacy" } },

@@ -114,6 +114,7 @@ const elements = {
   authModal: document.getElementById("authModal"),
   authModalBackdrop: document.getElementById("authModalBackdrop"),
   authModalClose: document.getElementById("authModalClose"),
+  authOfferNote: document.getElementById("authOfferNote"),
   authRegisterTab: document.getElementById("authRegisterTab"),
   authLoginTab: document.getElementById("authLoginTab"),
   authForm: document.getElementById("authForm"),
@@ -427,11 +428,14 @@ function renderAccessState() {
         : `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}${canManageAdminTools ? " a plný správca prístup." : isAdmin ? " a zároveň administrátorský prístup." : "."}`;
     } else if (isLoggedIn) {
       elements.accountStatus.textContent = getCurrentLang() === "en"
-        ? `Signed-in account ${accountLabel} does not have active membership yet${canManageAdminTools ? ", but has full admin access." : isAdmin ? ", but has admin access." : "."}`
-        : `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo${canManageAdminTools ? ", ale má plný správca prístup." : isAdmin ? ", ale má administrátorský prístup." : "."}`;
+        ? `Signed-in account ${accountLabel} does not have active membership yet. Activation is available from €1.99 / month${canManageAdminTools ? ", but the account still has full admin access." : isAdmin ? ", but the account still has admin access." : "."}`
+        : `Prihlásený účet ${accountLabel} ešte nemá aktívne členstvo. Aktivácia je dostupná od 1,99 € / mesiac${canManageAdminTools ? ", ale účet má plný správca prístup." : isAdmin ? ", ale účet má administrátorský prístup." : "."}`;
     } else {
-      elements.accountStatus.textContent = tr("Vytvor si účet, aktivuj členstvo a vyčisti svoje kontakty bez duplicít.", "Create an account, activate membership and clean your contacts without duplicates.");
+      elements.accountStatus.textContent = tr("Vytvor si účet, aktivuj členstvo od 1,99 € / mesiac a vyčisti svoje kontakty, súbory aj AI workflow na jednom mieste.", "Create an account, activate membership from €1.99 / month and unlock contacts, file compression and AI workflows in one place.");
     }
+  }
+  if (elements.authOfferNote) {
+    elements.authOfferNote.hidden = hasMembership;
   }
   if (elements.premiumHeroCard) {
     elements.premiumHeroCard.classList.toggle("is-active", hasMembership);
