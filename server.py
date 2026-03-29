@@ -2495,6 +2495,42 @@ def sync_membership_for_user(connection, user_row):
     sync_membership_from_subscription(connection, best_subscription, fallback_user_id=user_row["id"])
 
 
+def sync_user_membership_safe(connection, user_id):
+    if not STRIPE_SECRET_KEY:
+        return
+    try:
+        user_row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user_row:
+            return
+        sync_membership_for_user(connection, user_row)
+    except Exception:
+        # Admin prehľad musí zostať dostupný aj keď Stripe dočasne zlyhá.
+        return
+
+
+def sync_admin_membership_snapshot(connection, max_users=80):
+    if not STRIPE_SECRET_KEY:
+        return
+    candidate_rows = connection.execute(
+        """
+        SELECT DISTINCT users.id
+        FROM users
+        LEFT JOIN memberships ON memberships.user_id = users.id
+        LEFT JOIN checkout_sessions ON checkout_sessions.user_id = users.id
+        WHERE
+            COALESCE(users.stripe_customer_id, '') != ''
+            OR COALESCE(memberships.stripe_subscription_id, '') != ''
+            OR COALESCE(memberships.last_checkout_session_id, '') != ''
+            OR COALESCE(checkout_sessions.stripe_session_id, '') != ''
+        ORDER BY users.updated_at DESC
+        LIMIT ?
+        """,
+        (max(1, int(max_users)),),
+    ).fetchall()
+    for row in candidate_rows:
+        sync_user_membership_safe(connection, int(row["id"]))
+
+
 def normalize_cell(value):
     if value is None:
         return ""
@@ -3206,6 +3242,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
                 return
 
+            # Keep admin view aligned with Stripe in near real-time.
+            sync_admin_membership_snapshot(connection, max_users=120)
+
             rows = connection.execute(
                 """
                 SELECT
@@ -3304,6 +3343,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not user_id:
                 self.write_json({"error": "Chýba ID používateľa."}, status=HTTPStatus.BAD_REQUEST)
                 return
+
+            # Force per-user sync before detail render so admin sees current state.
+            sync_user_membership_safe(connection, user_id)
 
             row = connection.execute(
                 """
