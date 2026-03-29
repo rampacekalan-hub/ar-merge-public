@@ -13,6 +13,8 @@ services:
     envVars:
       - key: DB_PATH
         value: /var/data/app.db
+      - key: APP_BASE_URL
+        value: https://unifyo.online
       - key: MAX_REQUEST_BODY_MB
         value: "110"
       - key: MAX_CONTACT_FILE_MB
@@ -21,5 +23,7 @@ services:
         value: "100"
       - key: OPENAI_MODEL
         value: gpt-4.1-mini
+      - key: STRIPE_PRICE_ID
+        value: price_1TG0m1JJsHlQYfgdgMnHLJ8r
       - key: OPENAI_API_KEY
         sync: false

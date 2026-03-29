@@ -2722,7 +2722,32 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def maybe_redirect_to_canonical_host(self):
+        if not APP_BASE_URL:
+            return False
+        try:
+            canonical = urlparse(APP_BASE_URL)
+            canonical_host = (canonical.netloc or "").strip().lower()
+            if not canonical_host:
+                return False
+            request_host = (
+                self.headers.get("X-Forwarded-Host")
+                or self.headers.get("Host")
+                or ""
+            ).strip().lower()
+            if not request_host or request_host == canonical_host:
+                return False
+            destination = f"{APP_BASE_URL.rstrip('/')}{self.path}"
+            self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+            self.send_header("Location", destination)
+            self.end_headers()
+            return True
+        except Exception:
+            return False
+
     def do_GET(self):
+        if self.maybe_redirect_to_canonical_host():
+            return
         if self.path == "/ads.txt":
             self.handle_ads_txt()
             return
