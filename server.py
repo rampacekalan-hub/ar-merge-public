@@ -1210,6 +1210,7 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
             f"The current reference date and time are {today_value} {time_value}. If the user asks for the current date or time, answer directly from this reference. "
             "For time-sensitive topics, use the latest public information when technically available. "
             "When web context is used for factual or time-sensitive information, internally compare multiple relevant public sources when available and prefer the answer only after cross-checking at least two independent sources. "
+            "For current bank names, mortgage providers, interest rates, product availability, market changes and similar current market facts, do not rely on memory. Answer only if you have current public verification; otherwise clearly say you cannot verify the latest state right now. "
             "Your default mode is work guidance for the user's day. Prefer helping with tasks, clients, follow-ups, priorities, objections, emails, meetings and next actions. "
             "You are only allowed to meaningfully engage in topics related to financial intermediation, finance, banking, insurance, investments, mortgages, client communication, sales, business workflow, regulation, economics and closely related work topics. "
             "You must not meaningfully answer questions about unrelated topics such as medicine, diseases, health symptoms, relationships, entertainment, sport, hobbies, general trivia or other off-topic areas. "
@@ -1253,6 +1254,7 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
         "Ak sa používateľ pýta priamo na aktuálny dátum alebo čas, odpovedz priamo z tohto referenčného dátumu a času a netvrď, že k nim nemáš prístup. "
         "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
         "Ak používaš webový kontext pri faktických alebo časovo citlivých témach, vnútorne porovnaj viac relevantných verejných zdrojov, keď sú dostupné, a preferuj odpoveď až po overení aspoň z dvoch nezávislých zdrojov. "
+        "Pri aktuálnych názvoch bánk, poskytovateľoch hypoték, úrokových sadzbách, dostupnosti produktov a podobných aktuálnych trhových faktoch sa nespoliehaj na pamäť. Odpovedaj len vtedy, keď máš aktuálne verejné overenie; inak jasne povedz, že najnovší stav nevieš potvrdiť. "
         "Tvoj predvolený režim je pomoc s pracovným dňom používateľa. Prirodzene smeruj odpovede k úlohám, klientom, follow-upom, prioritám, argumentácii, komunikácii a ďalšiemu kroku. "
         "Vecne sa venuj len témam súvisiacim s finančným sprostredkovaním, financiami, bankami, poistením, investíciami, hypotékami, klientskou komunikáciou, obchodom, reguláciou, ekonomikou a blízkou pracovnou praxou. "
         "Nesmieš vecne riešiť nesúvisiace témy ako choroby, zdravotné ťažkosti, medicínu, vzťahy, šport, zábavu, hobby, všeobecné vedomosti ani iné oblasti mimo tejto domény. "
@@ -1320,8 +1322,61 @@ def should_use_openai_web_search(user_message):
         "úrok",
         "urok",
         "interest",
+        "banka",
+        "banky",
+        "bank",
+        "banks",
+        "hypo",
+        "hypot",
+        "hypotek",
+        "mortgage",
+        "mortgages",
+        "úver",
+        "uver",
+        "loan",
+        "loans",
+        "refinanc",
+        "fixáci",
+        "fixac",
     )
     return any(marker in text for marker in time_sensitive_markers)
+
+
+def requires_verified_current_info(user_message):
+    text = str(user_message or "").strip().lower()
+    if not text:
+        return False
+    strict_markers = (
+        "banka",
+        "banky",
+        "bank",
+        "banks",
+        "hypo",
+        "hypot",
+        "hypotek",
+        "mortgage",
+        "mortgages",
+        "úrok",
+        "urok",
+        "interest",
+        "sadzb",
+        "rate",
+        "rates",
+        "refinanc",
+        "fixáci",
+        "fixac",
+        "úver",
+        "uver",
+        "loan",
+        "loans",
+        "aktuálne",
+        "aktualne",
+        "current",
+        "latest",
+        "dnes",
+        "today",
+    )
+    return any(marker in text for marker in strict_markers)
 
 
 def call_openai_assistant(user_row, profile, history_messages, user_message, attachment=None, language="sk"):
@@ -1392,6 +1447,7 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
     primary_error = ""
     response_attempts = []
     use_web_search = should_use_openai_web_search(user_message)
+    strict_current_info = requires_verified_current_info(user_message)
     if use_web_search:
         response_attempts.append({**payload_base, "tools": [{"type": OPENAI_WEB_SEARCH_TOOL}]})
     response_attempts.append(payload_base)
@@ -1415,6 +1471,12 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
                     response_meta["web_sources"] = source_urls[:4]
                     response_meta["web_source_count"] = source_count
                     response_meta["web_confidence_percent"] = estimate_web_confidence(source_urls)
+                    if strict_current_info and source_count < 1:
+                        primary_error = (
+                            "Aktuálny stav sa nepodarilo spoľahlivo overiť z verejných zdrojov, "
+                            "preto AI radšej nevráti neoverené údaje."
+                        )
+                        continue
                 return text, response_meta
             primary_error = f"AI asistent vrátil prázdnu odpoveď. Stav: {primary_payload.get('status') or 'unknown'}."
         except RuntimeError as exc:
@@ -1426,6 +1488,17 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
                     and ("unknown" in lowered or "unsupported" in lowered or "invalid" in lowered)
                 ) or OPENAI_WEB_SEARCH_TOOL.lower() in lowered:
                     OPENAI_WEB_SEARCH_RUNTIME_DISABLED = True
+
+    if strict_current_info:
+        if language == "en":
+            raise RuntimeError(
+                "I can’t reliably confirm the latest market data from current public sources right now, "
+                "so I’d rather not give you potentially outdated information. Try asking again in a moment or name the specific bank or product you want to verify."
+            )
+        raise RuntimeError(
+            "Aktuálne trhové údaje sa mi teraz nepodarilo spoľahlivo overiť z verejných zdrojov, "
+            "preto ti radšej nedám potenciálne zastaranú informáciu. Skús otázku zopakovať o chvíľu alebo uveď konkrétnu banku či produkt, ktorý chceš overiť."
+        )
 
     fallback_messages = [
         {
