@@ -59,6 +59,17 @@ OPENAI_WEB_SEARCH_TOOL = os.environ.get("OPENAI_WEB_SEARCH_TOOL", "web_search_pr
 OPENAI_WEB_SEARCH_RUNTIME_DISABLED = False
 MAX_AI_IMAGE_MB = float(os.environ.get("MAX_AI_IMAGE_MB", "10"))
 PROMPT_VERSION = "unifyo-sk-fin-v4"
+TRUSTED_SOURCE_DOMAINS = {
+    "nbs.sk",
+    "slov-lex.sk",
+    "fininfo.sk",
+    "ecb.europa.eu",
+    "europa.eu",
+    "minv.sk",
+    "finance.gov.sk",
+    "alanrampacek.sk",
+    "prosight.sk",
+}
 
 MAX_REQUEST_BODY_BYTES = max(1, int(MAX_REQUEST_BODY_MB * 1024 * 1024))
 MAX_CONTACT_FILE_BYTES = max(1, int(MAX_CONTACT_FILE_MB * 1024 * 1024))
@@ -1191,12 +1202,14 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
             "Always communicate in natural, concise, professional English, while keeping Slovak market context in mind. "
             "Internally evaluate: 1) user intent, 2) question type, 3) Slovak market context, 4) best response format. Never show this hidden process. "
             "Default response structure: 1) direct answer, 2) short explanation, 3) recommended next step if useful. "
+            "Do not print explicit section labels such as Direct answer, Explanation or Next step. Present the answer as one clean, natural response. "
             "Keep the first version concise and easy to use. People prefer less text. If more detail would help, end with a short sentence offering an extended version on request. "
             "Do not add sources automatically. Mention them only when genuinely useful, especially for regulatory or official topics. "
             "If a source is important, add only one minimalist final line in this exact style: Source: https://... "
             "Prefer official sources such as nbs.sk, slov-lex.sk, official financial institution sites and, when relevant, alanrampacek.sk or prosight.sk. "
             f"The current reference date and time are {today_value} {time_value}. If the user asks for the current date or time, answer directly from this reference. "
             "For time-sensitive topics, use the latest public information when technically available. "
+            "When web context is used for factual or time-sensitive information, internally compare multiple relevant public sources when available and prefer the answer only after cross-checking at least two independent sources. "
             "Your default mode is work guidance for the user's day. Prefer helping with tasks, clients, follow-ups, priorities, objections, emails, meetings and next actions. "
             "You are only allowed to meaningfully engage in topics related to financial intermediation, finance, banking, insurance, investments, mortgages, client communication, sales, business workflow, regulation, economics and closely related work topics. "
             "You must not meaningfully answer questions about unrelated topics such as medicine, diseases, health symptoms, relationships, entertainment, sport, hobbies, general trivia or other off-topic areas. "
@@ -1228,6 +1241,7 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
         "Tento interný postup nikdy nevypisuj. Používateľovi ukáž iba finálnu odpoveď. "
         "Predvolený výstup drž v 3 častiach: "
         "1) Priama odpoveď, 2) Stručné vysvetlenie, 3) Odporúčaný ďalší krok (ak je vhodný). "
+        "Tieto časti však neoznačuj doslovnými nadpismi ako Priama odpoveď, Stručné vysvetlenie alebo Odporúčaný ďalší krok. Odpoveď má pôsobiť ako jeden prirodzený, čistý text. "
         "Prvú verziu odpovede drž stručnú a výstižnú, lebo ľudia nemajú radi veľa textu. "
         "Ak je vhodné doplniť viac detailov, ukonči odpoveď krátkou vetou, že môžeš doplniť rozšírenú verziu na požiadanie. "
         "Zdroje alebo odkazy neuvádzaj automaticky. Uveď ich len vtedy, keď sú skutočne potrebné "
@@ -1238,6 +1252,7 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
         f"Aktuálny referenčný dátum a čas sú {today_value} {time_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
         "Ak sa používateľ pýta priamo na aktuálny dátum alebo čas, odpovedz priamo z tohto referenčného dátumu a času a netvrď, že k nim nemáš prístup. "
         "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
+        "Ak používaš webový kontext pri faktických alebo časovo citlivých témach, vnútorne porovnaj viac relevantných verejných zdrojov, keď sú dostupné, a preferuj odpoveď až po overení aspoň z dvoch nezávislých zdrojov. "
         "Tvoj predvolený režim je pomoc s pracovným dňom používateľa. Prirodzene smeruj odpovede k úlohám, klientom, follow-upom, prioritám, argumentácii, komunikácii a ďalšiemu kroku. "
         "Vecne sa venuj len témam súvisiacim s finančným sprostredkovaním, financiami, bankami, poistením, investíciami, hypotékami, klientskou komunikáciou, obchodom, reguláciou, ekonomikou a blízkou pracovnou praxou. "
         "Nesmieš vecne riešiť nesúvisiace témy ako choroby, zdravotné ťažkosti, medicínu, vzťahy, šport, zábavu, hobby, všeobecné vedomosti ani iné oblasti mimo tejto domény. "
@@ -1388,6 +1403,18 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
             if text:
                 response_meta["used_web_search"] = bool("tools" in candidate_payload)
                 response_meta["model"] = candidate_payload.get("model", OPENAI_MODEL)
+                if response_meta["used_web_search"]:
+                    source_urls = extract_response_source_urls(primary_payload)
+                    if not source_urls:
+                        source_urls = extract_urls_from_text(text)
+                    source_count = len({
+                        (urlparse(url).hostname or "").lower().removeprefix("www.")
+                        for url in source_urls
+                        if (urlparse(url).hostname or "").strip()
+                    })
+                    response_meta["web_sources"] = source_urls[:4]
+                    response_meta["web_source_count"] = source_count
+                    response_meta["web_confidence_percent"] = estimate_web_confidence(source_urls)
                 return text, response_meta
             primary_error = f"AI asistent vrátil prázdnu odpoveď. Stav: {primary_payload.get('status') or 'unknown'}."
         except RuntimeError as exc:
@@ -1590,6 +1617,82 @@ def normalize_cell(value):
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value).strip()
+
+
+def extract_urls_from_text(text):
+    urls = []
+    seen = set()
+    for match in re.findall(r"https?://[^\s)<]+", str(text or "")):
+        cleaned = match.rstrip(".,);]")
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            urls.append(cleaned)
+    return urls
+
+
+def extract_response_source_urls(payload):
+    urls = []
+    seen = set()
+
+    def add_url(value):
+        url = str(value or "").strip()
+        if not url or not url.startswith(("http://", "https://")) or url in seen:
+            return
+        seen.add(url)
+        urls.append(url)
+
+    def walk(node):
+        if isinstance(node, dict):
+            node_type = str(node.get("type") or "").strip().lower()
+            if node_type in {"url_citation", "citation", "source"} and node.get("url"):
+                add_url(node.get("url"))
+            annotations = node.get("annotations")
+            if isinstance(annotations, list):
+                for item in annotations:
+                    walk(item)
+            if node.get("url") and ("title" in node or node_type in {"url_citation", "citation", "source"}):
+                add_url(node.get("url"))
+            for value in node.values():
+                if isinstance(value, (dict, list)):
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(payload.get("output") if isinstance(payload, dict) else payload)
+    return urls
+
+
+def estimate_web_confidence(source_urls):
+    unique_domains = []
+    domain_seen = set()
+    trusted_count = 0
+    for url in source_urls:
+        try:
+            host = (urlparse(url).hostname or "").lower().lstrip(".")
+        except Exception:
+            host = ""
+        if not host:
+            continue
+        host = host[4:] if host.startswith("www.") else host
+        if host not in domain_seen:
+            domain_seen.add(host)
+            unique_domains.append(host)
+        if any(host == trusted or host.endswith(f".{trusted}") for trusted in TRUSTED_SOURCE_DOMAINS):
+            trusted_count += 1
+
+    source_count = len(unique_domains)
+    if source_count == 0:
+        return 0
+
+    confidence = 58
+    confidence += min(source_count, 4) * 7
+    if source_count >= 2:
+        confidence += 8
+    if source_count >= 3:
+        confidence += 4
+    confidence += min(trusted_count, 2) * 8
+    return min(confidence, 94)
 
 
 def infer_python_cell_type(value):

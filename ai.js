@@ -3,6 +3,7 @@ const aiState = {
   threads: [],
   activeThreadId: 0,
   messages: [],
+  expandedMessages: {},
   typing: false,
   attachment: null,
   mobileUploadToken: "",
@@ -463,7 +464,7 @@ function renderMessages() {
             ${message.role === "assistant" && message.meta?.used_web_search ? `<span class="ai-source-pill">${escapeHtml(tr("Web kontext", "Web context"))}</span>` : ""}
             ${message.role === "assistant" ? `<button class="ai-copy-btn js-ai-copy" type="button">${escapeHtml(tr("Kopírovať", "Copy"))}</button>` : ""}
           </div>
-          <div class="ai-message__content">${formatMessageHtml(message.content || "")}</div>
+          ${renderMessageContent(message, index)}
           ${renderMessageSource(message)}
           ${renderMessageAttachment(message)}
           ${renderFollowupActions(message, index)}
@@ -576,25 +577,79 @@ function renderMessageSource(message) {
   if (!message || message.role !== "assistant") {
     return "";
   }
-  const text = String(message.content || "");
-  const urlMatch = text.match(/https?:\/\/[^\s)<]+/);
-  if (!urlMatch) {
+  const meta = message.meta || {};
+  const rawSources = Array.isArray(meta.web_sources) ? meta.web_sources : [];
+  const normalizedSources = [];
+  const seen = new Set();
+
+  rawSources.forEach((source) => {
+    try {
+      const url = new URL(String(source || "").trim());
+      const href = url.href;
+      const hostname = url.hostname.replace(/^www\./, "");
+      if (!href || seen.has(href)) {
+        return;
+      }
+      seen.add(href);
+      normalizedSources.push({ href, hostname });
+    } catch (_error) {
+      // ignore invalid source urls
+    }
+  });
+
+  if (!normalizedSources.length) {
+    const text = String(message.content || "");
+    const urlMatch = text.match(/https?:\/\/[^\s)<]+/);
+    if (urlMatch) {
+      try {
+        const fallbackUrl = new URL(urlMatch[0]);
+        normalizedSources.push({
+          href: fallbackUrl.href,
+          hostname: fallbackUrl.hostname.replace(/^www\./, ""),
+        });
+      } catch (_error) {
+        // ignore invalid fallback url
+      }
+    }
+  }
+
+  if (!meta.used_web_search && !normalizedSources.length) {
     return "";
   }
-  try {
-    const url = new URL(urlMatch[0]);
-    return `
-      <div class="ai-message__source">
-        <span>${escapeHtml(tr("Zdroj", "Source"))}</span>
-        <a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url.hostname.replace(/^www\./, ""))}</a>
+
+  const sourceCount = Number(meta.web_source_count || normalizedSources.length || 0);
+  const confidencePercent = Number(meta.web_confidence_percent || 0);
+
+  return `
+    <div class="ai-message__source-group">
+      <div class="ai-message__source-meta">
+        ${confidencePercent > 0 ? `<span class="ai-message__source-badge">${escapeHtml(tr("Istota", "Confidence"))}: ${escapeHtml(String(confidencePercent))}%</span>` : ""}
+        ${sourceCount > 0 ? `<span class="ai-message__source-badge">${escapeHtml(tr("Zdroje", "Sources"))}: ${escapeHtml(String(sourceCount))}</span>` : ""}
       </div>
-    `;
-  } catch (_error) {
-    return "";
-  }
+      ${normalizedSources.length ? `
+        <div class="ai-message__source-links">
+          ${normalizedSources.map((source) => `
+            <a class="ai-message__source-link" href="${escapeHtml(source.href)}" target="_blank" rel="noopener noreferrer">
+              ${escapeHtml(source.hostname)}
+            </a>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
 }
 
 async function handleChatFeedClick(event) {
+  const expandButton = event.target.closest(".js-ai-expand");
+  if (expandButton) {
+    const expandKey = String(expandButton.dataset.expandKey || "");
+    if (expandKey) {
+      aiState.expandedMessages[expandKey] = !aiState.expandedMessages[expandKey];
+      renderMessages();
+    }
+    return;
+  }
+
   const followupButton = event.target.closest(".js-ai-followup");
   if (followupButton) {
     const messageContainer = followupButton.closest(".ai-message");
@@ -1053,9 +1108,20 @@ function formatMessageHtml(text) {
       flushList();
       return;
     }
-    const headingMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
-    const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
-    const numberedMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    const sectionOnlyMatch = trimmed.match(/^(\d+[.)]\s*)?(priama odpoveď|stručné vysvetlenie|odporúčaný ďalší krok|direct answer|short explanation|recommended next step)\s*:?\s*$/i);
+    if (sectionOnlyMatch) {
+      flushList();
+      return;
+    }
+    const inlineSectionMatch = trimmed.match(/^(\d+[.)]\s*)?(priama odpoveď|stručné vysvetlenie|odporúčaný ďalší krok|direct answer|short explanation|recommended next step)\s*:\s*(.+)$/i);
+    const contentLine = inlineSectionMatch ? inlineSectionMatch[3].trim() : trimmed;
+    if (!contentLine) {
+      flushList();
+      return;
+    }
+    const headingMatch = contentLine.match(/^#{1,6}\s+(.+)$/);
+    const bulletMatch = contentLine.match(/^[-*•]\s+(.+)$/);
+    const numberedMatch = contentLine.match(/^\d+[.)]\s+(.+)$/);
     if (headingMatch) {
       flushList();
       blocks.push(`<p><strong>${formatInlineText(headingMatch[1])}</strong></p>`);
@@ -1067,11 +1133,45 @@ function formatMessageHtml(text) {
       return;
     }
     flushList();
-    blocks.push(`<p>${formatInlineText(trimmed)}</p>`);
+    blocks.push(`<p>${formatInlineText(contentLine)}</p>`);
   });
 
   flushList();
   return blocks.join("");
+}
+
+function getExpandKey(message, index) {
+  return `${message.created_at || "now"}-${index}`;
+}
+
+function shouldCollapseMessageText(text) {
+  const normalized = String(text || "").replace(/\r/g, "").trim();
+  if (!normalized) {
+    return false;
+  }
+  const lineCount = normalized.split("\n").filter((line) => line.trim()).length;
+  return lineCount >= 4 || normalized.length >= 360;
+}
+
+function renderMessageContent(message, index) {
+  const html = formatMessageHtml(message.content || "");
+  if (!html) {
+    return `<div class="ai-message__content"></div>`;
+  }
+  const collapsible = message.role === "assistant" && shouldCollapseMessageText(message.content || "");
+  if (!collapsible) {
+    return `<div class="ai-message__content">${html}</div>`;
+  }
+  const expandKey = getExpandKey(message, index);
+  const expanded = Boolean(aiState.expandedMessages[expandKey]);
+  return `
+    <div class="ai-message__content${expanded ? " is-expanded" : " is-collapsed"}" data-expand-key="${escapeHtml(expandKey)}">
+      ${html}
+    </div>
+    <button class="ai-message__expand js-ai-expand" type="button" data-expand-key="${escapeHtml(expandKey)}">
+      ${escapeHtml(expanded ? tr("Zobraziť menej", "Show less") : tr("Zobraziť viac", "Show more"))}
+    </button>
+  `;
 }
 
 function formatInlineText(value) {

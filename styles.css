@@ -7777,6 +7777,64 @@ h1 {
   font-weight: 700;
 }
 
+.ai-message__source-group {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ai-message__source-meta,
+.ai-message__source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-message__source-badge,
+.ai-message__source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(244, 248, 255, 0.92);
+  border: 1px solid rgba(190, 209, 255, 0.24);
+  color: #5b6f8d;
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+
+.ai-message__source-link {
+  color: #1d63dc;
+  font-weight: 700;
+}
+
+.ai-message__content.is-collapsed {
+  position: relative;
+  max-height: 8.3em;
+  overflow: hidden;
+}
+
+.ai-message__content.is-collapsed::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 48px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(248, 251, 255, 0.96) 100%);
+  pointer-events: none;
+}
+
+.ai-message__expand {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1d63dc;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .modal__dialog--qr {
   max-width: 420px;
   padding: 30px 28px 28px;
