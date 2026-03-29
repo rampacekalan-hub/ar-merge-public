@@ -7807,6 +7807,21 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  .service-split,
+  .service-split--contacts,
+  .service-split--files,
+  .ai-sales-block {
+    grid-template-columns: 1fr;
+  }
+
+  .service-preview--contacts,
+  .service-preview--files,
+  .chat-snippet {
+    max-width: 100%;
+    justify-self: stretch;
+    margin-left: 0;
+  }
+
   .ai-thread-titlebar {
     align-items: flex-start;
     flex-direction: row;
@@ -7872,6 +7887,11 @@ h1 {
 
   .contact-page .hero__main--wide h1 {
     font-size: clamp(1.8rem, 10vw, 2.5rem);
+  }
+
+  .service-preview__row,
+  .chat-snippet__message {
+    font-size: 0.8rem;
   }
 }
 
@@ -8014,6 +8034,14 @@ h1 {
   align-items: stretch;
 }
 
+.service-split--contacts {
+  grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.72fr);
+}
+
+.service-split--files {
+  grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.88fr);
+}
+
 .service-split__copy {
   display: grid;
   align-content: center;
@@ -8080,6 +8108,12 @@ h1 {
     rgba(251, 253, 255, 0.92);
 }
 
+.service-preview--contacts {
+  align-content: center;
+  max-width: 360px;
+  justify-self: end;
+}
+
 .service-preview__row {
   padding: 12px 14px;
   border-radius: 16px;
@@ -8087,6 +8121,18 @@ h1 {
   line-height: 1.45;
   color: #173059;
   overflow-wrap: anywhere;
+}
+
+.service-preview__row strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.service-preview__row span {
+  display: block;
 }
 
 .service-preview__row--bad {
@@ -8104,6 +8150,8 @@ h1 {
 .service-preview--files {
   align-content: center;
   gap: 14px;
+  max-width: 360px;
+  justify-self: end;
 }
 
 .file-meter {
@@ -8158,6 +8206,8 @@ h1 {
 
 .ai-sales-block__example {
   min-width: 0;
+  display: grid;
+  align-items: center;
 }
 
 .chat-snippet {
@@ -8171,6 +8221,8 @@ h1 {
     rgba(252, 253, 255, 0.92);
   min-height: 100%;
   align-content: center;
+  max-width: 360px;
+  margin-left: auto;
 }
 
 .chat-snippet__message {
@@ -8180,6 +8232,14 @@ h1 {
   line-height: 1.48;
   font-size: 0.82rem;
   overflow-wrap: anywhere;
+}
+
+.chat-snippet__message strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .chat-snippet__message--user {
