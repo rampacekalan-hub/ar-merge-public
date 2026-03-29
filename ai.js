@@ -5,9 +5,12 @@ const aiState = {
   messages: [],
   expandedMessages: {},
   typing: false,
+  typingPhase: 0,
+  typingTimer: null,
   attachment: null,
   mobileUploadToken: "",
   mobileUploadPoll: null,
+  lastRenderedTitle: "",
 };
 
 const QUICK_ACTIONS = [
@@ -400,7 +403,14 @@ async function loadAssistant(threadId = 0) {
 function renderAssistantData() {
   const activeThread = getActiveThread();
   if (aiElements.chatHeadline) {
-    aiElements.chatHeadline.textContent = formatThreadTitle(activeThread?.title || "");
+    const nextTitle = formatThreadTitle(activeThread?.title || "");
+    aiElements.chatHeadline.textContent = nextTitle;
+    if (nextTitle !== aiState.lastRenderedTitle) {
+      aiElements.chatHeadline.classList.remove("is-refreshing");
+      void aiElements.chatHeadline.offsetWidth;
+      aiElements.chatHeadline.classList.add("is-refreshing");
+      aiState.lastRenderedTitle = nextTitle;
+    }
   }
   renderThreadList();
   renderAttachmentBar();
@@ -434,15 +444,24 @@ function renderThreadList() {
   }
   aiElements.threadList.className = "ai-thread-list";
   aiElements.threadList.innerHTML = aiState.threads.map((thread) => `
-    <button
-      class="ai-thread-item${Number(thread.id) === Number(aiState.activeThreadId) ? " is-active" : ""}"
-      type="button"
-      data-thread-id="${thread.id}"
-    >
-      <strong>${escapeHtml(formatThreadTitle(thread.title || ""))}</strong>
-      <span>${escapeHtml(thread.last_message ? truncateText(thread.last_message, 70) : tr("Pripravené na pokračovanie", "Ready to continue"))}</span>
-      <small>${escapeHtml(thread.last_message_at ? formatDateTime(thread.last_message_at) : formatDate(thread.created_at))}</small>
-    </button>
+    <article class="ai-thread-item${Number(thread.id) === Number(aiState.activeThreadId) ? " is-active" : ""}">
+      <button
+        class="ai-thread-item__main"
+        type="button"
+        data-thread-open="${thread.id}"
+      >
+        <strong>${escapeHtml(formatThreadTitle(thread.title || ""))}</strong>
+        <span>${escapeHtml(thread.last_message ? truncateText(thread.last_message, 70) : tr("Pripravené na pokračovanie", "Ready to continue"))}</span>
+        <small>${escapeHtml(thread.last_message_at ? formatDateTime(thread.last_message_at) : formatDate(thread.created_at))}</small>
+      </button>
+      <button
+        class="ai-thread-item__delete"
+        type="button"
+        data-thread-delete="${thread.id}"
+        aria-label="${escapeHtml(tr("Vymazať konverzáciu", "Delete conversation"))}"
+        title="${escapeHtml(tr("Vymazať konverzáciu", "Delete conversation"))}"
+      >×</button>
+    </article>
   `).join("");
 }
 
@@ -474,6 +493,12 @@ function renderMessages() {
   `).join("");
 
   if (aiState.typing) {
+    const typingSteps = [
+      tr("Analyzujem zadanie", "Analyzing request"),
+      tr("Overujem súvislosti", "Checking context"),
+      tr("Skladám odpoveď", "Composing reply"),
+    ];
+    const typingLabel = typingSteps[aiState.typingPhase % typingSteps.length];
     aiElements.chatFeed.insertAdjacentHTML(
       "beforeend",
       `
@@ -485,8 +510,11 @@ function renderMessages() {
                 <span>${escapeHtml(tr("práve teraz", "right now"))}</span>
               </div>
               <div class="ai-message__typing-wrap">
-                <div class="ai-message__typing"><span></span><span></span><span></span></div>
-                <span class="ai-message__typing-label">${escapeHtml(tr("Overujem odpoveď", "Verifying answer"))}</span>
+                <div class="ai-message__typing-orbit"><span></span><span></span><span></span></div>
+                <div class="ai-message__typing-copy">
+                  <span class="ai-message__typing-label">${escapeHtml(typingLabel)}</span>
+                  <span class="ai-message__typing-subtle">${escapeHtml(tr("Pracujem s kontextom konverzácie", "Working with conversation context"))}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -699,20 +727,65 @@ function handleQuickActionClick(event) {
   if (!button) {
     return;
   }
+  const rollup = button.closest(".ai-actions-rollup");
+  if (rollup) {
+    rollup.removeAttribute("open");
+  }
   applyPromptToComposer(button.dataset.prompt || "");
 }
 
 async function handleThreadListClick(event) {
-  const button = event.target.closest("[data-thread-id]");
+  const deleteButton = event.target.closest("[data-thread-delete]");
+  if (deleteButton) {
+    const deleteThreadId = Number(deleteButton.dataset.threadDelete || "0");
+    if (deleteThreadId) {
+      await deleteThread(deleteThreadId);
+    }
+    return;
+  }
+  const button = event.target.closest("[data-thread-open]");
   if (!button) {
     return;
   }
-  const threadId = Number(button.dataset.threadId || "0");
+  const threadId = Number(button.dataset.threadOpen || "0");
   if (!threadId || threadId === Number(aiState.activeThreadId)) {
     return;
   }
   document.body.classList.remove("ai-sidebar-open");
   await loadAssistant(threadId);
+}
+
+async function deleteThread(threadId) {
+  if (!threadId) {
+    return;
+  }
+  const ok = window.confirm(
+    tr(
+      "Naozaj chceš vymazať túto konverzáciu? Pamäť AI zostane zachovaná.",
+      "Do you really want to delete this conversation? AI memory will stay preserved."
+    )
+  );
+  if (!ok) {
+    return;
+  }
+  try {
+    const response = await fetch("/api/assistant/thread", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", thread_id: threadId, lang: getCurrentLang() }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || tr("Konverzáciu sa nepodarilo vymazať.", "Could not delete conversation."));
+    }
+    aiState.threads = payload.threads || [];
+    aiState.activeThreadId = Number(payload.active_thread_id || 0);
+    aiState.messages = payload.messages || [];
+    persistActiveThread(aiState.activeThreadId);
+    renderAssistantData();
+  } catch (error) {
+    setInlineMessage(aiElements.chatMessage, error.message, true);
+  }
 }
 
 function handleAttachmentSelection(event) {
@@ -954,6 +1027,24 @@ function applyFollowupAction(actionKey, message) {
   applyPromptToComposer(template.replace("{content}", String(message.content).trim()));
 }
 
+function startTypingAnimation() {
+  stopTypingAnimation();
+  aiState.typingPhase = 0;
+  aiState.typingTimer = window.setInterval(() => {
+    aiState.typingPhase += 1;
+    if (aiState.typing) {
+      renderMessages();
+    }
+  }, 1150);
+}
+
+function stopTypingAnimation() {
+  if (aiState.typingTimer) {
+    window.clearInterval(aiState.typingTimer);
+    aiState.typingTimer = null;
+  }
+}
+
 async function handleChatSubmit(event) {
   event.preventDefault();
   if (!aiState.user?.membership_active) {
@@ -973,6 +1064,7 @@ async function handleChatSubmit(event) {
 
   setInlineMessage(aiElements.chatMessage, "", false, true);
   aiState.typing = true;
+  startTypingAnimation();
   aiState.messages = [
     ...aiState.messages,
     {
@@ -1006,6 +1098,7 @@ async function handleChatSubmit(event) {
   } finally {
     clearAttachment();
     aiState.typing = false;
+    stopTypingAnimation();
     aiElements.chatSubmit.disabled = false;
     aiElements.chatSubmit.textContent = tr("Odoslať", "Send");
     renderAssistantData();

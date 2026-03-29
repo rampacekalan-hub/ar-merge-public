@@ -2,6 +2,8 @@ const state = {
   user: null,
   account: null,
   admin: null,
+  accountAssistantProfile: null,
+  accountAssistantOverview: null,
   assistant: {
     profile: null,
     messages: [],
@@ -141,6 +143,7 @@ const elements = {
   accountPanelBackdrop: document.getElementById("accountPanelBackdrop"),
   accountPanelClose: document.getElementById("accountPanelClose"),
   accountPanelSummary: document.getElementById("accountPanelSummary"),
+  accountAiMemory: document.getElementById("accountAiMemory"),
   accountActivityList: document.getElementById("accountActivityList"),
   accountUpdateForm: document.getElementById("accountUpdateForm"),
   accountNameInput: document.getElementById("accountNameInput"),
@@ -841,18 +844,45 @@ async function fetchAccountPanel() {
   }
   elements.accountPanelSummary.className = "account-summary empty-state";
   elements.accountPanelSummary.textContent = "Načítavam údaje o účte...";
+  if (elements.accountAiMemory) {
+    elements.accountAiMemory.className = "account-summary empty-state";
+    elements.accountAiMemory.textContent = "Načítavam AI pamäť...";
+  }
   elements.accountActivityList.className = "empty-state";
   elements.accountActivityList.textContent = "Načítavam aktivitu...";
   try {
-    const response = await fetch("/api/account");
-    const payload = await response.json();
-    if (!response.ok) {
+    const [accountResponse, profileResponse, assistantResponse] = await Promise.all([
+      fetch("/api/account"),
+      state.user?.membership_active ? fetch("/api/assistant/profile") : Promise.resolve(null),
+      state.user?.membership_active ? fetch("/api/assistant") : Promise.resolve(null),
+    ]);
+    const payload = await accountResponse.json();
+    if (!accountResponse.ok) {
       throw new Error(payload.error || "Údaje o účte sa nepodarilo načítať.");
     }
     state.account = payload;
+    if (profileResponse) {
+      const profilePayload = await profileResponse.json();
+      state.accountAssistantProfile = profileResponse.ok ? profilePayload.profile || null : null;
+    } else {
+      state.accountAssistantProfile = null;
+    }
+    if (assistantResponse) {
+      const assistantPayload = await assistantResponse.json();
+      state.accountAssistantOverview = assistantResponse.ok
+        ? {
+            threads: assistantPayload.threads || [],
+            messages: assistantPayload.messages || [],
+          }
+        : null;
+    } else {
+      state.accountAssistantOverview = null;
+    }
     renderAccountPanel();
   } catch (error) {
     state.account = { user: state.user, activity: [] };
+    state.accountAssistantProfile = null;
+    state.accountAssistantOverview = null;
     renderAccountPanel();
     elements.accountActivityList.className = "empty-state";
     elements.accountActivityList.textContent = `Aktivita sa nepodarila načítať: ${error.message}`;
@@ -954,6 +984,10 @@ function renderAccountPanel() {
   if (!user) {
     elements.accountPanelSummary.className = "account-summary empty-state";
     elements.accountPanelSummary.textContent = tr("Zatiaľ nie si prihlásený.", "You are not signed in yet.");
+    if (elements.accountAiMemory) {
+      elements.accountAiMemory.className = "account-summary empty-state";
+      elements.accountAiMemory.textContent = tr("AI pamäť sa zobrazí po prihlásení.", "AI memory will appear after signing in.");
+    }
     return;
   }
   elements.accountPanelSummary.className = "account-summary";
@@ -990,7 +1024,39 @@ function renderAccountPanel() {
     elements.accountPasswordMessage.textContent = "";
     elements.accountPasswordMessage.classList.remove("auth-message--error");
   }
+  renderAccountAiMemory();
   renderActivityList(elements.accountActivityList, state.account?.activity || []);
+}
+
+function renderAccountAiMemory() {
+  if (!elements.accountAiMemory) {
+    return;
+  }
+  if (!state.user?.membership_active) {
+    elements.accountAiMemory.className = "account-summary empty-state";
+    elements.accountAiMemory.textContent = tr(
+      "Po aktivácii členstva tu uvidíš AI pamäť, hlavné témy a pracovný kontext.",
+      "After activating membership, you will see AI memory, key topics and working context here."
+    );
+    return;
+  }
+  const profile = state.accountAssistantProfile || {};
+  const overview = state.accountAssistantOverview || {};
+  const threadCount = Array.isArray(overview.threads) ? overview.threads.length : 0;
+  const messageCount = Array.isArray(overview.messages) ? overview.messages.length : 0;
+  const focus = String(profile.focus || "").trim();
+  const notes = String(profile.notes || "").trim();
+  elements.accountAiMemory.className = "account-summary";
+  elements.accountAiMemory.innerHTML = `
+    <article class="account-card">
+      <div class="account-card__row"><strong>${escapeHtml(tr("Aktívny fokus", "Active focus"))}</strong><span>${escapeHtml(focus || tr("Denný pracovný kontext", "Daily work context"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("AI pozná tém", "Known topics"))}</strong><span>${escapeHtml(String(threadCount))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Správy v aktívnom vlákne", "Messages in active thread"))}</strong><span>${escapeHtml(String(messageCount))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Relevancia kontextu", "Context relevance"))}</strong><span>${escapeHtml(threadCount > 0 ? tr("Vysoká", "High") : tr("Základná", "Basic"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Aktualizované", "Updated"))}</strong><span>${escapeHtml(formatDate(profile.updated_at))}</span></div>
+      <div class="account-card__note">${escapeHtml(notes || tr("AI si drží pracovný kontext, klientské témy a smerovanie konverzácií naprieč chatmi.", "AI keeps working context, client topics and conversation direction across chats."))}</div>
+    </article>
+  `;
 }
 
 function renderActivityList(target, items) {

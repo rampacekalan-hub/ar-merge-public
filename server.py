@@ -729,6 +729,38 @@ def build_thread_title(message, language="sk"):
     return normalized[:68].rstrip(" .,;:-")
 
 
+def derive_thread_title(messages, language="sk"):
+    user_messages = []
+    for message in messages or []:
+        if str(message.get("role") or "") != "user":
+            continue
+        content = str(message.get("content") or "").strip()
+        if content:
+            user_messages.append(content)
+    if not user_messages:
+        return "New chat" if language == "en" else "Nový chat"
+    candidate = build_thread_title(user_messages[-1], language=language)
+    generic = {"Nový chat", "New chat"}
+    if candidate not in generic:
+        return candidate
+    merged = " ".join(user_messages[-3:])
+    candidate = build_thread_title(merged, language=language)
+    return candidate if candidate not in generic else ("New chat" if language == "en" else "Nový chat")
+
+
+def delete_assistant_thread(connection, user_id, thread_id):
+    row = connection.execute(
+        "SELECT * FROM assistant_threads WHERE id = ? AND user_id = ?",
+        (thread_id, user_id),
+    ).fetchone()
+    if not row:
+        return None
+    connection.execute("DELETE FROM assistant_messages WHERE thread_id = ? AND user_id = ?", (thread_id, user_id))
+    connection.execute("DELETE FROM assistant_threads WHERE id = ? AND user_id = ?", (thread_id, user_id))
+    connection.commit()
+    return row
+
+
 def create_assistant_thread(connection, user_id, title="Nový chat"):
     now_value = format_timestamp(utc_now())
     cursor = connection.execute(
@@ -868,17 +900,7 @@ def save_assistant_message(connection, user_id, thread_id, role, content, meta=N
         """,
         (user_id, thread_id, role, content, meta_json, review_status, format_timestamp(utc_now())),
     )
-    if role == "user":
-        thread_row = connection.execute("SELECT title FROM assistant_threads WHERE id = ?", (thread_id,)).fetchone()
-        current_title = (thread_row["title"] if thread_row else "") or "Nový chat"
-        next_title = build_thread_title(content, language=language)
-        touch_assistant_thread(
-            connection,
-            thread_id,
-            title=next_title if current_title in {"", "Nový chat", "New chat", "Starší chat"} else None,
-        )
-    else:
-        touch_assistant_thread(connection, thread_id)
+    touch_assistant_thread(connection, thread_id)
     connection.commit()
     return cursor.lastrowid
 
@@ -2695,6 +2717,24 @@ class AppHandler(SimpleHTTPRequestHandler):
                 )
                 return
 
+            if action == "delete":
+                thread_id = parse_positive_int(payload.get("thread_id"), 0)
+                deleted_thread = delete_assistant_thread(connection, user["id"], thread_id)
+                if not deleted_thread:
+                    self.write_json({"error": "Chat sa nenašiel."}, status=HTTPStatus.NOT_FOUND)
+                    return
+                active_thread = get_latest_assistant_thread(connection, user["id"])
+                log_activity(connection, "assistant_thread_deleted", "Používateľ vymazal AI chat.", user["id"], thread_id=thread_id)
+                self.write_json(
+                    {
+                        "ok": True,
+                        "threads": get_assistant_threads(connection, user["id"], limit=50),
+                        "active_thread_id": active_thread["id"] if active_thread else 0,
+                        "messages": get_assistant_messages(connection, user["id"], active_thread["id"], limit=80) if active_thread else [],
+                    }
+                )
+                return
+
             title = build_thread_title(payload.get("title") or ("New chat" if language == "en" else "Nový chat"), language=language)
             thread_id = create_assistant_thread(connection, user["id"], title)
             active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
@@ -2772,6 +2812,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta, language=language)
             reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
             save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta, language=language)
+            updated_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
+            next_title = derive_thread_title(updated_messages, language=language)
+            touch_assistant_thread(connection, active_thread["id"], title=next_title)
+            connection.commit()
             refresh_assistant_profile_memory(connection, user["id"])
             log_activity(
                 connection,
