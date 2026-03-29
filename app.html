@@ -108,6 +108,15 @@
         </div>
       </header>
 
+      <section id="workspaceMembershipPromo" class="app-membership-promo app-membership-promo--workspace" hidden>
+        <div class="app-membership-promo__copy">
+          <span class="app-membership-promo__label">Aktivácia členstva</span>
+          <strong>1,99 € / mesiac</strong>
+          <p>Bez aktívneho členstva zostanú kontakty, kompresia aj AI uzamknuté. Odomknutie trvá len chvíľu.</p>
+        </div>
+        <button id="workspaceMembershipPromoBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
+      </section>
+
       <section id="aplikacia-mody" class="card app-modes">
         <div class="section-head">
           <div>
@@ -144,6 +153,14 @@
           </div>
           <p class="chooser-deal-mini__note">Čistenie kontaktov, kompresia súborov a AI asistent v jednom účte.</p>
           <button id="chooserDealMiniAction" class="button button--primary chooser-deal-mini__action" type="button">Aktivovať teraz</button>
+        </div>
+        <div id="appMembershipPromo" class="app-membership-promo" hidden>
+          <div class="app-membership-promo__copy">
+            <span class="app-membership-promo__label">Aktivácia členstva</span>
+            <strong>1,99 € / mesiac</strong>
+            <p>Odomkni kontakty, kompresiu aj AI asistenta v jednom účte.</p>
+          </div>
+          <button id="appMembershipPromoBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
         </div>
       </section>
 
@@ -756,6 +773,13 @@
         </div>
       </div>
       <div id="adminActivityList" class="activity-list empty-state">Zatiaľ bez aktivít.</div>
+      <div class="section-head section-head--audit">
+        <div>
+          <p class="section-kicker">Odstránené a deaktivované</p>
+          <h3>Účty mimo aktívneho stavu</h3>
+        </div>
+      </div>
+      <div id="adminRemovedList" class="activity-list empty-state">Zatiaľ bez odstránených alebo deaktivovaných účtov.</div>
     </div>
   </div>
 
@@ -781,6 +805,10 @@
       { selector: ".sidebar__link[href=\"/terms.html\"] span:last-child", text: { sk: "Obchodné podmienky", en: "Terms and conditions" } },
       { selector: ".sidebar__link[href=\"/cookie-policy.html\"] span:last-child", text: { sk: "Cookies", en: "Cookies" } },
       { selector: ".workspace-header__summary .section-kicker", text: { sk: "UNIFYO APLIKÁCIA", en: "UNIFYO APP" } },
+      { selector: "#workspaceMembershipPromo .app-membership-promo__label", text: { sk: "Aktivácia členstva", en: "Membership activation" } },
+      { selector: "#workspaceMembershipPromo .app-membership-promo__copy strong", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
+      { selector: "#workspaceMembershipPromo .app-membership-promo__copy p", text: { sk: "Bez aktívneho členstva zostanú kontakty, kompresia aj AI uzamknuté. Odomknutie trvá len chvíľu.", en: "Without active membership, contacts, compression and AI stay locked. Unlocking only takes a moment." } },
+      { selector: "#workspaceMembershipPromoBtn", text: { sk: "Aktivovať členstvo", en: "Activate membership" } },
       { selector: "#accountBtn", text: { sk: "Prihlásiť sa", en: "Sign in" } },
       { selector: "#logoutBtn", text: { sk: "Odhlásiť sa", en: "Sign out" } },
       { selector: ".sidebar__footer span:first-child", text: { sk: "Bezpečné spracovanie", en: "Secure processing" } },
@@ -804,6 +832,10 @@
       { selector: "#chooserDealMini .chooser-deal-mini__current", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
       { selector: "#chooserDealMini .chooser-deal-mini__note", text: { sk: "Čistenie kontaktov, kompresia súborov a AI asistent v jednom účte.", en: "Contact cleanup, file compression and an AI assistant in one account." } },
       { selector: "#chooserDealMiniAction", text: { sk: "Aktivovať teraz", en: "Activate now" } },
+      { selector: "#appMembershipPromo .app-membership-promo__label", text: { sk: "Aktivácia členstva", en: "Membership activation" } },
+      { selector: "#appMembershipPromo .app-membership-promo__copy strong", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
+      { selector: "#appMembershipPromo .app-membership-promo__copy p", text: { sk: "Odomkni kontakty, kompresiu aj AI asistenta v jednom účte.", en: "Unlock contacts, compression and the AI assistant in one account." } },
+      { selector: "#appMembershipPromoBtn", text: { sk: "Aktivovať členstvo", en: "Activate membership" } },
       { selector: "#promoModal .section-kicker", text: { sk: "Akciová cena", en: "Special price" } },
       { selector: "#promoModal h2", text: { sk: "Odomkni celý pracovný balík", en: "Unlock the full work bundle" } },
       { selector: "#promoModal .modal__lead", text: { sk: "Kontakty, kompresia súborov aj AI asistent v jednom účte za zvýhodnenú cenu.", en: "Contacts, file compression and the AI assistant in one account at a discounted price." } },

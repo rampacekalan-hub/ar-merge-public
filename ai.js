@@ -7,7 +7,7 @@ const aiState = {
   typing: false,
   typingPhase: 0,
   typingTimer: null,
-  attachment: null,
+  attachments: [],
   mobileUploadToken: "",
   mobileUploadPoll: null,
   lastRenderedTitle: "",
@@ -570,22 +570,22 @@ function renderAttachmentBar() {
   if (!aiElements.attachmentBar) {
     return;
   }
-  if (!aiState.attachment) {
+  if (!aiState.attachments.length) {
     aiElements.attachmentBar.classList.add("is-hidden");
     aiElements.attachmentBar.innerHTML = "";
     return;
   }
   aiElements.attachmentBar.classList.remove("is-hidden");
-  aiElements.attachmentBar.innerHTML = `
+  aiElements.attachmentBar.innerHTML = aiState.attachments.map((attachment, index) => `
     <div class="ai-attachment-chip">
-      <img class="ai-attachment-chip__preview" src="${escapeHtml(aiState.attachment.previewUrl || "")}" alt="${escapeHtml(aiState.attachment.name)}">
+      <img class="ai-attachment-chip__preview" src="${escapeHtml(attachment.previewUrl || "")}" alt="${escapeHtml(attachment.name)}">
       <div class="ai-attachment-chip__copy">
-        <span class="ai-attachment-chip__label">${escapeHtml(tr("Obrázok", "Image"))}</span>
-        <strong>${escapeHtml(aiState.attachment.name)}</strong>
+        <span class="ai-attachment-chip__label">${escapeHtml(tr("Obrázok", "Image"))} ${index + 1}</span>
+        <strong>${escapeHtml(attachment.name)}</strong>
       </div>
-      <button class="ai-attachment-chip__remove" type="button" data-action="remove-attachment">×</button>
+      <button class="ai-attachment-chip__remove" type="button" data-action="remove-attachment" data-attachment-index="${index}">×</button>
     </div>
-  `;
+  `).join("");
 }
 
 function renderQuickActions() {
@@ -836,34 +836,46 @@ async function deleteThread(threadId) {
 }
 
 function handleAttachmentSelection(event) {
-  const file = event.target.files?.[0];
-  if (!file) {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) {
     return;
   }
-  setAttachment(file);
+  setAttachments(files);
 }
 
-function setAttachment(file) {
-  if (!file) {
-    return;
-  }
-  if (!String(file.type || "").startsWith("image/")) {
-    setInlineMessage(aiElements.chatMessage, tr("AI aktuálne podporuje iba obrázky.", "AI currently supports images only."), true);
+function setAttachments(files) {
+  if (!files.length) {
     return;
   }
   clearAttachment(false);
-  aiState.attachment = {
-    file,
-    name: file.name,
-    type: file.type,
-    previewUrl: URL.createObjectURL(file),
-  };
+  const validFiles = [];
+  files.forEach((file) => {
+    if (!String(file.type || "").startsWith("image/")) {
+      return;
+    }
+    validFiles.push({
+      file,
+      name: file.name,
+      type: file.type,
+      previewUrl: URL.createObjectURL(file),
+    });
+  });
+  if (!validFiles.length) {
+    setInlineMessage(aiElements.chatMessage, tr("AI aktuálne podporuje iba obrázky.", "AI currently supports images only."), true);
+    return;
+  }
+  aiState.attachments = validFiles;
   renderAttachmentBar();
   setInlineMessage(aiElements.chatMessage, "", false, true);
 }
 
 function clearAttachment(resetInput = true) {
-  aiState.attachment = null;
+  aiState.attachments.forEach((attachment) => {
+    if (attachment.previewUrl) {
+      URL.revokeObjectURL(attachment.previewUrl);
+    }
+  });
+  aiState.attachments = [];
   if (resetInput && aiElements.imageInput) {
     aiElements.imageInput.value = "";
   }
@@ -875,7 +887,19 @@ function handleAttachmentBarClick(event) {
   if (!button) {
     return;
   }
-  clearAttachment();
+  const index = Number(button.dataset.attachmentIndex || "-1");
+  if (Number.isNaN(index) || index < 0 || index >= aiState.attachments.length) {
+    clearAttachment();
+    return;
+  }
+  const [removed] = aiState.attachments.splice(index, 1);
+  if (removed?.previewUrl) {
+    URL.revokeObjectURL(removed.previewUrl);
+  }
+  if (!aiState.attachments.length && aiElements.imageInput) {
+    aiElements.imageInput.value = "";
+  }
+  renderAttachmentBar();
 }
 
 function handleComposerDragOver(event) {
@@ -892,9 +916,9 @@ function handleComposerDragLeave(event) {
 function handleComposerDrop(event) {
   event.preventDefault();
   aiElements.composerShell?.classList.remove("is-dragover");
-  const file = event.dataTransfer?.files?.[0];
-  if (file) {
-    setAttachment(file);
+  const files = Array.from(event.dataTransfer?.files || []);
+  if (files.length) {
+    setAttachments(files);
   }
 }
 
@@ -1006,7 +1030,7 @@ async function setAttachmentFromDataUrl(dataUrl, filename, mimeType) {
   const response = await fetch(dataUrl);
   const blob = await response.blob();
   const file = new File([blob], filename || "image", { type: mimeType || blob.type || "image/jpeg" });
-  setAttachment(file);
+  setAttachments([file]);
 }
 
 async function handleNewThreadClick() {
@@ -1053,7 +1077,7 @@ function handleChatPaste(event) {
     return;
   }
   event.preventDefault();
-  setAttachment(file);
+  setAttachments([file]);
 }
 
 function applyPromptToComposer(prompt) {
@@ -1116,7 +1140,7 @@ async function handleChatSubmit(event) {
   }
 
   const message = aiElements.chatInput?.value.trim() || "";
-  if (message.length < 2 && !aiState.attachment) {
+  if (message.length < 2 && !aiState.attachments.length) {
     setInlineMessage(aiElements.chatMessage, tr("Napíš správu alebo prilož obrázok pre AI asistenta.", "Write a message or attach an image for the AI assistant."), true);
     return;
   }
@@ -1132,11 +1156,19 @@ async function handleChatSubmit(event) {
     ...aiState.messages,
     {
       role: "user",
-      content: message || (aiState.attachment ? tr("Vyhodnoť prosím priložený obrázok.", "Please evaluate the attached image.") : ""),
+      content: message || (aiState.attachments.length ? tr("Vyhodnoť prosím priložené obrázky.", "Please evaluate the attached images.") : ""),
       created_at: new Date().toISOString(),
       review_status: "approved",
-      meta: aiState.attachment
-        ? { attachment_name: aiState.attachment.name, attachment_preview: aiState.attachment.previewUrl }
+      meta: aiState.attachments.length
+        ? {
+            attachment_name: aiState.attachments[0].name,
+            attachment_preview: aiState.attachments[0].previewUrl,
+            attachments: aiState.attachments.map((attachment) => ({
+              attachment_name: attachment.name,
+              attachment_preview: attachment.previewUrl,
+              attachment_type: attachment.type,
+            })),
+          }
         : {},
     },
   ];
@@ -1170,12 +1202,14 @@ async function handleChatSubmit(event) {
 }
 
 async function sendAssistantMessage(message) {
-  if (aiState.attachment) {
+  if (aiState.attachments.length) {
     const formData = new FormData();
     formData.append("message", message);
     formData.append("thread_id", String(aiState.activeThreadId || 0));
     formData.append("lang", getCurrentLang());
-    formData.append("attachment", aiState.attachment.file);
+    aiState.attachments.forEach((attachment) => {
+      formData.append("attachment", attachment.file);
+    });
     return fetch("/api/assistant/chat", {
       method: "POST",
       body: formData,
@@ -1511,20 +1545,21 @@ function formatThreadTitle(value) {
 }
 
 function renderMessageAttachment(message) {
-  const attachmentName = String(message?.meta?.attachment_name || "").trim();
-  const attachmentPreview = String(message?.meta?.attachment_preview || "").trim();
-  if (!attachmentName || !attachmentPreview) {
+  const attachments = Array.isArray(message?.meta?.attachments)
+    ? message.meta.attachments
+    : (message?.meta?.attachment_preview ? [message.meta] : []);
+  if (!attachments.length) {
     return "";
   }
-  return `
+  return attachments.map((attachment) => `
     <div class="ai-message__attachment">
-      <img src="${escapeHtml(attachmentPreview)}" alt="${escapeHtml(attachmentName)}">
+      <img src="${escapeHtml(String(attachment.attachment_preview || ""))}" alt="${escapeHtml(String(attachment.attachment_name || ""))}">
       <div class="ai-message__attachment-copy">
         <span>${escapeHtml(tr("Priložený obrázok", "Attached image"))}</span>
-        <strong>${escapeHtml(attachmentName)}</strong>
+        <strong>${escapeHtml(String(attachment.attachment_name || ""))}</strong>
       </div>
     </div>
-  `;
+  `).join("");
 }
 
 function renderGeneratedAsset(message) {

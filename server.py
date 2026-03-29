@@ -1517,7 +1517,7 @@ def get_assistant_usage_stats(connection, user_id):
             COUNT(*) AS message_count,
             SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) AS assistant_count,
             SUM(CASE WHEN role = 'assistant' AND instr(meta_json, '"used_web_search": true') > 0 THEN 1 ELSE 0 END) AS web_count,
-            SUM(CASE WHEN instr(meta_json, 'attachment_preview') > 0 OR instr(meta_json, '"used_image": true') > 0 THEN 1 ELSE 0 END) AS image_count,
+            SUM(CASE WHEN instr(meta_json, 'attachment_preview') > 0 OR instr(meta_json, '"used_image": true') > 0 OR instr(meta_json, '"attachments"') > 0 THEN 1 ELSE 0 END) AS image_count,
             MAX(created_at) AS last_message_at
         FROM assistant_messages
         WHERE user_id = ?
@@ -1577,10 +1577,44 @@ def get_activity_system_stats(connection):
         "recent_logs": recent_logs,
         "recent_unique_ips": len(unique_ips),
         "recent_admin_actions": admin_actions,
+        "deleted_accounts": int(connection.execute("SELECT COUNT(*) AS total FROM activity_logs WHERE event_type = 'admin_account_deleted'").fetchone()["total"] or 0),
+        "deactivated_accounts": int(connection.execute("SELECT COUNT(*) AS total FROM activity_logs WHERE event_type = 'admin_membership_deactivated'").fetchone()["total"] or 0),
     }
 
 
-def build_openai_chat_messages(user_row, profile, history_messages, user_message, attachment=None, language="sk"):
+def extract_message_attachments(meta):
+    meta = meta or {}
+    attachments = meta.get("attachments") if isinstance(meta, dict) else None
+    normalized = []
+    if isinstance(attachments, list):
+        for item in attachments:
+            if not isinstance(item, dict):
+                continue
+            preview = str(item.get("attachment_preview") or "").strip()
+            if not preview:
+                continue
+            normalized.append(
+                {
+                    "attachment_name": str(item.get("attachment_name") or "obrazok").strip() or "obrazok",
+                    "attachment_type": str(item.get("attachment_type") or "").strip(),
+                    "attachment_preview": preview,
+                }
+            )
+    if normalized:
+        return normalized
+    attachment_preview = str(meta.get("attachment_preview") or "").strip() if isinstance(meta, dict) else ""
+    if not attachment_preview:
+        return []
+    return [
+        {
+            "attachment_name": str(meta.get("attachment_name") or "obrazok").strip() or "obrazok",
+            "attachment_type": str(meta.get("attachment_type") or "").strip(),
+            "attachment_preview": attachment_preview,
+        }
+    ]
+
+
+def build_openai_chat_messages(user_row, profile, history_messages, user_message, attachments=None, language="sk"):
     messages = [
         {
             "role": "system",
@@ -1590,15 +1624,15 @@ def build_openai_chat_messages(user_row, profile, history_messages, user_message
     for message in history_messages[-10:]:
         role = "assistant" if message["role"] == "assistant" else "user"
         meta = message.get("meta") or {}
-        attachment_preview = str(meta.get("attachment_preview") or "").strip()
-        if role == "user" and attachment_preview:
+        history_attachments = extract_message_attachments(meta)
+        if role == "user" and history_attachments:
+            content_items = [{"type": "text", "text": message.get("content") or "Pozri priložené obrázky v predchádzajúcej správe."}]
+            for item in history_attachments:
+                content_items.append({"type": "image_url", "image_url": {"url": item["attachment_preview"]}})
             messages.append(
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": message.get("content") or "Pozri priložený obrázok v predchádzajúcej správe."},
-                        {"type": "image_url", "image_url": {"url": attachment_preview}},
-                    ],
+                    "content": content_items,
                 }
             )
         else:
@@ -1608,14 +1642,14 @@ def build_openai_chat_messages(user_row, profile, history_messages, user_message
                     "content": message.get("content") or "",
                 }
             )
-    if attachment:
+    if attachments:
+        content_items = [{"type": "text", "text": user_message or "Vyhodnoť priložené obrázky a poraď mi ďalší krok."}]
+        for item in attachments:
+            content_items.append({"type": "image_url", "image_url": {"url": item["data_url"]}})
         messages.append(
             {
                 "role": "user",
-                "content": [
-                    {"type": "text", "text": user_message or "Vyhodnoť priložený obrázok a poraď mi ďalší krok."},
-                    {"type": "image_url", "image_url": {"url": attachment["data_url"]}},
-                ],
+                "content": content_items,
             }
         )
     else:
@@ -1702,30 +1736,30 @@ def normalize_attachment_name(value):
     return " ".join(str(value or "").strip().split())[:120].strip() or "obrazok"
 
 
-def parse_assistant_attachment(form):
-    attachment_entry = None
+def parse_assistant_attachments(form):
+    attachment_entries = []
     for key in ("attachment", "image", "file"):
-        if form.get(key):
-            attachment_entry = form[key][0]
-            break
-    if not attachment_entry or not attachment_entry.get("content"):
-        return None
-
-    content_type = str(attachment_entry.get("content_type") or "").strip().lower()
-    if not content_type.startswith("image/"):
-        raise ValueError("AI aktuálne podporuje iba obrázky.")
-
-    content_bytes = attachment_entry.get("content") or b""
-    if len(content_bytes) > MAX_AI_IMAGE_BYTES:
-        raise ValueError(f"Obrázok je príliš veľký. Maximum je {format_mb(MAX_AI_IMAGE_BYTES)}.")
-
-    filename = normalize_attachment_name(attachment_entry.get("filename") or "obrazok")
-    return {
-        "filename": filename,
-        "content_type": content_type,
-        "content_bytes": content_bytes,
-        "data_url": build_image_data_url(content_type, content_bytes),
-    }
+        attachment_entries.extend(form.get(key) or [])
+    attachments = []
+    for attachment_entry in attachment_entries:
+        if not attachment_entry or not attachment_entry.get("content"):
+            continue
+        content_type = str(attachment_entry.get("content_type") or "").strip().lower()
+        if not content_type.startswith("image/"):
+            raise ValueError("AI aktuálne podporuje iba obrázky.")
+        content_bytes = attachment_entry.get("content") or b""
+        if len(content_bytes) > MAX_AI_IMAGE_BYTES:
+            raise ValueError(f"Obrázok je príliš veľký. Maximum je {format_mb(MAX_AI_IMAGE_BYTES)}.")
+        filename = normalize_attachment_name(attachment_entry.get("filename") or "obrazok")
+        attachments.append(
+            {
+                "filename": filename,
+                "content_type": content_type,
+                "content_bytes": content_bytes,
+                "data_url": build_image_data_url(content_type, content_bytes),
+            }
+        )
+    return attachments
 
 
 def create_assistant_upload_session(connection, user_id):
@@ -1980,7 +2014,7 @@ def requires_verified_current_info(user_message):
     return any(marker in text for marker in strict_markers)
 
 
-def call_openai_assistant(user_row, profile, history_messages, user_message, attachment=None, language="sk"):
+def call_openai_assistant(user_row, profile, history_messages, user_message, attachments=None, language="sk"):
     global OPENAI_WEB_SEARCH_RUNTIME_DISABLED
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
@@ -1989,24 +2023,25 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
         "prompt_version": PROMPT_VERSION,
         "model": OPENAI_MODEL,
         "used_web_search": False,
-        "used_image": bool(attachment),
-        "attachment_name": attachment["filename"] if attachment else "",
+        "used_image": bool(attachments),
+        "attachment_name": attachments[0]["filename"] if attachments else "",
+        "attachment_count": len(attachments or []),
     }
     history_has_images = any(
-        str((message.get("meta") or {}).get("attachment_preview") or "").strip()
+        bool(extract_message_attachments(message.get("meta") or {}))
         for message in history_messages[-10:]
         if message.get("role") == "user"
     )
     if history_has_images:
         response_meta["used_image"] = True
 
-    if attachment or history_has_images:
+    if attachments or history_has_images:
         fallback_messages = build_openai_chat_messages(
             user_row,
             profile,
             history_messages,
             user_message,
-            attachment=attachment,
+            attachments=attachments,
             language=language,
         )
         fallback_payload = perform_openai_request(
@@ -2143,12 +2178,42 @@ def is_membership_active(membership):
     return period_end > utc_now()
 
 
+def get_membership_display_state(membership):
+    active = is_membership_active(membership)
+    if not membership:
+        return {
+            "active": False,
+            "status": "inactive",
+            "valid_until": "",
+            "started_at": "",
+            "next_renewal_at": "",
+            "cancelled_at": "",
+            "cancel_at_period_end": False,
+        }
+    if not active:
+        return {
+            "active": False,
+            "status": "inactive",
+            "valid_until": "",
+            "started_at": "",
+            "next_renewal_at": "",
+            "cancelled_at": format_timestamp(membership.get("cancelled_at")) if membership.get("cancelled_at") else "",
+            "cancel_at_period_end": bool(membership.get("cancel_at_period_end")),
+        }
+    return {
+        "active": True,
+        "status": membership.get("status") or "active",
+        "valid_until": format_timestamp(membership.get("current_period_end")) if membership.get("current_period_end") else "",
+        "started_at": format_timestamp(membership.get("created_at")) if membership.get("created_at") else "",
+        "next_renewal_at": format_timestamp(membership.get("next_renewal_at")) if membership.get("next_renewal_at") else "",
+        "cancelled_at": format_timestamp(membership.get("cancelled_at")) if membership.get("cancelled_at") else "",
+        "cancel_at_period_end": bool(membership.get("cancel_at_period_end")),
+    }
+
+
 def user_payload(connection, user_row, headers=None):
     membership = get_membership(connection, user_row["id"])
-    period_end = membership.get("current_period_end") if membership else None
-    membership_started = membership.get("created_at") if membership else None
-    next_renewal_at = membership.get("next_renewal_at") if membership else None
-    cancelled_at = membership.get("cancelled_at") if membership else None
+    display_membership = get_membership_display_state(membership)
     registration_consent = get_latest_registration_consent(connection, user_row["id"])
     checkout_consent = get_latest_checkout_consent(connection, user_row["id"])
     return {
@@ -2161,14 +2226,14 @@ def user_payload(connection, user_row, headers=None):
             "is_admin": user_row["role"] == "admin",
             "can_manage_admin_tools": can_manage_admin_tools(user_row),
             "created_at": user_row["created_at"],
-            "membership_active": is_membership_active(membership),
-            "membership_status": membership.get("status") if membership else "inactive",
+            "membership_active": display_membership["active"],
+            "membership_status": display_membership["status"],
             "membership_stripe_status": membership.get("stripe_status") if membership else "",
-            "membership_valid_until": format_timestamp(period_end) if period_end else "",
-            "membership_started_at": format_timestamp(membership_started) if membership_started else "",
-            "membership_next_renewal_at": format_timestamp(next_renewal_at) if next_renewal_at else "",
-            "membership_cancelled_at": format_timestamp(cancelled_at) if cancelled_at else "",
-            "membership_cancel_at_period_end": bool(membership.get("cancel_at_period_end")) if membership else False,
+            "membership_valid_until": display_membership["valid_until"],
+            "membership_started_at": display_membership["started_at"],
+            "membership_next_renewal_at": display_membership["next_renewal_at"],
+            "membership_cancelled_at": display_membership["cancelled_at"],
+            "membership_cancel_at_period_end": display_membership["cancel_at_period_end"],
             "membership_internal_subscription_number": membership.get("internal_subscription_number") if membership else "",
             "membership_last_order_number": membership.get("last_order_number") if membership else "",
             "membership_last_checkout_session_id": membership.get("last_checkout_session_id") if membership else "",
@@ -2974,7 +3039,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not upload_session:
                 self.write_json({"error": "Upload session neexistuje alebo vypršala."}, status=HTTPStatus.NOT_FOUND)
                 return
-            attachment = parse_assistant_attachment(form)
+            attachments = parse_assistant_attachments(form)
+            if not attachments:
+                raise ValueError("Chýba obrázok na nahratie.")
+            attachment = attachments[0]
             save_assistant_upload_to_session(connection, token, attachment)
             self.write_json({"ok": True, **build_assistant_upload_payload(get_assistant_upload_session(connection, token))})
         except ValueError as exc:
@@ -3024,7 +3092,14 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             rows = connection.execute(
                 """
-                SELECT users.*, memberships.status AS membership_status, memberships.current_period_end AS membership_valid_until
+                SELECT
+                    users.*,
+                    memberships.status AS membership_status,
+                    memberships.current_period_end AS membership_valid_until,
+                    memberships.created_at AS membership_started_at,
+                    memberships.next_renewal_at AS membership_next_renewal_at,
+                    memberships.cancelled_at AS membership_cancelled_at,
+                    memberships.cancel_at_period_end AS membership_cancel_at_period_end
                 FROM users
                 LEFT JOIN memberships ON memberships.user_id = users.id
                 ORDER BY users.created_at DESC
@@ -3032,6 +3107,17 @@ class AppHandler(SimpleHTTPRequestHandler):
             ).fetchall()
             users = []
             for row in rows:
+                membership_row = None
+                if row["membership_status"] or row["membership_valid_until"] or row["membership_started_at"]:
+                    membership_row = {
+                        "status": row["membership_status"],
+                        "current_period_end": row["membership_valid_until"],
+                        "created_at": row["membership_started_at"],
+                        "next_renewal_at": row["membership_next_renewal_at"],
+                        "cancelled_at": row["membership_cancelled_at"],
+                        "cancel_at_period_end": row["membership_cancel_at_period_end"],
+                    }
+                membership_state = get_membership_display_state(membership_row)
                 users.append(
                     {
                         "id": row["id"],
@@ -3039,8 +3125,29 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "email": row["email"],
                         "role": row["role"],
                         "created_at": row["created_at"],
-                        "membership_status": row["membership_status"] or "inactive",
-                        "membership_valid_until": row["membership_valid_until"] or "",
+                        "membership_status": membership_state["status"],
+                        "membership_valid_until": membership_state["valid_until"],
+                    }
+                )
+            removed_rows = connection.execute(
+                """
+                SELECT event_type, event_label, event_meta, created_at
+                FROM activity_logs
+                WHERE event_type IN ('admin_account_deleted', 'admin_membership_deactivated')
+                ORDER BY created_at DESC
+                LIMIT 24
+                """
+            ).fetchall()
+            removed_accounts = []
+            for row in removed_rows:
+                meta = safe_json_loads(row["event_meta"], {})
+                removed_accounts.append(
+                    {
+                        "event_type": row["event_type"],
+                        "label": row["event_label"],
+                        "email": str(meta.get("target_user_email") or "").strip(),
+                        "ip": str(meta.get("ip") or "").strip(),
+                        "created_at": row["created_at"],
                     }
                 )
             threshold = format_timestamp(utc_now() - timedelta(days=30))
@@ -3060,7 +3167,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 ).fetchone()["total"],
             }
             stats.update(get_activity_system_stats(connection))
-            self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50), "stats": stats})
+            self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50), "removed_accounts": removed_accounts, "stats": stats})
         finally:
             connection.close()
 
@@ -3084,7 +3191,14 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             row = connection.execute(
                 """
-                SELECT users.*, memberships.status AS membership_status, memberships.current_period_end AS membership_valid_until
+                SELECT
+                    users.*,
+                    memberships.status AS membership_status,
+                    memberships.current_period_end AS membership_valid_until,
+                    memberships.created_at AS membership_started_at,
+                    memberships.next_renewal_at AS membership_next_renewal_at,
+                    memberships.cancelled_at AS membership_cancelled_at,
+                    memberships.cancel_at_period_end AS membership_cancel_at_period_end
                 FROM users
                 LEFT JOIN memberships ON memberships.user_id = users.id
                 WHERE users.id = ?
@@ -3095,6 +3209,17 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
                 return
 
+            membership_row = None
+            if row["membership_status"] or row["membership_valid_until"] or row["membership_started_at"]:
+                membership_row = {
+                    "status": row["membership_status"],
+                    "current_period_end": row["membership_valid_until"],
+                    "created_at": row["membership_started_at"],
+                    "next_renewal_at": row["membership_next_renewal_at"],
+                    "cancelled_at": row["membership_cancelled_at"],
+                    "cancel_at_period_end": row["membership_cancel_at_period_end"],
+                }
+            membership_state = get_membership_display_state(membership_row)
             params = parse_qs(urlparse(self.path).query)
             self.write_json(
                 {
@@ -3104,8 +3229,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "email": row["email"],
                         "role": row["role"],
                         "created_at": row["created_at"],
-                        "membership_status": row["membership_status"] or "inactive",
-                        "membership_valid_until": row["membership_valid_until"] or "",
+                        "membership_status": membership_state["status"],
+                        "membership_valid_until": membership_state["valid_until"],
                     },
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
                     "assistant_stats": get_assistant_usage_stats(connection, row["id"]),
@@ -3523,7 +3648,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
 
             content_type = self.headers.get("Content-Type", "")
-            attachment = None
+            attachments = []
             if "multipart/form-data" in content_type.lower():
                 form = parse_multipart_form(self.headers, self.read_request_body())
                 message = ""
@@ -3535,13 +3660,13 @@ class AppHandler(SimpleHTTPRequestHandler):
                     thread_id = parse_positive_int((form["thread_id"][0].get("content") or b"").decode("utf-8", errors="ignore").strip(), 0)
                 if form.get("lang"):
                     language = "en" if ((form["lang"][0].get("content") or b"").decode("utf-8", errors="ignore").strip().lower() == "en") else "sk"
-                attachment = parse_assistant_attachment(form)
+                attachments = parse_assistant_attachments(form)
             else:
                 payload = require_json(self)
                 message = str(payload.get("message") or "").strip()
                 thread_id = parse_positive_int(payload.get("thread_id"), 0)
                 language = "en" if str(payload.get("lang") or "").strip().lower() == "en" else "sk"
-            if len(message) < 2 and not attachment:
+            if len(message) < 2 and not attachments:
                 self.write_json({"error": "Napíšte správu pre AI asistenta."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
@@ -3554,16 +3679,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             history_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
             user_message_content = message
             user_meta = {}
-            if attachment:
-                base_user_message = message or "Vyhodnoť prosím priložený obrázok."
+            if attachments:
+                base_user_message = message or "Vyhodnoť prosím priložené obrázky."
                 user_message_content = base_user_message
-                user_meta = {
-                    "attachment_name": attachment["filename"],
-                    "attachment_type": attachment["content_type"],
-                    "attachment_preview": attachment["data_url"],
-                }
+                user_meta = {"attachments": []}
+                for attachment in attachments:
+                    user_meta["attachments"].append(
+                        {
+                            "attachment_name": attachment["filename"],
+                            "attachment_type": attachment["content_type"],
+                            "attachment_preview": attachment["data_url"],
+                        }
+                    )
+                primary_attachment = user_meta["attachments"][0]
+                user_meta["attachment_name"] = primary_attachment["attachment_name"]
+                user_meta["attachment_type"] = primary_attachment["attachment_type"]
+                user_meta["attachment_preview"] = primary_attachment["attachment_preview"]
             save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta, language=language)
-            reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
+            reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachments=attachments, language=language)
             parsed_table = parse_markdown_table(reply)
             if parsed_table:
                 reply_meta["table_data"] = parsed_table
@@ -3598,8 +3731,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 "Používateľ komunikoval s AI asistentom.",
                 user["id"],
                 thread_id=active_thread["id"],
-                used_image=bool(attachment),
-                attachment_name=attachment["filename"] if attachment else "",
+                used_image=bool(attachments),
+                attachment_name=attachments[0]["filename"] if attachments else "",
+                attachment_count=len(attachments),
                 ip=get_request_ip(self),
                 agent=get_request_agent(self),
             )
@@ -3954,34 +4088,72 @@ class AppHandler(SimpleHTTPRequestHandler):
             target_email = target_user["email"] or ""
             target_name = target_user["name"] or ""
             warning_text = "Účet bude nenávratne vymazaný. Ak bola platba strhnutá, refund bude spracovaný do 1 týždňa."
-            connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM memberships WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM assistant_tasks WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM assistant_profiles WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM assistant_upload_sessions WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM generated_assets WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM registration_consents WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM checkout_consents WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM checkout_sessions WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM subscription_events WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
-            log_activity(
-                connection,
-                "admin_account_deleted",
-                "Admin vymazal používateľský účet.",
-                admin_user["id"],
-                target_user_id=user_id,
-                target_user_email=target_email,
-                warning=warning_text,
-                ip=get_request_ip(self),
-                agent=get_request_agent(self),
-            )
-            try:
-                send_account_deleted_email(target_email, target_name)
-            except Exception:
-                pass
+            if action == "deactivate":
+                now_value = format_timestamp(utc_now())
+                connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+                connection.execute(
+                    """
+                    UPDATE memberships
+                    SET status = 'inactive',
+                        stripe_status = 'inactive',
+                        cancel_at_period_end = 1,
+                        cancelled_at = COALESCE(cancelled_at, ?),
+                        current_period_end = '',
+                        next_renewal_at = '',
+                        updated_at = ?
+                    WHERE user_id = ?
+                    """,
+                    (now_value, now_value, user_id),
+                )
+                record_subscription_event(
+                    connection,
+                    user_id,
+                    "admin_deactivated",
+                    "inactive",
+                    {
+                        "admin_email": admin_user["email"],
+                        "target_user_email": target_email,
+                    },
+                )
+                log_activity(
+                    connection,
+                    "admin_membership_deactivated",
+                    "Admin deaktivoval používateľský účet a členstvo.",
+                    admin_user["id"],
+                    target_user_id=user_id,
+                    target_user_email=target_email,
+                    ip=get_request_ip(self),
+                    agent=get_request_agent(self),
+                )
+            else:
+                connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM memberships WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_tasks WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_profiles WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_upload_sessions WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM generated_assets WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM registration_consents WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM checkout_consents WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM checkout_sessions WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM subscription_events WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                log_activity(
+                    connection,
+                    "admin_account_deleted",
+                    "Admin vymazal používateľský účet.",
+                    admin_user["id"],
+                    target_user_id=user_id,
+                    target_user_email=target_email,
+                    warning=warning_text,
+                    ip=get_request_ip(self),
+                    agent=get_request_agent(self),
+                )
+                try:
+                    send_account_deleted_email(target_email, target_name)
+                except Exception:
+                    pass
             connection.commit()
             self.write_json({"ok": True})
         except ValueError as exc:

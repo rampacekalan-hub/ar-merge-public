@@ -88,6 +88,10 @@ const elements = {
   heroModeContactsBtn: document.getElementById("heroModeContactsBtn"),
   heroModeCompressBtn: document.getElementById("heroModeCompressBtn"),
   appModesSection: document.getElementById("aplikacia-mody"),
+  appMembershipPromo: document.getElementById("appMembershipPromo"),
+  appMembershipPromoBtn: document.getElementById("appMembershipPromoBtn"),
+  workspaceMembershipPromo: document.getElementById("workspaceMembershipPromo"),
+  workspaceMembershipPromoBtn: document.getElementById("workspaceMembershipPromoBtn"),
   contentShell: document.getElementById("contentShell"),
   workspaceHeaderMain: document.getElementById("workspaceHeaderMain"),
   workspaceGrid: document.getElementById("workspaceGrid"),
@@ -176,6 +180,7 @@ const elements = {
   adminUsersTable: document.getElementById("adminUsersTable"),
   adminUserDetail: document.getElementById("adminUserDetail"),
   adminActivityList: document.getElementById("adminActivityList"),
+  adminRemovedList: document.getElementById("adminRemovedList"),
   sidebar: document.getElementById("sidebar"),
   sidebarToggle: document.getElementById("sidebarToggle"),
   sidebarRailToggle: document.getElementById("sidebarRailToggle"),
@@ -258,6 +263,8 @@ async function bootstrap() {
   });
   elements.logoutBtn.addEventListener("click", logout);
   elements.unlockUploadBtn.addEventListener("click", handleUnlockUploadAction);
+  elements.appMembershipPromoBtn?.addEventListener("click", startCheckoutFlow);
+  elements.workspaceMembershipPromoBtn?.addEventListener("click", startCheckoutFlow);
   elements.buyToolbarBtn?.addEventListener("click", startCheckoutFlow);
   elements.buyProBtn?.addEventListener("click", startCheckoutFlow);
   elements.pricingCtaBtn?.addEventListener("click", startCheckoutFlow);
@@ -416,6 +423,12 @@ function renderAccessState() {
   }
   if (elements.pricingCard) {
     elements.pricingCard.classList.toggle("is-hidden", hasMembership);
+  }
+  if (elements.appMembershipPromo) {
+    elements.appMembershipPromo.hidden = hasMembership || !isLoggedIn;
+  }
+  if (elements.workspaceMembershipPromo) {
+    elements.workspaceMembershipPromo.hidden = hasMembership || !isLoggedIn;
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
@@ -996,6 +1009,10 @@ async function fetchAdminPanel() {
   elements.adminUserDetail.textContent = "Vyber používateľa z tabuľky a zobrazí sa detail účtu, história aj rýchle zásahy.";
   elements.adminActivityList.className = "empty-state";
   elements.adminActivityList.textContent = "Načítavam admin log...";
+  if (elements.adminRemovedList) {
+    elements.adminRemovedList.className = "empty-state";
+    elements.adminRemovedList.textContent = "Načítavam odstránené a deaktivované účty...";
+  }
   try {
     const response = await fetch("/api/admin/overview");
     const payload = await response.json();
@@ -1009,6 +1026,10 @@ async function fetchAdminPanel() {
     elements.adminUsersTable.textContent = error.message;
     elements.adminActivityList.className = "empty-state";
     elements.adminActivityList.textContent = error.message;
+    if (elements.adminRemovedList) {
+      elements.adminRemovedList.className = "empty-state";
+      elements.adminRemovedList.textContent = error.message;
+    }
   }
 }
 
@@ -1099,6 +1120,7 @@ function renderAccountSummary() {
     return;
   }
 
+  const showMembershipDates = Boolean(state.user.membership_active);
   elements.accountSummary.className = "account-summary";
   elements.accountSummary.innerHTML = `
     <article class="account-card">
@@ -1107,8 +1129,8 @@ function renderAccountSummary() {
       <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(state.user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Registrovaný od", "Registered since"))}</strong><span>${escapeHtml(formatDate(state.user.created_at))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(state.user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(formatDate(state.user.membership_started_at))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(formatDate(state.user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(state.user.membership_started_at) : "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(state.user.membership_valid_until) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Cena", "Price"))}</strong><span>${escapeHtml(tr("1,99 € / mesiac", "€1.99 / month"))}</span></div>
       ${state.user.membership_active ? "" : `
         <div class="account-card__cta">
@@ -1132,6 +1154,7 @@ function renderAccountPanel() {
     renderAccountSubscriptionCard();
     return;
   }
+  const showMembershipDates = Boolean(user.membership_active);
   elements.accountPanelSummary.className = "account-summary";
   elements.accountPanelSummary.innerHTML = `
     <article class="account-card">
@@ -1139,8 +1162,8 @@ function renderAccountPanel() {
       <div class="account-card__row"><strong>${escapeHtml(tr("E-mail", "Email"))}</strong><span>${escapeHtml(user.email || "")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Registrovaný od", "Registered since"))}</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(formatDate(user.membership_started_at))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(user.membership_started_at) : "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(user.membership_valid_until) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
       ${user.membership_active ? "" : `
         <div class="account-card__cta">
@@ -1307,7 +1330,18 @@ function collapseActivityFeed(items, limit = 12) {
 function renderAdminPanel() {
   renderAdminStats();
   renderAdminUsers();
+  const removedItems = (state.admin?.removed_accounts || []).map((item) => ({
+    event_label: item.label,
+    event_type: item.event_type,
+    created_at: item.created_at,
+    meta: {
+      ip: item.ip,
+      target_user_email: item.email,
+      status: item.event_type === "admin_account_deleted" ? "Vymazané" : "Deaktivované",
+    },
+  }));
   renderActivityList(elements.adminActivityList, state.admin?.activity || []);
+  renderActivityList(elements.adminRemovedList, removedItems);
 }
 
 function renderAdminStats() {
@@ -1357,6 +1391,14 @@ function renderAdminStats() {
       <span>Admin zásahy</span>
       <strong>${escapeHtml(String(stats.recent_admin_actions || 0))}</strong>
     </article>
+    <article class="summary-card">
+      <span>Deaktivované účty</span>
+      <strong>${escapeHtml(String(stats.deactivated_accounts || 0))}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Vymazané účty</span>
+      <strong>${escapeHtml(String(stats.deleted_accounts || 0))}</strong>
+    </article>
   `;
 }
 
@@ -1396,6 +1438,7 @@ function renderAdminUsers() {
             <td>
               <div class="admin-actions">
                 <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="detail" type="button">Detail</button>
+                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="deactivate" type="button">Deaktivovať</button>` : ""}
                 ${canManageAdminTools ? `<button class="button button--ghost admin-action admin-action--danger" data-user-id="${user.id}" data-action="delete_account" type="button">Vymazať účet</button>` : ""}
               </div>
             </td>
@@ -1441,6 +1484,12 @@ async function handleAdminAction(event) {
   }
   if (action === "delete_account") {
     const confirmed = window.confirm("Naozaj chceš používateľovi vymazať účet? Ak bola strhnutá platba, e-mailom odíde informácia o vrátení peňazí do 1 týždňa.");
+    if (!confirmed) {
+      return;
+    }
+  }
+  if (action === "deactivate") {
+    const confirmed = window.confirm("Naozaj chceš účet deaktivovať? Používateľ stratí aktívne členstvo a bude odhlásený.");
     if (!confirmed) {
       return;
     }
@@ -1522,6 +1571,7 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Checkout súhlas</strong><span>${escapeHtml(user.checkout_consent_at ? formatDateTime(user.checkout_consent_at) : "—")}</span></div>
     </div>
     ${canManageAdminTools ? `<div class="admin-actions">
+      <button id="adminDeactivateBtn" class="button button--ghost" type="button">Deaktivovať účet</button>
       <button id="adminDeleteBtn" class="button button--ghost admin-action--danger" type="button">Vymazať účet</button>
       <button id="adminRoleBtn" class="button button--ghost" type="button">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
     </div>
@@ -1556,11 +1606,19 @@ function renderAdminUserDetail(payload) {
     <div id="adminUserActivity" class="activity-list"></div>
   `;
 
+  const deactivateBtn = document.getElementById("adminDeactivateBtn");
   const deleteBtn = document.getElementById("adminDeleteBtn");
   const roleBtn = document.getElementById("adminRoleBtn");
   const messageEl = document.getElementById("adminUserMessage");
   renderActivityList(document.getElementById("adminUserActivity"), activity);
 
+  deactivateBtn?.addEventListener("click", async () => {
+    const confirmed = window.confirm("Naozaj chceš účet deaktivovať? Používateľ príde o členstvo a bude odhlásený.");
+    if (!confirmed) {
+      return;
+    }
+    await submitAdminMembershipAction(user.id, "deactivate", { messageEl });
+  });
   deleteBtn?.addEventListener("click", async () => {
     const confirmed = window.confirm("Naozaj chceš účet vymazať? Používateľ dostane e-mail a prípadné vrátenie peňazí bude komunikované do 1 týždňa.");
     if (!confirmed) {
