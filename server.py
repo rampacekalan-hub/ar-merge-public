@@ -2337,11 +2337,15 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
             "SELECT * FROM users WHERE id = ?",
             (fallback_user_id,),
         ).fetchone()
-        if user_row and customer_id and user_row["stripe_customer_id"] != customer_id:
-            connection.execute(
-                "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
-                (customer_id, now, user_row["id"]),
-            )
+    if user_row and customer_id and (user_row["stripe_customer_id"] or "") != customer_id:
+        connection.execute(
+            "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
+            (customer_id, now, user_row["id"]),
+        )
+        user_row = connection.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (user_row["id"],),
+        ).fetchone()
 
     if not user_row:
         return
@@ -2421,29 +2425,7 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
 
 
 def sync_membership_for_user(connection, user_row):
-    customer_id = user_row["stripe_customer_id"]
     if not STRIPE_SECRET_KEY:
-        return
-    if not customer_id:
-        try:
-            customers = stripe.Customer.list(email=user_row["email"], limit=5)
-            for customer in customers.get("data", []):
-                customer_id = customer.get("id") or ""
-                if customer_id:
-                    connection.execute(
-                        "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
-                        (customer_id, format_timestamp(utc_now()), user_row["id"]),
-                    )
-                    connection.commit()
-                    break
-        except Exception:
-            customer_id = ""
-    if not customer_id:
-        return
-
-    subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
-    subscription_data = subscriptions.get("data", [])
-    if not subscription_data:
         return
 
     def priority(item):
@@ -2459,8 +2441,58 @@ def sync_membership_for_user(connection, user_row):
         }
         return (order.get(status, 99), -(item.get("created") or 0))
 
-    selected = sorted(subscription_data, key=priority)[0]
-    sync_membership_from_subscription(connection, selected, fallback_user_id=user_row["id"])
+    customer_candidates = []
+    seen_customers = set()
+
+    existing_customer_id = str(user_row["stripe_customer_id"] or "").strip()
+    if existing_customer_id:
+        seen_customers.add(existing_customer_id)
+        customer_candidates.append(existing_customer_id)
+
+    try:
+        customers = stripe.Customer.list(email=user_row["email"], limit=20)
+        for customer in customers.get("data", []):
+            customer_id = str(customer.get("id") or "").strip()
+            if not customer_id or customer_id in seen_customers:
+                continue
+            seen_customers.add(customer_id)
+            customer_candidates.append(customer_id)
+    except Exception:
+        pass
+
+    if not customer_candidates:
+        return
+
+    best_subscription = None
+    best_customer_id = ""
+    best_rank = (99, 0)
+
+    for customer_id in customer_candidates:
+        try:
+            subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+        except Exception:
+            continue
+        subscription_data = subscriptions.get("data", [])
+        if not subscription_data:
+            continue
+        candidate = sorted(subscription_data, key=priority)[0]
+        candidate_rank = priority(candidate)
+        if candidate_rank < best_rank:
+            best_rank = candidate_rank
+            best_subscription = candidate
+            best_customer_id = customer_id
+
+    if not best_subscription:
+        return
+
+    if best_customer_id and best_customer_id != existing_customer_id:
+        connection.execute(
+            "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
+            (best_customer_id, format_timestamp(utc_now()), user_row["id"]),
+        )
+        connection.commit()
+
+    sync_membership_from_subscription(connection, best_subscription, fallback_user_id=user_row["id"])
 
 
 def normalize_cell(value):
