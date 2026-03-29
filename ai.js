@@ -640,13 +640,6 @@ function renderEmptyChat(message = "", isError = false) {
           `).join("")}
         </div>
       </section>
-      <section class="ai-empty-panel ai-empty-panel--links">
-        <span class="ai-empty-panel__label">${escapeHtml(tr("Potrebuješ inú časť aplikácie?", "Need another part of the app?"))}</span>
-        <div class="ai-empty-state__links">
-          <a class="ai-utility-link" href="/app.html?view=contacts">${escapeHtml(tr("Otvoriť kontakty", "Open contacts"))}</a>
-          <a class="ai-utility-link" href="/app.html?view=compress">${escapeHtml(tr("Otvoriť kompresiu", "Open compression"))}</a>
-        </div>
-      </section>
     </div>
   `;
 }
@@ -655,17 +648,7 @@ function renderToolLinks() {
   if (!aiElements.toolLinks) {
     return;
   }
-  const disabled = !aiState.user?.membership_active;
-  const contactsHref = "/app.html?view=contacts";
-  const compressHref = "/app.html?view=compress";
-  aiElements.toolLinks.innerHTML = `
-    <a class="ai-utility-link${disabled ? " is-muted" : ""}" href="${contactsHref}">
-      ${escapeHtml(tr("Kontakty v aplikácii", "Contacts in the app"))}
-    </a>
-    <a class="ai-utility-link${disabled ? " is-muted" : ""}" href="${compressHref}">
-      ${escapeHtml(tr("Kompresia v aplikácii", "Compression in the app"))}
-    </a>
-  `;
+  aiElements.toolLinks.innerHTML = "";
 }
 
 function renderMessageSource(message) {

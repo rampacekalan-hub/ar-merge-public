@@ -51,6 +51,7 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip()
+SUPPORT_EMAIL = "info@unifyo.online"
 ADMIN_EMAILS = {item.strip().lower() for item in os.environ.get("ADMIN_EMAILS", "").split(",") if item.strip()}
 MAX_REQUEST_BODY_MB = float(os.environ.get("MAX_REQUEST_BODY_MB", "110"))
 MAX_CONTACT_FILE_MB = float(os.environ.get("MAX_CONTACT_FILE_MB", "8"))
@@ -60,6 +61,17 @@ OPENAI_WEB_SEARCH_TOOL = os.environ.get("OPENAI_WEB_SEARCH_TOOL", "web_search_pr
 OPENAI_WEB_SEARCH_RUNTIME_DISABLED = False
 MAX_AI_IMAGE_MB = float(os.environ.get("MAX_AI_IMAGE_MB", "10"))
 PROMPT_VERSION = "unifyo-sk-fin-v4"
+LEGAL_VERSION = "2026-03-27"
+CHECKOUT_CONSENT_VERSION = "2026-03-29"
+REGISTRATION_CONFIRMATION_TEXT = (
+    "Výberom možnosti Vytvoriť účet potvrdzujete, že máte minimálne 18 rokov, "
+    "súhlasíte s Obchodnými podmienkami a zároveň potvrdzujete, že ste si prečítali "
+    "naše Zásady ochrany súkromia - GDPR."
+)
+CHECKOUT_CONSENT_TEXT = (
+    "Súhlasím so začatím poskytovania služby pred uplynutím lehoty na odstúpenie od zmluvy "
+    "a beriem na vedomie, že tým strácam právo na odstúpenie od zmluvy."
+)
 TRUSTED_SOURCE_DOMAINS = {
     "nbs.sk",
     "slov-lex.sk",
@@ -138,7 +150,16 @@ def init_db():
                 status TEXT NOT NULL,
                 stripe_customer_id TEXT,
                 stripe_subscription_id TEXT,
+                stripe_status TEXT NOT NULL DEFAULT '',
+                cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+                cancelled_at TEXT NOT NULL DEFAULT '',
                 current_period_end TEXT,
+                next_renewal_at TEXT NOT NULL DEFAULT '',
+                internal_subscription_number TEXT NOT NULL DEFAULT '',
+                last_order_number TEXT NOT NULL DEFAULT '',
+                last_checkout_session_id TEXT NOT NULL DEFAULT '',
+                last_payment_intent_id TEXT NOT NULL DEFAULT '',
+                last_invoice_id TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -148,8 +169,61 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 stripe_session_id TEXT NOT NULL UNIQUE,
+                internal_order_number TEXT NOT NULL DEFAULT '',
+                checkout_consent_id INTEGER,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS registration_consents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                email TEXT NOT NULL,
+                accepted_terms INTEGER NOT NULL DEFAULT 0,
+                accepted_privacy INTEGER NOT NULL DEFAULT 0,
+                marketing_consent INTEGER NOT NULL DEFAULT 0,
+                consent_text TEXT NOT NULL DEFAULT '',
+                legal_version TEXT NOT NULL DEFAULT '',
+                ip_address TEXT NOT NULL DEFAULT '',
+                user_agent TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS checkout_consents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                email TEXT NOT NULL,
+                consent_text TEXT NOT NULL DEFAULT '',
+                consent_version TEXT NOT NULL DEFAULT '',
+                price_label TEXT NOT NULL DEFAULT '',
+                subscription_label TEXT NOT NULL DEFAULT '',
+                renewal_label TEXT NOT NULL DEFAULT '',
+                no_refund_label TEXT NOT NULL DEFAULT '',
+                ip_address TEXT NOT NULL DEFAULT '',
+                user_agent TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS subscription_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                event_type TEXT NOT NULL,
+                stripe_customer_id TEXT NOT NULL DEFAULT '',
+                stripe_subscription_id TEXT NOT NULL DEFAULT '',
+                stripe_checkout_session_id TEXT NOT NULL DEFAULT '',
+                stripe_payment_intent_id TEXT NOT NULL DEFAULT '',
+                stripe_invoice_id TEXT NOT NULL DEFAULT '',
+                internal_order_number TEXT NOT NULL DEFAULT '',
+                internal_subscription_number TEXT NOT NULL DEFAULT '',
+                subscription_status TEXT NOT NULL DEFAULT '',
+                cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+                next_renewal_at TEXT NOT NULL DEFAULT '',
+                access_until TEXT NOT NULL DEFAULT '',
+                event_meta TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -254,6 +328,30 @@ def init_db():
             connection.execute("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''")
         if "role" not in columns:
             connection.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+        membership_columns = {row["name"] for row in connection.execute("PRAGMA table_info(memberships)").fetchall()}
+        if "stripe_status" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN stripe_status TEXT NOT NULL DEFAULT ''")
+        if "cancel_at_period_end" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN cancel_at_period_end INTEGER NOT NULL DEFAULT 0")
+        if "cancelled_at" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN cancelled_at TEXT NOT NULL DEFAULT ''")
+        if "next_renewal_at" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN next_renewal_at TEXT NOT NULL DEFAULT ''")
+        if "internal_subscription_number" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN internal_subscription_number TEXT NOT NULL DEFAULT ''")
+        if "last_order_number" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_order_number TEXT NOT NULL DEFAULT ''")
+        if "last_checkout_session_id" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_checkout_session_id TEXT NOT NULL DEFAULT ''")
+        if "last_payment_intent_id" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_payment_intent_id TEXT NOT NULL DEFAULT ''")
+        if "last_invoice_id" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_invoice_id TEXT NOT NULL DEFAULT ''")
+        checkout_columns = {row["name"] for row in connection.execute("PRAGMA table_info(checkout_sessions)").fetchall()}
+        if "internal_order_number" not in checkout_columns:
+            connection.execute("ALTER TABLE checkout_sessions ADD COLUMN internal_order_number TEXT NOT NULL DEFAULT ''")
+        if "checkout_consent_id" not in checkout_columns:
+            connection.execute("ALTER TABLE checkout_sessions ADD COLUMN checkout_consent_id INTEGER")
         assistant_message_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(assistant_messages)").fetchall()
         }
@@ -475,6 +573,175 @@ Ak ide o nedorozumenie, odpovedzte priamo na tento e-mail.
         smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(message)
+
+
+def send_subscription_email(to_email, name, subject, body_text, bcc_support=True):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
+        return
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = SMTP_FROM_EMAIL
+    message["To"] = to_email
+    if bcc_support and SUPPORT_EMAIL:
+        message["Bcc"] = SUPPORT_EMAIL
+    greeting = name or to_email
+    message.set_content(f"Dobrý deň {greeting},\n\n{body_text}\n")
+
+    if SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+            smtp.send_message(message)
+        return
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.send_message(message)
+
+
+def send_subscription_activated_email(user_row, details):
+    body = f"""ďakujeme, predplatné UNIFYO bolo úspešne aktivované.
+
+Mesačné predplatné: {details.get('price_label') or '1,99 € / mesiac'}
+Automatické obnovenie: áno
+Dátum nákupu: {details.get('purchased_at') or ''}
+Ďalšie obnovenie: {details.get('next_renewal_at') or ''}
+Interné číslo objednávky: {details.get('internal_order_number') or '—'}
+Interné číslo predplatného: {details.get('internal_subscription_number') or '—'}
+Stripe subscription ID: {details.get('stripe_subscription_id') or '—'}
+Stripe payment ID: {details.get('stripe_payment_intent_id') or '—'}
+
+Predplatné môžeš kedykoľvek zrušiť priamo vo svojom účte alebo e-mailom. Po zrušení zostane prístup aktívny do konca už zaplateného obdobia a ďalšia platba sa už nestrhne.
+
+Podpora: {SUPPORT_EMAIL}
+"""
+    send_subscription_email(
+        user_row["email"],
+        user_row["name"],
+        "UNIFYO - potvrdenie aktivácie predplatného",
+        body,
+        bcc_support=True,
+    )
+
+
+def send_subscription_cancelled_email(user_row, details):
+    body = f"""potvrdzujeme zrušenie predplatného UNIFYO.
+
+Prístup zostáva aktívny do: {details.get('access_until') or ''}
+Ďalšia platba už nebude účtovaná.
+Interné číslo objednávky: {details.get('internal_order_number') or '—'}
+Interné číslo predplatného: {details.get('internal_subscription_number') or '—'}
+Stripe subscription ID: {details.get('stripe_subscription_id') or '—'}
+
+Ak potrebuješ pomoc, kontaktuj nás na {SUPPORT_EMAIL}.
+"""
+    send_subscription_email(
+        user_row["email"],
+        user_row["name"],
+        "UNIFYO - potvrdenie zrušenia predplatného",
+        body,
+        bcc_support=True,
+    )
+
+
+def generate_internal_order_number():
+    now_value = datetime.now().astimezone().strftime("%Y%m%d")
+    return f"UNY-OBJ-{now_value}-{secrets.token_hex(3).upper()}"
+
+
+def generate_internal_subscription_number():
+    now_value = datetime.now().astimezone().strftime("%Y%m%d")
+    return f"UNY-SUB-{now_value}-{secrets.token_hex(3).upper()}"
+
+
+def record_registration_consent(connection, user_id, email, ip_address, marketing_consent):
+    now_value = format_timestamp(utc_now())
+    cursor = connection.execute(
+        """
+        INSERT INTO registration_consents (
+            user_id, email, ip_address, terms_accepted, privacy_accepted, marketing_consent,
+            confirmation_text, legal_version, created_at
+        ) VALUES (?, ?, ?, 1, 1, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            email,
+            ip_address,
+            1 if marketing_consent else 0,
+            REGISTRATION_CONFIRMATION_TEXT,
+            LEGAL_VERSION,
+            now_value,
+        ),
+    )
+    return cursor.lastrowid
+
+
+def record_checkout_consent(connection, user_row, ip_address):
+    now_value = format_timestamp(utc_now())
+    cursor = connection.execute(
+        """
+        INSERT INTO checkout_consents (
+            user_id, email, ip_address, consent_text, consent_version, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_row["id"],
+            user_row["email"],
+            ip_address,
+            CHECKOUT_CONSENT_TEXT,
+            CHECKOUT_CONSENT_VERSION,
+            now_value,
+        ),
+    )
+    return cursor.lastrowid
+
+
+def record_subscription_event(connection, user_id, event_type, status, details=None):
+    now_value = format_timestamp(utc_now())
+    connection.execute(
+        """
+        INSERT INTO subscription_events (user_id, event_type, status, details_json, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            event_type,
+            status,
+            json.dumps(details or {}, ensure_ascii=False),
+            now_value,
+        ),
+    )
+
+
+def get_latest_registration_consent(connection, user_id):
+    row = connection.execute(
+        """
+        SELECT *
+        FROM registration_consents
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def get_latest_checkout_consent(connection, user_id):
+    row = connection.execute(
+        """
+        SELECT *
+        FROM checkout_consents
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id,),
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def sanitize_download_filename(value, fallback="export"):
@@ -732,6 +999,10 @@ def get_membership(connection, user_id):
     membership = dict(row)
     membership["current_period_end"] = parse_timestamp(membership.get("current_period_end"))
     membership["created_at"] = parse_timestamp(membership.get("created_at"))
+    membership["updated_at"] = parse_timestamp(membership.get("updated_at"))
+    membership["cancelled_at"] = parse_timestamp(membership.get("cancelled_at"))
+    membership["next_renewal_at"] = parse_timestamp(membership.get("next_renewal_at"))
+    membership["cancel_at_period_end"] = bool(membership.get("cancel_at_period_end"))
     return membership
 
 
@@ -782,6 +1053,67 @@ def get_recent_activity(connection, user_id=None, limit=20):
             }
         )
     return activity
+
+
+def get_recent_subscription_events(connection, user_id=None, limit=12):
+    params = []
+    query = """
+        SELECT *
+        FROM subscription_events
+    """
+    if user_id is not None:
+        query += " WHERE user_id = ?"
+        params.append(user_id)
+    query += " ORDER BY created_at DESC, id DESC LIMIT ?"
+    params.append(limit)
+    rows = connection.execute(query, tuple(params)).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "event_type": row["event_type"],
+            "status": row["status"],
+            "details": safe_json_loads(row["details_json"], {}),
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+
+
+def get_subscription_snapshot(connection, user_id):
+    membership = get_membership(connection, user_id) or {}
+    registration_consent = get_latest_registration_consent(connection, user_id) or {}
+    checkout_consent = get_latest_checkout_consent(connection, user_id) or {}
+    return {
+        "membership": {
+            "status": membership.get("status") or "inactive",
+            "stripe_status": membership.get("stripe_status") or "",
+            "valid_until": format_timestamp(membership.get("current_period_end")) if membership.get("current_period_end") else "",
+            "started_at": format_timestamp(membership.get("created_at")) if membership.get("created_at") else "",
+            "next_renewal_at": format_timestamp(membership.get("next_renewal_at")) if membership.get("next_renewal_at") else "",
+            "cancelled_at": format_timestamp(membership.get("cancelled_at")) if membership.get("cancelled_at") else "",
+            "cancel_at_period_end": bool(membership.get("cancel_at_period_end")),
+            "internal_subscription_number": membership.get("internal_subscription_number") or "",
+            "last_order_number": membership.get("last_order_number") or "",
+            "last_checkout_session_id": membership.get("last_checkout_session_id") or "",
+            "last_payment_intent_id": membership.get("last_payment_intent_id") or "",
+            "last_invoice_id": membership.get("last_invoice_id") or "",
+            "stripe_subscription_id": membership.get("stripe_subscription_id") or "",
+        },
+        "registration_consent": {
+            "created_at": registration_consent.get("created_at") or "",
+            "ip_address": registration_consent.get("ip_address") or "",
+            "marketing_consent": bool(registration_consent.get("marketing_consent")),
+            "legal_version": registration_consent.get("legal_version") or "",
+        },
+        "checkout_consent": {
+            "created_at": checkout_consent.get("created_at") or "",
+            "ip_address": checkout_consent.get("ip_address") or "",
+            "consent_version": checkout_consent.get("consent_version") or "",
+            "consent_text": checkout_consent.get("consent_text") or "",
+        },
+        "events": get_recent_subscription_events(connection, user_id=user_id, limit=12),
+    }
 
 
 def row_to_task(row):
@@ -1534,8 +1866,8 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
             "For unrelated topics, keep the answer very short, ideally within one or two sentences plus the redirect. "
             "When possible, anchor the answer in action: what to send, whom to call, what to prioritise, or what the next best step is. "
             "If the user asks for contact cleanup or file compression, briefly explain that the actual processing is available in the app module and naturally suggest opening the relevant section of the Unifyo app. "
-            "If the user asks for a table, structure the answer as a clean comparison table or compact structured rows, not markdown pipe syntax. "
-            "If the user asks for a PDF, prepare content that can be exported into a real PDF in the app. Do not claim that a file was generated unless it was actually attached by the system. "
+            "Generate a table only when the user explicitly asks for a table or a side-by-side comparison. Structure it as a clean comparison table or compact structured rows, never markdown pipe syntax. "
+            "If the user asks for a PDF, prepare only the PDF-ready content or structure that can be exported in the app. Never claim that a file was generated, attached or downloaded unless the system really provided it. "
             "If the user asks for text, first provide the shortest useful version. Then offer an expanded version only on request. "
             "End many answers with one practical work-oriented question or suggestion, but do not sound repetitive or robotic. "
             "Never invent facts, names, regulations, rates, product details, legal interpretations or source claims. "
@@ -1582,9 +1914,8 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
         "Pri nesúvisiacich témach drž odpoveď veľmi krátku, ideálne v jednej až dvoch vetách plus presmerovanie. "
         "Keď sa dá, odpoveď ukotvi do akcie: čo poslať, komu zavolať, čo vysvetliť klientovi, čo prioritizovať alebo aký je ďalší najlepší krok. "
         "Ak používateľ potrebuje čistenie kontaktov alebo kompresiu súborov, stručne vysvetli, že samotné spracovanie je dostupné v príslušnej časti aplikácie Unifyo, a prirodzene navrhni otvorenie správneho modulu. "
-        "Ak používateľ pýta tabuľku, spracuj odpoveď ako čisté porovnanie alebo prehľadné riadky. "
-        "Ak používateľ pýta tabuľku, priprav ju ako čistú porovnávaciu tabuľku alebo kompaktné štruktúrované riadky, nie v markdown pipe zápise. "
-        "Ak používateľ pýta PDF, priprav obsah vhodný na reálny export do PDF v aplikácii. Nikdy netvrď, že súbor bol vytvorený alebo priložený, pokiaľ ho systém reálne nepridal. "
+        "Tabuľku generuj len vtedy, keď si ju používateľ výslovne pýta alebo keď pýta priame porovnanie viacerých možností. Priprav ju ako čistú porovnávaciu tabuľku alebo kompaktné štruktúrované riadky, nie v markdown pipe zápise. "
+        "Ak používateľ pýta PDF, priprav len obsah alebo osnovu vhodnú na reálny export do PDF v aplikácii. Nikdy netvrď, že súbor bol vytvorený, priložený alebo stiahnuteľný, pokiaľ ho systém reálne nepridal. "
         "Pri požiadavke na text najprv daj krátku použiteľnú verziu. Rozšírenú verziu ponúkni len na požiadanie. "
         "Veľa odpovedí ukonči jednou stručnou pracovnou otázkou alebo návrhom ďalšieho kroku, ale neopakuj sa mechanicky v každej odpovedi. "
         "Nikdy si nevymýšľaj fakty, sadzby, mená, pravidlá, legislatívu, produktové parametre ani zdroje. "
@@ -1816,6 +2147,10 @@ def user_payload(connection, user_row, headers=None):
     membership = get_membership(connection, user_row["id"])
     period_end = membership.get("current_period_end") if membership else None
     membership_started = membership.get("created_at") if membership else None
+    next_renewal_at = membership.get("next_renewal_at") if membership else None
+    cancelled_at = membership.get("cancelled_at") if membership else None
+    registration_consent = get_latest_registration_consent(connection, user_row["id"])
+    checkout_consent = get_latest_checkout_consent(connection, user_row["id"])
     return {
         "authenticated": True,
         "user": {
@@ -1828,8 +2163,21 @@ def user_payload(connection, user_row, headers=None):
             "created_at": user_row["created_at"],
             "membership_active": is_membership_active(membership),
             "membership_status": membership.get("status") if membership else "inactive",
+            "membership_stripe_status": membership.get("stripe_status") if membership else "",
             "membership_valid_until": format_timestamp(period_end) if period_end else "",
             "membership_started_at": format_timestamp(membership_started) if membership_started else "",
+            "membership_next_renewal_at": format_timestamp(next_renewal_at) if next_renewal_at else "",
+            "membership_cancelled_at": format_timestamp(cancelled_at) if cancelled_at else "",
+            "membership_cancel_at_period_end": bool(membership.get("cancel_at_period_end")) if membership else False,
+            "membership_internal_subscription_number": membership.get("internal_subscription_number") if membership else "",
+            "membership_last_order_number": membership.get("last_order_number") if membership else "",
+            "membership_last_checkout_session_id": membership.get("last_checkout_session_id") if membership else "",
+            "membership_last_payment_intent_id": membership.get("last_payment_intent_id") if membership else "",
+            "membership_last_invoice_id": membership.get("last_invoice_id") if membership else "",
+            "membership_stripe_subscription_id": membership.get("stripe_subscription_id") if membership else "",
+            "registration_consent_at": registration_consent.get("created_at") if registration_consent else "",
+            "registration_marketing_consent": bool(registration_consent.get("marketing_consent")) if registration_consent else False,
+            "checkout_consent_at": checkout_consent.get("created_at") if checkout_consent else "",
             "session_expires_at": get_session_expiry(connection, headers) if headers else "",
         },
     }
@@ -1869,6 +2217,11 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
     status = subscription.get("status", "inactive")
     period_end_ts = subscription.get("current_period_end")
     period_end = datetime.fromtimestamp(period_end_ts, tz=timezone.utc) if period_end_ts else None
+    next_renewal_at = period_end
+    cancel_at_period_end = bool(subscription.get("cancel_at_period_end"))
+    cancelled_ts = subscription.get("canceled_at") or subscription.get("cancel_at")
+    cancelled_at = datetime.fromtimestamp(cancelled_ts, tz=timezone.utc) if cancelled_ts else None
+    latest_invoice_id = subscription.get("latest_invoice") or ""
     now = format_timestamp(utc_now())
 
     user_row = None
@@ -1891,16 +2244,34 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
     if not user_row:
         return
 
+    existing_membership = get_membership(connection, user_row["id"])
+    internal_subscription_number = (existing_membership or {}).get("internal_subscription_number") or generate_internal_subscription_number()
+    last_order_number = (existing_membership or {}).get("last_order_number") or ""
+    last_checkout_session_id = (existing_membership or {}).get("last_checkout_session_id") or ""
+    last_payment_intent_id = (existing_membership or {}).get("last_payment_intent_id") or ""
+    last_invoice_id = latest_invoice_id or ((existing_membership or {}).get("last_invoice_id") or "")
+
     connection.execute(
         """
         INSERT INTO memberships (
-            user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at,
+            stripe_status, cancel_at_period_end, cancelled_at, next_renewal_at,
+            internal_subscription_number, last_order_number, last_checkout_session_id, last_payment_intent_id, last_invoice_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             status = excluded.status,
             stripe_customer_id = excluded.stripe_customer_id,
             stripe_subscription_id = excluded.stripe_subscription_id,
             current_period_end = excluded.current_period_end,
+            stripe_status = excluded.stripe_status,
+            cancel_at_period_end = excluded.cancel_at_period_end,
+            cancelled_at = excluded.cancelled_at,
+            next_renewal_at = excluded.next_renewal_at,
+            internal_subscription_number = excluded.internal_subscription_number,
+            last_order_number = CASE WHEN excluded.last_order_number != '' THEN excluded.last_order_number ELSE memberships.last_order_number END,
+            last_checkout_session_id = CASE WHEN excluded.last_checkout_session_id != '' THEN excluded.last_checkout_session_id ELSE memberships.last_checkout_session_id END,
+            last_payment_intent_id = CASE WHEN excluded.last_payment_intent_id != '' THEN excluded.last_payment_intent_id ELSE memberships.last_payment_intent_id END,
+            last_invoice_id = CASE WHEN excluded.last_invoice_id != '' THEN excluded.last_invoice_id ELSE memberships.last_invoice_id END,
             updated_at = excluded.updated_at
         """,
         (
@@ -1911,7 +2282,30 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
             format_timestamp(period_end) if period_end else "",
             now,
             now,
+            status,
+            1 if cancel_at_period_end else 0,
+            format_timestamp(cancelled_at) if cancelled_at else "",
+            format_timestamp(next_renewal_at) if next_renewal_at else "",
+            internal_subscription_number,
+            last_order_number,
+            last_checkout_session_id,
+            last_payment_intent_id,
+            last_invoice_id,
         ),
+    )
+    record_subscription_event(
+        connection,
+        user_row["id"],
+        "stripe_sync",
+        status,
+        {
+            "stripe_subscription_id": subscription_id or "",
+            "stripe_status": status,
+            "current_period_end": format_timestamp(period_end) if period_end else "",
+            "cancel_at_period_end": cancel_at_period_end,
+            "cancelled_at": format_timestamp(cancelled_at) if cancelled_at else "",
+            "last_invoice_id": last_invoice_id,
+        },
     )
     log_activity(
         connection,
@@ -2275,6 +2669,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/account/change-password":
             self.handle_account_change_password()
             return
+        if self.path == "/api/account/cancel-subscription":
+            self.handle_cancel_subscription()
+            return
         if self.path == "/api/contact":
             self.handle_contact()
             return
@@ -2454,6 +2851,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 {
                     **user_payload(connection, user, self.headers),
                     "activity": get_recent_activity(connection, user["id"], limit=25),
+                    "subscription": get_subscription_snapshot(connection, user["id"]),
                 }
             )
         finally:
@@ -2711,6 +3109,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     },
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
                     "assistant_stats": get_assistant_usage_stats(connection, row["id"]),
+                    "subscription": get_subscription_snapshot(connection, row["id"]),
                 }
             )
         finally:
@@ -2741,6 +3140,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         name = str(payload.get("name") or "").strip()
         email = normalize_email(payload.get("email"))
         password = str(payload.get("password") or "")
+        accept_terms = bool(payload.get("accept_terms"))
+        accept_privacy = bool(payload.get("accept_privacy"))
+        marketing_consent = bool(payload.get("marketing_consent"))
         if len(name) < 2:
             self.write_json({"error": "Zadajte meno alebo názov používateľa."}, status=HTTPStatus.BAD_REQUEST)
             return
@@ -2749,6 +3151,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if len(password) < 8:
             self.write_json({"error": "Heslo musí mať aspoň 8 znakov."}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if not accept_terms or not accept_privacy:
+            self.write_json(
+                {"error": "Pre vytvorenie účtu musíte potvrdiť obchodné podmienky a GDPR."},
+                status=HTTPStatus.BAD_REQUEST,
+            )
             return
 
         connection = get_db()
@@ -2769,8 +3177,20 @@ class AppHandler(SimpleHTTPRequestHandler):
                 (name, email, password_hash, salt, role, now, now),
             )
             user_id = cursor.lastrowid
+            record_registration_consent(connection, user_id, email, get_request_ip(self), marketing_consent)
             token, expires_at = create_session(connection, user_id)
-            log_activity(connection, "register", "Používateľ si vytvoril účet.", user_id, email=email, role=role, ip=get_request_ip(self), agent=get_request_agent(self))
+            log_activity(
+                connection,
+                "register",
+                "Používateľ si vytvoril účet.",
+                user_id,
+                email=email,
+                role=role,
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
+                marketing_consent=marketing_consent,
+                legal_version=LEGAL_VERSION,
+            )
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             self.write_json(
                 user_payload(connection, user, self.headers),
@@ -3314,6 +3734,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         connection = get_db()
         try:
+            payload = require_json(self)
             user = get_session_user(connection, self.headers)
             if not user:
                 self.write_json({"error": "Najprv sa prihláste alebo zaregistrujte."}, status=HTTPStatus.UNAUTHORIZED)
@@ -3323,9 +3744,18 @@ class AppHandler(SimpleHTTPRequestHandler):
             if is_membership_active(membership):
                 self.write_json({"error": "Členstvo je už aktívne."}, status=HTTPStatus.BAD_REQUEST)
                 return
+            if not bool(payload.get("checkout_consent_accepted")):
+                self.write_json(
+                    {"error": "Pred pokračovaním musíte potvrdiť súhlas so začatím poskytovania služby."},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
 
             base_url = get_request_base_url(self)
             customer_id = get_or_create_customer(connection, user)
+            internal_order_number = generate_internal_order_number()
+            internal_subscription_number = (membership or {}).get("internal_subscription_number") or generate_internal_subscription_number()
+            consent_id = record_checkout_consent(connection, user, get_request_ip(self))
             session = stripe.checkout.Session.create(
                 mode="subscription",
                 customer=customer_id,
@@ -3333,19 +3763,144 @@ class AppHandler(SimpleHTTPRequestHandler):
                 success_url=f"{base_url}/app.html?checkout=success",
                 cancel_url=f"{base_url}/app.html?checkout=cancel",
                 allow_promotion_codes=True,
-                metadata={"user_id": str(user["id"])},
+                metadata={
+                    "user_id": str(user["id"]),
+                    "internal_order_number": internal_order_number,
+                    "internal_subscription_number": internal_subscription_number,
+                    "checkout_consent_version": CHECKOUT_CONSENT_VERSION,
+                },
+                subscription_data={
+                    "metadata": {
+                        "user_id": str(user["id"]),
+                        "internal_order_number": internal_order_number,
+                        "internal_subscription_number": internal_subscription_number,
+                    }
+                },
                 client_reference_id=str(user["id"]),
             )
             connection.execute(
                 """
-                INSERT OR REPLACE INTO checkout_sessions (user_id, stripe_session_id, created_at)
-                VALUES (?, ?, ?)
+                INSERT OR REPLACE INTO checkout_sessions (user_id, stripe_session_id, created_at, internal_order_number, checkout_consent_id)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (user["id"], session["id"], format_timestamp(utc_now())),
+                (user["id"], session["id"], format_timestamp(utc_now()), internal_order_number, consent_id),
+            )
+            connection.execute(
+                """
+                INSERT INTO memberships (
+                    user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at,
+                    stripe_status, cancel_at_period_end, cancelled_at, next_renewal_at,
+                    internal_subscription_number, last_order_number, last_checkout_session_id, last_payment_intent_id, last_invoice_id
+                ) VALUES (?, 'pending', ?, '', '', ?, ?, 'pending', 0, '', '', ?, ?, ?, '', '')
+                ON CONFLICT(user_id) DO UPDATE SET
+                    stripe_customer_id = excluded.stripe_customer_id,
+                    internal_subscription_number = excluded.internal_subscription_number,
+                    last_order_number = excluded.last_order_number,
+                    last_checkout_session_id = excluded.last_checkout_session_id,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    user["id"],
+                    customer_id,
+                    format_timestamp(utc_now()),
+                    format_timestamp(utc_now()),
+                    internal_subscription_number,
+                    internal_order_number,
+                    session["id"],
+                ),
+            )
+            record_subscription_event(
+                connection,
+                user["id"],
+                "checkout_started",
+                "pending",
+                {
+                    "internal_order_number": internal_order_number,
+                    "internal_subscription_number": internal_subscription_number,
+                    "stripe_session_id": session["id"],
+                    "consent_version": CHECKOUT_CONSENT_VERSION,
+                },
             )
             connection.commit()
-            log_activity(connection, "checkout_created", "Používateľ otvoril Stripe checkout pre členstvo.", user["id"])
+            log_activity(
+                connection,
+                "checkout_created",
+                "Používateľ otvoril Stripe checkout pre členstvo.",
+                user["id"],
+                internal_order_number=internal_order_number,
+                internal_subscription_number=internal_subscription_number,
+                stripe_session_id=session["id"],
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
+            )
             self.write_json({"url": session["url"]})
+        except stripe.error.StripeError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            connection.close()
+
+    def handle_cancel_subscription(self):
+        if not STRIPE_SECRET_KEY:
+            self.write_json({"error": "Stripe nie je nakonfigurovaný."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not membership or not membership.get("stripe_subscription_id"):
+                self.write_json({"error": "Predplatné sa nenašlo."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            subscription = stripe.Subscription.modify(
+                membership["stripe_subscription_id"],
+                cancel_at_period_end=True,
+            )
+            sync_membership_from_subscription(connection, subscription, fallback_user_id=user["id"])
+            updated_membership = get_membership(connection, user["id"]) or {}
+            record_subscription_event(
+                connection,
+                user["id"],
+                "subscription_cancel_requested",
+                updated_membership.get("status") or "active",
+                {
+                    "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or "",
+                    "access_until": format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
+                    "cancel_at_period_end": bool(updated_membership.get("cancel_at_period_end")),
+                },
+            )
+            send_subscription_cancelled_email(
+                user,
+                {
+                    "access_until": format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
+                    "internal_order_number": updated_membership.get("last_order_number") or "",
+                    "internal_subscription_number": updated_membership.get("internal_subscription_number") or "",
+                    "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or "",
+                },
+            )
+            log_activity(
+                connection,
+                "subscription_cancelled",
+                "Používateľ zrušil predplatné ku koncu obdobia.",
+                user["id"],
+                stripe_subscription_id=updated_membership.get("stripe_subscription_id") or "",
+                access_until=format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
+            )
+            connection.commit()
+            self.write_json(
+                {
+                    "ok": True,
+                    "message": f"Predplatné bolo úspešne zrušené. Prístup máte aktívny do {format_timestamp(updated_membership.get('current_period_end')) if updated_membership.get('current_period_end') else ''}.",
+                    "access_until": format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
+                }
+            )
         except stripe.error.StripeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
         finally:
@@ -3369,7 +3924,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             payload = require_json(self)
             user_id = int(payload.get("user_id") or 0)
             action = str(payload.get("action") or "").strip()
-            if not user_id or action not in {"activate_30d", "delete_account", "deactivate"}:
+            if not user_id or action not in {"delete_account", "deactivate"}:
                 self.write_json({"error": "Neplatná admin akcia."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
@@ -3378,58 +3933,37 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
                 return
 
-            now = utc_now()
-            now_value = format_timestamp(now)
-            if action == "activate_30d":
-                extend_days = 30
-                end_value = format_timestamp(now + timedelta(days=extend_days))
-                connection.execute(
-                    """
-                    INSERT INTO memberships (user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at)
-                    VALUES (?, 'active', ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        status = 'active',
-                        current_period_end = excluded.current_period_end,
-                        updated_at = excluded.updated_at
-                    """,
-                    (user_id, target_user["stripe_customer_id"], "", end_value, now_value, now_value),
-                )
-                log_activity(
-                    connection,
-                    "admin_membership_update",
-                    f"Admin aktivoval členstvo na {extend_days} dní.",
-                    admin_user["id"],
-                    target_user_id=user_id,
-                    days=extend_days,
-                    ip=get_request_ip(self),
-                    agent=get_request_agent(self),
-                )
-            else:
-                target_email = target_user["email"] or ""
-                target_name = target_user["name"] or ""
-                connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM memberships WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM assistant_tasks WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM assistant_profiles WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM assistant_upload_sessions WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM generated_assets WHERE user_id = ?", (user_id,))
-                connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
-                log_activity(
-                    connection,
-                    "admin_account_deleted",
-                    "Admin vymazal používateľský účet.",
-                    admin_user["id"],
-                    target_user_id=user_id,
-                    target_user_email=target_email,
-                    ip=get_request_ip(self),
-                    agent=get_request_agent(self),
-                )
-                try:
-                    send_account_deleted_email(target_email, target_name)
-                except Exception:
-                    pass
+            target_email = target_user["email"] or ""
+            target_name = target_user["name"] or ""
+            warning_text = "Účet bude nenávratne vymazaný. Ak bola platba strhnutá, refund bude spracovaný do 1 týždňa."
+            connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM memberships WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM assistant_tasks WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM assistant_profiles WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM assistant_upload_sessions WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM generated_assets WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM registration_consents WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM checkout_consents WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM checkout_sessions WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM subscription_events WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            log_activity(
+                connection,
+                "admin_account_deleted",
+                "Admin vymazal používateľský účet.",
+                admin_user["id"],
+                target_user_id=user_id,
+                target_user_email=target_email,
+                warning=warning_text,
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
+            )
+            try:
+                send_account_deleted_email(target_email, target_name)
+            except Exception:
+                pass
             connection.commit()
             self.write_json({"ok": True})
         except ValueError as exc:
@@ -3607,9 +4141,76 @@ class AppHandler(SimpleHTTPRequestHandler):
             if event_type == "checkout.session.completed":
                 user_id = int(data.get("metadata", {}).get("user_id") or data.get("client_reference_id") or 0)
                 subscription_id = data.get("subscription")
+                internal_order_number = data.get("metadata", {}).get("internal_order_number") or ""
+                internal_subscription_number = data.get("metadata", {}).get("internal_subscription_number") or ""
+                payment_intent_id = data.get("payment_intent") or ""
+                session_id = data.get("id") or ""
+                checkout_row = connection.execute(
+                    "SELECT * FROM checkout_sessions WHERE stripe_session_id = ?",
+                    (session_id,),
+                ).fetchone()
                 if subscription_id:
                     subscription = stripe.Subscription.retrieve(subscription_id)
                     sync_membership_from_subscription(connection, subscription, fallback_user_id=user_id or None)
+                    user_row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+                    if user_row:
+                        connection.execute(
+                            """
+                            UPDATE memberships
+                            SET last_order_number = ?,
+                                last_checkout_session_id = ?,
+                                last_payment_intent_id = ?,
+                                internal_subscription_number = CASE WHEN internal_subscription_number = '' THEN ? ELSE internal_subscription_number END,
+                                last_invoice_id = CASE WHEN ? != '' THEN ? ELSE last_invoice_id END,
+                                updated_at = ?
+                            WHERE user_id = ?
+                            """,
+                            (
+                                internal_order_number,
+                                session_id,
+                                payment_intent_id,
+                                internal_subscription_number,
+                                subscription.get("latest_invoice") or "",
+                                subscription.get("latest_invoice") or "",
+                                format_timestamp(utc_now()),
+                                user_id,
+                            ),
+                        )
+                        record_subscription_event(
+                            connection,
+                            user_id,
+                            "checkout_completed",
+                            "active",
+                            {
+                                "internal_order_number": internal_order_number,
+                                "internal_subscription_number": internal_subscription_number,
+                                "stripe_session_id": session_id,
+                                "stripe_subscription_id": subscription_id,
+                                "stripe_payment_intent_id": payment_intent_id,
+                            },
+                        )
+                        updated_membership = get_membership(connection, user_id) or {}
+                        send_subscription_activated_email(
+                            user_row,
+                            {
+                                "price_label": "1,99 € / mesiac",
+                                "purchased_at": format_timestamp(utc_now()),
+                                "next_renewal_at": format_timestamp(updated_membership.get("next_renewal_at")) if updated_membership.get("next_renewal_at") else "",
+                                "internal_order_number": internal_order_number,
+                                "internal_subscription_number": updated_membership.get("internal_subscription_number") or internal_subscription_number,
+                                "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or subscription_id,
+                                "stripe_payment_intent_id": payment_intent_id,
+                            },
+                        )
+                if checkout_row:
+                    connection.execute(
+                        """
+                        UPDATE checkout_sessions
+                        SET internal_order_number = CASE WHEN internal_order_number = '' THEN ? ELSE internal_order_number END
+                        WHERE id = ?
+                        """,
+                        (internal_order_number, checkout_row["id"]),
+                    )
 
             if event_type in {"customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"}:
                 sync_membership_from_subscription(connection, data)

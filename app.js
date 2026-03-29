@@ -125,6 +125,10 @@ const elements = {
   authName: document.getElementById("authName"),
   authEmail: document.getElementById("authEmail"),
   authPassword: document.getElementById("authPassword"),
+  authConsentFields: document.getElementById("authConsentFields"),
+  authAcceptTerms: document.getElementById("authAcceptTerms"),
+  authAcceptPrivacy: document.getElementById("authAcceptPrivacy"),
+  authMarketingConsent: document.getElementById("authMarketingConsent"),
   authSubmitBtn: document.getElementById("authSubmitBtn"),
   forgotPasswordBtn: document.getElementById("forgotPasswordBtn"),
   authMessage: document.getElementById("authMessage"),
@@ -140,10 +144,18 @@ const elements = {
   resetPasswordForm: document.getElementById("resetPasswordForm"),
   resetPasswordInput: document.getElementById("resetPasswordInput"),
   resetPasswordMessage: document.getElementById("resetPasswordMessage"),
+  checkoutModal: document.getElementById("checkoutModal"),
+  checkoutModalBackdrop: document.getElementById("checkoutModalBackdrop"),
+  checkoutModalClose: document.getElementById("checkoutModalClose"),
+  checkoutCancelBtn: document.getElementById("checkoutCancelBtn"),
+  checkoutConsentCheckbox: document.getElementById("checkoutConsentCheckbox"),
+  checkoutProceedBtn: document.getElementById("checkoutProceedBtn"),
+  checkoutMessage: document.getElementById("checkoutMessage"),
   accountPanel: document.getElementById("accountPanel"),
   accountPanelBackdrop: document.getElementById("accountPanelBackdrop"),
   accountPanelClose: document.getElementById("accountPanelClose"),
   accountPanelSummary: document.getElementById("accountPanelSummary"),
+  accountSubscriptionCard: document.getElementById("accountSubscriptionCard"),
   accountAiMemory: document.getElementById("accountAiMemory"),
   accountActivityList: document.getElementById("accountActivityList"),
   accountUpdateForm: document.getElementById("accountUpdateForm"),
@@ -290,7 +302,7 @@ async function bootstrap() {
       openAuthModal("register");
       return;
     }
-    await startProCheckout();
+    openCheckoutModal();
   });
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);
@@ -314,6 +326,10 @@ async function bootstrap() {
   elements.resetPasswordBackdrop.addEventListener("click", closeResetPasswordModal);
   elements.resetPasswordClose.addEventListener("click", closeResetPasswordModal);
   elements.resetPasswordForm.addEventListener("submit", handleResetPasswordSubmit);
+  elements.checkoutModalBackdrop?.addEventListener("click", closeCheckoutModal);
+  elements.checkoutModalClose?.addEventListener("click", closeCheckoutModal);
+  elements.checkoutCancelBtn?.addEventListener("click", closeCheckoutModal);
+  elements.checkoutProceedBtn?.addEventListener("click", confirmCheckoutFlow);
   elements.accountPanelBackdrop?.addEventListener("click", closeAccountPanel);
   elements.accountPanelClose?.addEventListener("click", closeAccountPanel);
   elements.accountUpdateForm?.addEventListener("submit", handleAccountUpdateSubmit);
@@ -646,6 +662,9 @@ function handleModalEscape(event) {
   if (!elements.resetPasswordModal.hidden) {
     closeResetPasswordModal();
   }
+  if (!elements.checkoutModal.hidden) {
+    closeCheckoutModal();
+  }
   if (!elements.accountPanel.hidden) {
     closeAccountPanel();
   }
@@ -712,6 +731,7 @@ function syncModalState() {
     !elements.authModal.hidden ||
     !elements.resetRequestModal.hidden ||
     !elements.resetPasswordModal.hidden ||
+    !elements.checkoutModal.hidden ||
     !elements.accountPanel.hidden ||
     !elements.adminPanel.hidden;
   document.body.classList.toggle("modal-open", hasOpenModal);
@@ -722,6 +742,9 @@ function openAuthModal(mode = "register") {
   clearAuthMessage();
   if (mode === "register") {
     elements.authPassword.value = "";
+    if (elements.authAcceptTerms) elements.authAcceptTerms.checked = false;
+    if (elements.authAcceptPrivacy) elements.authAcceptPrivacy.checked = false;
+    if (elements.authMarketingConsent) elements.authMarketingConsent.checked = false;
   }
   elements.authModal.hidden = false;
   syncModalState();
@@ -729,6 +752,24 @@ function openAuthModal(mode = "register") {
 
 function closeAuthModal() {
   elements.authModal.hidden = true;
+  syncModalState();
+}
+
+function openCheckoutModal() {
+  if (!state.user) {
+    openAuthModal("register");
+    return;
+  }
+  elements.checkoutConsentCheckbox.checked = false;
+  elements.checkoutMessage.hidden = true;
+  elements.checkoutMessage.textContent = "";
+  elements.checkoutMessage.classList.remove("auth-message--error");
+  elements.checkoutModal.hidden = false;
+  syncModalState();
+}
+
+function closeCheckoutModal() {
+  elements.checkoutModal.hidden = true;
   syncModalState();
 }
 
@@ -806,6 +847,7 @@ function setAuthMode(mode) {
   elements.authSubmitBtn.textContent = isRegister ? tr("Vytvoriť účet", "Create account") : tr("Prihlásiť sa", "Sign in");
   elements.authPassword.autocomplete = isRegister ? "new-password" : "current-password";
   elements.authNameField.classList.toggle("is-hidden", !isRegister);
+  elements.authConsentFields?.classList.toggle("is-hidden", !isRegister);
   elements.forgotPasswordBtn.classList.toggle("is-hidden", isRegister);
 }
 
@@ -889,6 +931,10 @@ async function fetchAccountPanel() {
   if (elements.accountAiMemory) {
     elements.accountAiMemory.className = "account-summary empty-state";
     elements.accountAiMemory.textContent = "Načítavam AI pamäť...";
+  }
+  if (elements.accountSubscriptionCard) {
+    elements.accountSubscriptionCard.className = "account-summary empty-state";
+    elements.accountSubscriptionCard.textContent = "Načítavam údaje o predplatnom...";
   }
   elements.accountActivityList.className = "empty-state";
   elements.accountActivityList.textContent = "Načítavam aktivitu...";
@@ -991,6 +1037,50 @@ function truncateText(value, length = 60) {
   return `${text.slice(0, length - 1).trimEnd()}…`;
 }
 
+function renderAccountSubscriptionCard() {
+  if (!elements.accountSubscriptionCard) {
+    return;
+  }
+  const subscription = state.account?.subscription || {};
+  const user = state.account?.user || state.user;
+  if (!user) {
+    elements.accountSubscriptionCard.className = "account-summary empty-state";
+    elements.accountSubscriptionCard.textContent = tr("Prihlás sa a zobrazia sa údaje o predplatnom.", "Sign in to see subscription details.");
+    return;
+  }
+  const isActive = Boolean(user.membership_active);
+  const registration = user.registration_consent_at
+    ? `${tr("GDPR a podmienky potvrdené", "Privacy and terms confirmed")} • ${formatDateTime(user.registration_consent_at)}`
+    : tr("Registračné súhlasy zatiaľ neevidujeme.", "Registration consents are not recorded yet.");
+  const checkout = user.checkout_consent_at
+    ? `${tr("Predplatné potvrdené", "Checkout consent recorded")} • ${formatDateTime(user.checkout_consent_at)}`
+    : tr("Súhlas pred platbou sa zobrazí pri pokračovaní na Stripe.", "The payment consent appears before continuing to Stripe.");
+  elements.accountSubscriptionCard.className = "account-summary";
+  elements.accountSubscriptionCard.innerHTML = `
+    <article class="account-card">
+      <div class="account-card__row"><strong>${escapeHtml(tr("Interné číslo objednávky", "Internal order number"))}</strong><span>${escapeHtml(subscription.last_order_number || user.membership_last_order_number || "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Číslo predplatného", "Subscription number"))}</strong><span>${escapeHtml(subscription.internal_subscription_number || user.membership_internal_subscription_number || "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stripe subscription ID", "Stripe subscription ID"))}</strong><span class="mono">${escapeHtml(subscription.stripe_subscription_id || user.membership_stripe_subscription_id || "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Ďalšie obnovenie", "Next renewal"))}</strong><span>${escapeHtml(formatDate(subscription.next_renewal_at || user.membership_next_renewal_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav v Stripe", "Stripe status"))}</strong><span>${escapeHtml(subscription.stripe_status || user.membership_stripe_status || (isActive ? "active" : "inactive"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav ukončenia", "Cancellation status"))}</strong><span>${escapeHtml(subscription.cancel_at_period_end || user.membership_cancel_at_period_end ? tr("Ukončí sa ku koncu obdobia", "Ends at period end") : tr("Pokračuje", "Continuing"))}</span></div>
+      <div class="account-card__note">${escapeHtml(registration)}</div>
+      <div class="account-card__note">${escapeHtml(checkout)}</div>
+      ${isActive ? `
+        <div class="account-card__cta">
+          <button id="cancelSubscriptionBtn" class="button button--ghost" type="button">${escapeHtml(tr("Zrušiť predplatné", "Cancel subscription"))}</button>
+        </div>
+      ` : `
+        <div class="account-card__cta">
+          <button id="accountSubscriptionCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
+        </div>
+      `}
+    </article>
+  `;
+  document.getElementById("accountSubscriptionCheckoutBtn")?.addEventListener("click", startCheckoutFlow);
+  document.getElementById("cancelSubscriptionBtn")?.addEventListener("click", cancelSubscriptionFlow);
+}
+
 function renderAccountSummary() {
   if (!elements.accountSummary) {
     return;
@@ -1011,6 +1101,7 @@ function renderAccountSummary() {
       <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(state.user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(formatDate(state.user.membership_started_at))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(formatDate(state.user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Cena", "Price"))}</strong><span>${escapeHtml(tr("1,99 € / mesiac", "€1.99 / month"))}</span></div>
       ${state.user.membership_active ? "" : `
         <div class="account-card__cta">
           <button id="accountSummaryCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
@@ -1030,6 +1121,7 @@ function renderAccountPanel() {
       elements.accountAiMemory.className = "account-summary empty-state";
       elements.accountAiMemory.textContent = tr("AI pamäť sa zobrazí po prihlásení.", "AI memory will appear after signing in.");
     }
+    renderAccountSubscriptionCard();
     return;
   }
   elements.accountPanelSummary.className = "account-summary";
@@ -1067,6 +1159,7 @@ function renderAccountPanel() {
     elements.accountPasswordMessage.classList.remove("auth-message--error");
   }
   renderAccountAiMemory();
+  renderAccountSubscriptionCard();
   renderActivityList(elements.accountActivityList, state.account?.activity || []);
 }
 
@@ -1295,7 +1388,6 @@ function renderAdminUsers() {
             <td>
               <div class="admin-actions">
                 <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="detail" type="button">Detail</button>
-                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="activate_30d" type="button">Aktivovať 30 dní</button>` : ""}
                 ${canManageAdminTools ? `<button class="button button--ghost admin-action admin-action--danger" data-user-id="${user.id}" data-action="delete_account" type="button">Vymazať účet</button>` : ""}
               </div>
             </td>
@@ -1395,6 +1487,7 @@ function renderAdminUserDetail(payload) {
   const user = payload.user;
   const activity = payload.activity || [];
   const assistantStats = payload.assistant_stats || {};
+  const subscription = payload.subscription || {};
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   elements.adminUserDetail.className = "panel-card";
   elements.adminUserDetail.innerHTML = `
@@ -1410,8 +1503,17 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_status || "inactive")}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
     </div>
+    <div class="account-card">
+      <div class="account-card__row"><strong>Číslo objednávky</strong><span>${escapeHtml(subscription.last_order_number || user.last_order_number || "—")}</span></div>
+      <div class="account-card__row"><strong>Číslo predplatného</strong><span>${escapeHtml(subscription.internal_subscription_number || user.internal_subscription_number || "—")}</span></div>
+      <div class="account-card__row"><strong>Stripe subscription ID</strong><span class="mono">${escapeHtml(subscription.stripe_subscription_id || "—")}</span></div>
+      <div class="account-card__row"><strong>Stripe status</strong><span>${escapeHtml(subscription.stripe_status || "—")}</span></div>
+      <div class="account-card__row"><strong>Ďalšie obnovenie</strong><span>${escapeHtml(formatDate(subscription.next_renewal_at))}</span></div>
+      <div class="account-card__row"><strong>Zrušené</strong><span>${escapeHtml(subscription.cancelled_at ? formatDate(subscription.cancelled_at) : "—")}</span></div>
+      <div class="account-card__row"><strong>Registračný súhlas</strong><span>${escapeHtml(user.registration_consent_at ? formatDateTime(user.registration_consent_at) : "—")}</span></div>
+      <div class="account-card__row"><strong>Checkout súhlas</strong><span>${escapeHtml(user.checkout_consent_at ? formatDateTime(user.checkout_consent_at) : "—")}</span></div>
+    </div>
     ${canManageAdminTools ? `<div class="admin-actions">
-      <button id="adminActivateBtn" class="button button--primary" type="button">Aktivovať 30 dní</button>
       <button id="adminDeleteBtn" class="button button--ghost admin-action--danger" type="button">Vymazať účet</button>
       <button id="adminRoleBtn" class="button button--ghost" type="button">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
     </div>
@@ -1446,15 +1548,11 @@ function renderAdminUserDetail(payload) {
     <div id="adminUserActivity" class="activity-list"></div>
   `;
 
-  const activateBtn = document.getElementById("adminActivateBtn");
   const deleteBtn = document.getElementById("adminDeleteBtn");
   const roleBtn = document.getElementById("adminRoleBtn");
   const messageEl = document.getElementById("adminUserMessage");
   renderActivityList(document.getElementById("adminUserActivity"), activity);
 
-  activateBtn?.addEventListener("click", async () => {
-    await submitAdminMembershipAction(user.id, "activate_30d", { messageEl });
-  });
   deleteBtn?.addEventListener("click", async () => {
     const confirmed = window.confirm("Naozaj chceš účet vymazať? Používateľ dostane e-mail a prípadné vrátenie peňazí bude komunikované do 1 týždňa.");
     if (!confirmed) {
@@ -1687,11 +1785,23 @@ async function handleAuthSubmit(event) {
   const password = elements.authPassword.value;
   const endpoint = state.authMode === "register" ? "/api/register" : "/api/login";
 
+  if (state.authMode === "register" && (!elements.authAcceptTerms.checked || !elements.authAcceptPrivacy.checked)) {
+    setAuthMessage(tr("Pre vytvorenie účtu musíš potvrdiť Obchodné podmienky aj GDPR.", "To create your account, you must confirm the terms and privacy."), true);
+    return;
+  }
+
   try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        accept_terms: state.authMode === "register" ? elements.authAcceptTerms.checked : false,
+        accept_privacy: state.authMode === "register" ? elements.authAcceptPrivacy.checked : false,
+        marketing_consent: state.authMode === "register" ? elements.authMarketingConsent.checked : false,
+      }),
     });
     const payload = await response.json();
     if (!response.ok) {
@@ -1702,7 +1812,7 @@ async function handleAuthSubmit(event) {
     closeAuthModal();
     renderAccessState();
     if (state.authMode === "register") {
-      window.alert("Účet bol vytvorený. Teraz môžeš aktivovať členstvo cez Stripe.");
+      window.alert("Účet bol vytvorený. Teraz môžeš potvrdiť objednávku a aktivovať členstvo cez Stripe.");
     }
   } catch (error) {
     setAuthMessage(error.message, true);
@@ -1835,7 +1945,7 @@ async function startCheckoutFlow() {
     return;
   }
   await playDiscountEffect();
-  await startProCheckout();
+  openCheckoutModal();
 }
 
 function handleUnlockUploadAction() {
@@ -1864,7 +1974,11 @@ function handleOpenAssistantAction() {
 
 async function startProCheckout() {
   try {
-    const response = await fetch("/api/create-checkout-session", { method: "POST" });
+    const response = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkout_consent_accepted: true }),
+    });
     const payload = await response.json();
     if (!response.ok) {
       if (response.status === 401) {
@@ -1873,6 +1987,50 @@ async function startProCheckout() {
       throw new Error(payload.error || "Stripe checkout sa nepodarilo spustiť.");
     }
     window.location.href = payload.url;
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function confirmCheckoutFlow() {
+  if (!elements.checkoutConsentCheckbox.checked) {
+    elements.checkoutMessage.hidden = false;
+    elements.checkoutMessage.textContent = tr("Bez potvrdenia súhlasu nemôžeš pokračovať na platbu.", "You must confirm the consent before continuing to payment.");
+    elements.checkoutMessage.classList.add("auth-message--error");
+    return;
+  }
+  elements.checkoutProceedBtn.disabled = true;
+  elements.checkoutMessage.hidden = true;
+  try {
+    closeCheckoutModal();
+    await startProCheckout();
+  } catch (error) {
+    elements.checkoutMessage.hidden = false;
+    elements.checkoutMessage.textContent = error.message;
+    elements.checkoutMessage.classList.add("auth-message--error");
+  } finally {
+    elements.checkoutProceedBtn.disabled = false;
+  }
+}
+
+async function cancelSubscriptionFlow() {
+  const confirmed = window.confirm(tr(
+    "Naozaj chceš zrušiť predplatné? Ďalšia platba sa už nenaúčtuje a prístup zostane aktívny do konca zaplateného obdobia.",
+    "Do you really want to cancel the subscription? No further payment will be charged and access will remain active until the end of the paid period."
+  ));
+  if (!confirmed) {
+    return;
+  }
+  try {
+    const response = await fetch("/api/account/cancel-subscription", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Predplatné sa nepodarilo zrušiť.");
+    }
+    window.alert(payload.message || tr("Predplatné bolo úspešne zrušené.", "The subscription has been cancelled."));
+    await refreshCurrentUser();
+    await fetchAccountPanel();
+    renderAccessState();
   } catch (error) {
     window.alert(error.message);
   }
