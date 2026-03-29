@@ -484,7 +484,10 @@ function renderMessages() {
                 <span>Unifyo AI</span>
                 <span>${escapeHtml(tr("práve teraz", "right now"))}</span>
               </div>
-              <div class="ai-message__typing"><span></span><span></span><span></span></div>
+              <div class="ai-message__typing-wrap">
+                <div class="ai-message__typing"><span></span><span></span><span></span></div>
+                <span class="ai-message__typing-label">${escapeHtml(tr("Overujem odpoveď", "Verifying answer"))}</span>
+              </div>
             </div>
           </div>
         </article>
@@ -622,19 +625,15 @@ function renderMessageSource(message) {
 
   return `
     <div class="ai-message__source-group">
-      <div class="ai-message__source-meta">
+      <div class="ai-message__source-row">
         ${confidencePercent > 0 ? `<span class="ai-message__source-badge">${escapeHtml(tr("Istota", "Confidence"))}: ${escapeHtml(String(confidencePercent))}%</span>` : ""}
         ${sourceCount > 0 ? `<span class="ai-message__source-badge">${escapeHtml(tr("Zdroje", "Sources"))}: ${escapeHtml(String(sourceCount))}</span>` : ""}
+        ${normalizedSources.map((source) => `
+          <a class="ai-message__source-link" href="${escapeHtml(source.href)}" target="_blank" rel="noopener noreferrer">
+            ${escapeHtml(source.hostname)}
+          </a>
+        `).join("")}
       </div>
-      ${normalizedSources.length ? `
-        <div class="ai-message__source-links">
-          ${normalizedSources.map((source) => `
-            <a class="ai-message__source-link" href="${escapeHtml(source.href)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(source.hostname)}
-            </a>
-          `).join("")}
-        </div>
-      ` : ""}
     </div>
   `;
 }

@@ -7778,16 +7778,14 @@ h1 {
 }
 
 .ai-message__source-group {
-  display: grid;
-  gap: 8px;
   margin-top: 10px;
 }
 
-.ai-message__source-meta,
-.ai-message__source-links {
+.ai-message__source-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
 }
 
 .ai-message__source-badge,
@@ -7807,6 +7805,19 @@ h1 {
 .ai-message__source-link {
   color: #1d63dc;
   font-weight: 700;
+}
+
+.ai-message__typing-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.ai-message__typing-label {
+  color: #6880a1;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .ai-message__content.is-collapsed {
