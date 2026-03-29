@@ -79,6 +79,7 @@
           <input id="aiImageInput" type="file" accept="image/*" hidden>
           <div class="ai-chatboard__composer-shell">
             <button id="aiAttachBtn" class="button button--ghost ai-attach-btn" type="button" aria-label="Pridať obrázok">+</button>
+            <button id="aiQrBtn" class="button button--ghost ai-attach-btn ai-attach-btn--qr" type="button" aria-label="Nahrať fotku cez QR">QR</button>
             <textarea id="aiChatInput" rows="1" placeholder="Napíš otázku, situáciu alebo úlohu..." required></textarea>
             <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
           </div>
@@ -87,6 +88,26 @@
         </form>
       </section>
     </main>
+  </div>
+
+  <div id="aiQrModal" class="modal" hidden>
+    <div id="aiQrModalBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog modal__dialog--promo modal__dialog--qr">
+      <button id="aiQrModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <p class="section-kicker">QR upload</p>
+      <h2 id="aiQrModalTitle">Nahraj fotku z mobilu</h2>
+      <p id="aiQrModalText" class="modal__lead">Naskenuj QR kód telefónom, vyber fotku a tá sa automaticky doplní do AI chatu na tomto zariadení.</p>
+      <div class="ai-qr-modal__grid">
+        <div class="ai-qr-modal__code-card">
+          <img id="aiQrImage" class="ai-qr-modal__image" alt="QR kód pre mobilný upload">
+        </div>
+        <div class="ai-qr-modal__copy">
+          <span id="aiQrStatus" class="pill pill--subtle">Pripravujem QR kód…</span>
+          <a id="aiQrOpenLink" class="button button--ghost" href="#" target="_blank" rel="noopener noreferrer">Otvoriť upload link</a>
+          <p id="aiQrHint" class="ai-qr-modal__hint">Po odoslaní sa obrázok objaví priamo v compose poli.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="ai.js"></script>
@@ -106,7 +127,12 @@
       { selector: "#aiLoginLink", text: { sk: "Prihlásiť sa", en: "Sign in" } },
       { selector: "#aiCheckoutBtn", text: { sk: "Aktivovať členstvo", en: "Activate membership" } },
       { selector: "#aiLogoutBtn", text: { sk: "Odhlásiť sa", en: "Sign out" } },
-      { selector: "#aiAdminBtn", text: { sk: "AI admin", en: "AI admin" } }
+      { selector: "#aiAdminBtn", text: { sk: "AI admin", en: "AI admin" } },
+      { selector: "#aiQrModal .section-kicker", text: { sk: "QR upload", en: "QR upload" } },
+      { selector: "#aiQrModalTitle", text: { sk: "Nahraj fotku z mobilu", en: "Upload a photo from your phone" } },
+      { selector: "#aiQrModalText", text: { sk: "Naskenuj QR kód telefónom, vyber fotku a tá sa automaticky doplní do AI chatu na tomto zariadení.", en: "Scan the QR code with your phone, choose a photo and it will automatically appear in the AI chat on this device." } },
+      { selector: "#aiQrOpenLink", text: { sk: "Otvoriť upload link", en: "Open upload link" } },
+      { selector: "#aiQrHint", text: { sk: "Po odoslaní sa obrázok objaví priamo v compose poli.", en: "After upload, the image will appear directly in the composer." } }
     ];
   </script>
   <script src="lang-switch.js"></script>

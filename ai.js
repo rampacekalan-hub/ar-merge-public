@@ -5,7 +5,8 @@ const aiState = {
   messages: [],
   typing: false,
   attachment: null,
-  renaming: false,
+  mobileUploadToken: "",
+  mobileUploadPoll: null,
 };
 
 const QUICK_ACTIONS = [
@@ -181,6 +182,7 @@ const aiElements = {
   chatInput: document.getElementById("aiChatInput"),
   imageInput: document.getElementById("aiImageInput"),
   attachBtn: document.getElementById("aiAttachBtn"),
+  qrBtn: document.getElementById("aiQrBtn"),
   attachmentBar: document.getElementById("aiAttachmentBar"),
   chatSubmit: document.getElementById("aiChatSubmit"),
   chatMessage: document.getElementById("aiChatMessage"),
@@ -190,6 +192,12 @@ const aiElements = {
   threadCount: document.getElementById("aiThreadCount"),
   sidebarQuickActions: document.getElementById("aiSidebarQuickActions"),
   quickActionBar: document.getElementById("aiQuickActionBar"),
+  qrModal: document.getElementById("aiQrModal"),
+  qrModalBackdrop: document.getElementById("aiQrModalBackdrop"),
+  qrModalClose: document.getElementById("aiQrModalClose"),
+  qrImage: document.getElementById("aiQrImage"),
+  qrStatus: document.getElementById("aiQrStatus"),
+  qrOpenLink: document.getElementById("aiQrOpenLink"),
 };
 
 bootstrapAi();
@@ -224,12 +232,20 @@ function bindAiEvents() {
   aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
   aiElements.chatInput?.addEventListener("paste", handleChatPaste);
   aiElements.attachBtn?.addEventListener("click", () => aiElements.imageInput?.click());
+  aiElements.qrBtn?.addEventListener("click", openQrUploadModal);
   aiElements.imageInput?.addEventListener("change", handleAttachmentSelection);
   aiElements.composerShell?.addEventListener("dragover", handleComposerDragOver);
   aiElements.composerShell?.addEventListener("dragleave", handleComposerDragLeave);
   aiElements.composerShell?.addEventListener("drop", handleComposerDrop);
   aiElements.sidebarQuickActions?.addEventListener("click", handleQuickActionClick);
   aiElements.quickActionBar?.addEventListener("click", handleQuickActionClick);
+  aiElements.qrModalClose?.addEventListener("click", closeQrUploadModal);
+  aiElements.qrModalBackdrop?.addEventListener("click", closeQrUploadModal);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && aiElements.qrModal && !aiElements.qrModal.hidden) {
+      closeQrUploadModal();
+    }
+  });
 }
 
 function startNowTicker() {
@@ -329,6 +345,9 @@ function renderAiState() {
   }
   if (aiElements.attachBtn) {
     aiElements.attachBtn.disabled = !hasMembership;
+  }
+  if (aiElements.qrBtn) {
+    aiElements.qrBtn.disabled = !hasMembership;
   }
   [aiElements.chatInput, aiElements.chatSubmit].forEach((element) => {
     if (element) {
@@ -483,7 +502,7 @@ function renderQuickActions() {
   const allActions = QUICK_ACTIONS.slice(0, 10);
   if (aiElements.sidebarQuickActions) {
     aiElements.sidebarQuickActions.innerHTML = renderQuickActionRollup(
-      tr("Vybrať akciu", "Choose action"),
+      tr("Najčastejšie akcie", "Most used actions"),
       allActions,
       "stack"
     );
@@ -513,9 +532,9 @@ function renderEmptyChat(message = "", isError = false) {
   aiElements.chatFeed.innerHTML = `
     <div class="ai-empty-state">
       <div class="ai-empty-state__hero">
-        <span class="pill">${escapeHtml(tr("Pripravené na prácu", "Ready to work"))}</span>
-        <h3>${escapeHtml(tr("AI asistent pre prax", "AI assistant for daily work"))}</h3>
-        <p>${escapeHtml(tr("Napíš otázku alebo klikni na rýchlu akciu.", "Write a prompt or click a quick action."))}</p>
+        <span class="pill">${escapeHtml(tr("Pripravené", "Ready"))}</span>
+        <h3>${escapeHtml(tr("Začni otázkou alebo jednou akciou", "Start with a question or one action"))}</h3>
+        <p>${escapeHtml(tr("Pomôžem s odpoveďou klientovi, emailom, zhrnutím aj vysvetlením.", "I can help with client replies, emails, summaries and explanations."))}</p>
       </div>
       <div class="ai-empty-state__actions">
         ${QUICK_ACTIONS.slice(0, 3).map((action) => renderQuickActionButton(action, "chip")).join("")}
@@ -685,6 +704,108 @@ function handleComposerDrop(event) {
   if (file) {
     setAttachment(file);
   }
+}
+
+async function openQrUploadModal() {
+  if (!aiState.user?.membership_active) {
+    await startCheckoutFlow();
+    return;
+  }
+  if (!aiElements.qrModal) {
+    return;
+  }
+  aiElements.qrModal.hidden = false;
+  document.body.classList.add("modal-open");
+  updateQrStatus(tr("Pripravujem QR kód…", "Preparing QR code…"));
+  if (aiElements.qrImage) {
+    aiElements.qrImage.removeAttribute("src");
+  }
+  if (aiElements.qrOpenLink) {
+    aiElements.qrOpenLink.href = "#";
+  }
+  try {
+    const response = await fetch("/api/assistant-mobile-upload-session", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || tr("QR upload sa nepodarilo pripraviť.", "Could not prepare QR upload."));
+    }
+    aiState.mobileUploadToken = String(payload.token || "");
+    if (aiElements.qrOpenLink) {
+      aiElements.qrOpenLink.href = payload.upload_url || "#";
+    }
+    if (aiElements.qrImage) {
+      aiElements.qrImage.src = buildQrImageUrl(payload.upload_url || "");
+    }
+    updateQrStatus(tr("Naskenuj QR a odošli fotku z mobilu.", "Scan the QR and send a photo from your phone."));
+    startQrPolling();
+  } catch (error) {
+    updateQrStatus(error.message || tr("QR upload sa nepodarilo pripraviť.", "Could not prepare QR upload."), true);
+  }
+}
+
+function closeQrUploadModal() {
+  if (aiElements.qrModal) {
+    aiElements.qrModal.hidden = true;
+  }
+  document.body.classList.remove("modal-open");
+  stopQrPolling();
+  aiState.mobileUploadToken = "";
+}
+
+function updateQrStatus(text, isError = false) {
+  if (!aiElements.qrStatus) {
+    return;
+  }
+  aiElements.qrStatus.textContent = text;
+  aiElements.qrStatus.classList.toggle("auth-message--error", isError);
+}
+
+function buildQrImageUrl(uploadUrl) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(String(uploadUrl || ""))}`;
+}
+
+function startQrPolling() {
+  stopQrPolling();
+  aiState.mobileUploadPoll = window.setInterval(checkQrUploadStatus, 1600);
+  checkQrUploadStatus();
+}
+
+function stopQrPolling() {
+  if (aiState.mobileUploadPoll) {
+    window.clearInterval(aiState.mobileUploadPoll);
+    aiState.mobileUploadPoll = null;
+  }
+}
+
+async function checkQrUploadStatus() {
+  if (!aiState.mobileUploadToken) {
+    return;
+  }
+  try {
+    const response = await fetch(`/api/assistant-mobile-upload-status?token=${encodeURIComponent(aiState.mobileUploadToken)}`);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || tr("QR upload sa nepodarilo načítať.", "Could not load QR upload status."));
+    }
+    if (!payload.uploaded) {
+      return;
+    }
+    await setAttachmentFromDataUrl(payload.attachment_preview, payload.attachment_name, payload.attachment_type);
+    updateQrStatus(tr("Fotka je pripravená v AI chate.", "The photo is ready in the AI chat."));
+    closeQrUploadModal();
+  } catch (error) {
+    updateQrStatus(error.message || tr("QR upload sa nepodarilo načítať.", "Could not load QR upload status."), true);
+  }
+}
+
+async function setAttachmentFromDataUrl(dataUrl, filename, mimeType) {
+  if (!dataUrl) {
+    return;
+  }
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const file = new File([blob], filename || "image", { type: mimeType || blob.type || "image/jpeg" });
+  setAttachment(file);
 }
 
 async function handleNewThreadClick() {
@@ -901,6 +1022,10 @@ function formatMessageHtml(text) {
       flushList();
       return;
     }
+    if (/^(zdroj|source)\s*:/i.test(trimmed)) {
+      flushList();
+      return;
+    }
     const headingMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
     const bulletMatch = trimmed.match(/^[-*•]\s+(.+)$/);
     const numberedMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
@@ -1039,7 +1164,7 @@ function formatThreadTitle(value) {
   if (!normalized || normalized === "Nový chat" || normalized === "New chat") {
     return tr("Nový chat", "New chat");
   }
-  return normalized;
+  return truncateText(normalized, 44);
 }
 
 function renderMessageAttachment(message) {

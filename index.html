@@ -137,15 +137,18 @@
             <div class="service-preview service-preview--contacts">
               <div class="service-preview__row service-preview__row--bad">
                 <strong>Duplicitný záznam</strong>
-                <span>Jana Nováková • jana@example.com</span>
+                <span>Jana Nováková</span>
+                <small>jana@example.com</small>
               </div>
               <div class="service-preview__row service-preview__row--bad">
                 <strong>Duplicitný záznam</strong>
-                <span>Jana Nováková • JANA@example.com</span>
+                <span>Jana Nováková</span>
+                <small>JANA@example.com</small>
               </div>
               <div class="service-preview__row service-preview__row--good">
                 <strong>Čistý výsledok</strong>
-                <span>Jana Nováková • jana@example.com • +421 905 123 456</span>
+                <span>Jana Nováková</span>
+                <small>jana@example.com • +421 905 123 456</small>
               </div>
             </div>
           </div>
@@ -201,7 +204,7 @@
                 </div>
                 <div class="chat-snippet__message chat-snippet__message--assistant">
                   <strong>AI odpoveď</strong>
-                  <span>„Rozumiem, že cena je dôležitá. Pozrime sa spolu na to, čo za ňu klient reálne získa…“</span>
+                  <span>„Rozumiem. Pozrime sa spolu na to, čo klient za túto cenu reálne získa.“</span>
                 </div>
               </div>
             </div>
@@ -340,13 +343,13 @@
       { selector: ".feature-stack__card:nth-of-type(3) p", text: { sk: "AI navrhne texty, zjednoduší tému a nasmeruje ťa na ďalší krok.", en: "AI drafts texts, simplifies the topic and suggests the next step." } },
       { selector: ".service-section--contacts .service-split__copy .section-kicker", text: { sk: "Kontakty", en: "Contacts" } },
       { selector: ".service-section--contacts .service-split__copy h2", text: { sk: "Máš chaos v kontaktoch?", en: "Is your contact database messy?" } },
-      { selector: ".service-section--contacts .service-split__copy > p", text: { sk: "Duplicity, chýbajúce údaje a neprehľadné dáta ti berú čas. Unifyo ich vyčistí za pár sekúnd.", en: "Duplicates, missing fields and messy data steal your time. Unifyo cleans them in seconds." } },
+      { selector: ".service-section--contacts .service-split__copy > p:not(.section-kicker)", text: { sk: "Duplicity, chýbajúce údaje a neprehľadné dáta ti berú čas. Unifyo ich vyčistí za pár sekúnd.", en: "Duplicates, missing fields and messy data steal your time. Unifyo cleans them in seconds." } },
       { selector: ".service-section--contacts .service-bullets li:nth-of-type(1)", text: { sk: "odstráni duplicity", en: "removes duplicates" } },
       { selector: ".service-section--contacts .service-bullets li:nth-of-type(2)", text: { sk: "uprace dáta", en: "cleans the data" } },
       { selector: ".service-section--contacts .service-bullets li:nth-of-type(3)", text: { sk: "pripraví na export", en: "prepares it for export" } },
       { selector: ".service-section--files .service-split__copy .section-kicker", text: { sk: "Súbory", en: "Files" } },
       { selector: ".service-section--files .service-split__copy h2", text: { sk: "PDF je príliš veľké na odoslanie?", en: "Is the PDF too large to send?" } },
-      { selector: ".service-section--files .service-split__copy > p", text: { sk: "Zmenši súbory bez straty kvality a pošli ich klientovi okamžite.", en: "Compress files without losing quality and send them to the client immediately." } },
+      { selector: ".service-section--files .service-split__copy > p:not(.section-kicker)", text: { sk: "Zmenši súbory bez straty kvality a pošli ich klientovi okamžite.", en: "Compress files without losing quality and send them to the client immediately." } },
       { selector: ".service-section--files .service-bullets li:nth-of-type(1)", text: { sk: "kompresia PDF", en: "PDF compression" } },
       { selector: ".service-section--files .service-bullets li:nth-of-type(2)", text: { sk: "kompresia obrázkov", en: "image compression" } },
       { selector: ".service-section--files .service-bullets li:nth-of-type(3)", text: { sk: "rýchle použitie", en: "fast workflow" } },
@@ -358,7 +361,7 @@
       { selector: ".ai-sales-block__copy .service-bullets li:nth-of-type(3)", text: { sk: "emaily a správy", en: "emails and messages" } },
       { selector: ".ai-sales-block__copy .service-bullets li:nth-of-type(4)", text: { sk: "argumentácia", en: "argumentation" } },
       { selector: ".chat-snippet__message--user span", text: { sk: "Klient: „Je to drahé“", en: "Client: “It is expensive”" } },
-      { selector: ".chat-snippet__message--assistant span", text: { sk: "AI odpoveď: „Rozumiem, že cena je dôležitá. Skúsme sa pozrieť na to, čo za ňu reálne získate…“", en: "AI answer: “I understand price matters. Let’s look at what you actually get for it…”" } },
+      { selector: ".chat-snippet__message--assistant span", text: { sk: "AI odpoveď: „Rozumiem. Pozrime sa spolu na to, čo klient za túto cenu reálne získa.“", en: "AI answer: “I understand. Let’s look together at what the client actually gets for this price.”" } },
       { selector: "#ako-to-funguje-link .section-kicker", text: { sk: "Ako to funguje", en: "How it works" } },
       { selector: "#ako-to-funguje-link h2", text: { sk: "Tri kroky a výsledok môžeš použiť okamžite", en: "Three steps and you can use the result immediately" } },
       { selector: ".workflow-step:nth-of-type(1) strong", text: { sk: "Nahraj dáta alebo napíš otázku", en: "Upload data or ask a question" } },
@@ -372,7 +375,7 @@
       { selector: ".audience-list span:nth-of-type(3)", text: { sk: "realitní makléri", en: "real estate agents" } },
       { selector: "#zacni-s-unifyo .section-kicker", text: { sk: "Začni dnes", en: "Start today" } },
       { selector: "#zacni-s-unifyo h2", text: { sk: "Začni šetriť čas ešte dnes", en: "Start saving time today" } },
-      { selector: "#zacni-s-unifyo p", text: { sk: "Začni s Unifyo: kontakty, kompresia aj AI na jednom mieste.", en: "Start with Unifyo: contacts, compression and AI in one place." } },
+      { selector: "#zacni-s-unifyo .final-cta > p:not(.section-kicker)", text: { sk: "Začni s Unifyo: kontakty, kompresia aj AI na jednom mieste.", en: "Start with Unifyo: contacts, compression and AI in one place." } },
       { selector: "#zacni-s-unifyo .button--primary", text: { sk: "Prihlásenie", en: "Sign in" } },
       { selector: ".site-footer a:nth-of-type(1)", text: { sk: "Cenník", en: "Pricing" } },
       { selector: ".site-footer a:nth-of-type(2)", text: { sk: "Ochrana súkromia", en: "Privacy" } },

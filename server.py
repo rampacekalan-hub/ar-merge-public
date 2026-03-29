@@ -208,6 +208,20 @@ def init_db():
                 FOREIGN KEY (thread_id) REFERENCES assistant_threads(id) ON DELETE CASCADE,
                 FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
             );
+
+            CREATE TABLE IF NOT EXISTS assistant_upload_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL DEFAULT 'pending',
+                attachment_name TEXT NOT NULL DEFAULT '',
+                attachment_type TEXT NOT NULL DEFAULT '',
+                attachment_base64 TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                uploaded_at TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
             """
         )
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()}
@@ -833,7 +847,7 @@ def touch_assistant_thread(connection, thread_id, title=None):
         )
 
 
-def save_assistant_message(connection, user_id, thread_id, role, content, meta=None):
+def save_assistant_message(connection, user_id, thread_id, role, content, meta=None, language="sk"):
     review_status = "approved" if role == "user" else "unreviewed"
     meta_json = json.dumps(meta or {}, ensure_ascii=False)
     cursor = connection.execute(
@@ -846,11 +860,11 @@ def save_assistant_message(connection, user_id, thread_id, role, content, meta=N
     if role == "user":
         thread_row = connection.execute("SELECT title FROM assistant_threads WHERE id = ?", (thread_id,)).fetchone()
         current_title = (thread_row["title"] if thread_row else "") or "Nový chat"
-        next_title = build_thread_title(content)
+        next_title = build_thread_title(content, language=language)
         touch_assistant_thread(
             connection,
             thread_id,
-            title=next_title if current_title in {"", "Nový chat", "Starší chat"} else None,
+            title=next_title if current_title in {"", "Nový chat", "New chat", "Starší chat"} else None,
         )
     else:
         touch_assistant_thread(connection, thread_id)
@@ -975,6 +989,83 @@ def parse_assistant_attachment(form):
         "content_type": content_type,
         "content_bytes": content_bytes,
         "data_url": build_image_data_url(content_type, content_bytes),
+    }
+
+
+def create_assistant_upload_session(connection, user_id):
+    token = secrets.token_urlsafe(24)
+    created_at = utc_now()
+    expires_at = created_at + timedelta(minutes=10)
+    connection.execute(
+        """
+        INSERT INTO assistant_upload_sessions (
+            user_id, token, status, attachment_name, attachment_type, attachment_base64, created_at, expires_at, uploaded_at
+        ) VALUES (?, ?, 'pending', '', '', '', ?, ?, '')
+        """,
+        (user_id, token, format_timestamp(created_at), format_timestamp(expires_at)),
+    )
+    connection.commit()
+    return {
+        "token": token,
+        "created_at": format_timestamp(created_at),
+        "expires_at": format_timestamp(expires_at),
+    }
+
+
+def get_assistant_upload_session(connection, token):
+    if not token:
+        return None
+    row = connection.execute(
+        "SELECT * FROM assistant_upload_sessions WHERE token = ?",
+        (str(token).strip(),),
+    ).fetchone()
+    if not row:
+        return None
+    expires_at = parse_timestamp(row["expires_at"])
+    if not expires_at or expires_at < utc_now():
+        return None
+    return row
+
+
+def save_assistant_upload_to_session(connection, token, attachment):
+    if not attachment:
+        raise ValueError("Chýba obrázok na nahratie.")
+    encoded = base64.b64encode(attachment["content_bytes"]).decode("ascii")
+    now_value = format_timestamp(utc_now())
+    connection.execute(
+        """
+        UPDATE assistant_upload_sessions
+        SET status = 'uploaded',
+            attachment_name = ?,
+            attachment_type = ?,
+            attachment_base64 = ?,
+            uploaded_at = ?
+        WHERE token = ?
+        """,
+        (attachment["filename"], attachment["content_type"], encoded, now_value, token),
+    )
+    connection.commit()
+
+
+def build_assistant_upload_payload(row):
+    if not row:
+        return {"status": "missing"}
+    if row["status"] != "uploaded" or not row["attachment_base64"]:
+        return {
+            "status": row["status"] or "pending",
+            "uploaded": False,
+            "expires_at": row["expires_at"] or "",
+        }
+    content_type = row["attachment_type"] or "image/jpeg"
+    data_url = f"data:{content_type};base64,{row['attachment_base64']}"
+    return {
+        "status": "uploaded",
+        "uploaded": True,
+        "attachment_name": row["attachment_name"] or "obrazok",
+        "attachment_type": content_type,
+        "attachment_preview": data_url,
+        "expires_at": row["expires_at"] or "",
+        "uploaded_at": row["uploaded_at"] or "",
     }
 
 
@@ -1568,6 +1659,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/contact-status"):
             self.handle_contact_status()
             return
+        if self.path.startswith("/api/assistant-mobile-upload-status"):
+            self.handle_assistant_mobile_upload_status()
+            return
         if self.path.startswith("/api/assistant"):
             self.handle_assistant()
             return
@@ -1612,6 +1706,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/assistant/chat":
             self.handle_assistant_chat()
+            return
+        if self.path == "/api/assistant-mobile-upload-session":
+            self.handle_assistant_mobile_upload_session()
+            return
+        if self.path == "/api/assistant-mobile-upload":
+            self.handle_assistant_mobile_upload()
             return
         if self.path == "/api/assistant/profile":
             self.handle_assistant_profile()
@@ -1803,6 +1903,76 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
         except smtplib.SMTPException:
             self.write_json({"error": "Kontaktnú správu sa nepodarilo odoslať."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        finally:
+            connection.close()
+
+    def handle_assistant_mobile_upload_session(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            membership = get_membership(connection, user["id"])
+            if not is_membership_active(membership):
+                self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
+                return
+            upload_session = create_assistant_upload_session(connection, user["id"])
+            base_url = get_request_base_url(self)
+            upload_url = f"{base_url}/ai-mobile-upload.html?token={upload_session['token']}"
+            self.write_json(
+                {
+                    "ok": True,
+                    "token": upload_session["token"],
+                    "upload_url": upload_url,
+                    "expires_at": upload_session["expires_at"],
+                }
+            )
+        finally:
+            connection.close()
+
+    def handle_assistant_mobile_upload_status(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            params = parse_qs(urlparse(self.path).query)
+            token = str((params.get("token") or [""])[0]).strip()
+            if not token:
+                self.write_json({"error": "Chýba token uploadu."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            row = get_assistant_upload_session(connection, token)
+            if not row:
+                self.write_json({"error": "Upload session neexistuje alebo vypršala."}, status=HTTPStatus.NOT_FOUND)
+                return
+            if row["user_id"] != user["id"]:
+                self.write_json({"error": "K tejto upload session nemáte prístup."}, status=HTTPStatus.FORBIDDEN)
+                return
+            self.write_json({"ok": True, **build_assistant_upload_payload(row)})
+        finally:
+            connection.close()
+
+    def handle_assistant_mobile_upload(self):
+        connection = get_db()
+        try:
+            form = parse_multipart_form(self.headers, self.read_request_body())
+            token = ""
+            if form.get("token"):
+                token = (form["token"][0].get("content") or b"").decode("utf-8", errors="ignore").strip()
+            if not token:
+                self.write_json({"error": "Chýba token uploadu."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            upload_session = get_assistant_upload_session(connection, token)
+            if not upload_session:
+                self.write_json({"error": "Upload session neexistuje alebo vypršala."}, status=HTTPStatus.NOT_FOUND)
+                return
+            attachment = parse_assistant_attachment(form)
+            save_assistant_upload_to_session(connection, token, attachment)
+            self.write_json({"ok": True, **build_assistant_upload_payload(get_assistant_upload_session(connection, token))})
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:
             connection.close()
 
@@ -2344,9 +2514,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "attachment_type": attachment["content_type"],
                     "attachment_preview": attachment["data_url"],
                 }
-            save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta)
+            save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta, language=language)
             reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
-            save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta)
+            save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta, language=language)
             log_activity(
                 connection,
                 "assistant_chat_message",

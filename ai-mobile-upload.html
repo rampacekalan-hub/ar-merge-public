@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unifyo AI | Mobilný upload</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="ai-mobile-upload-page">
+  <div class="ambient ambient--one"></div>
+  <div class="ambient ambient--two"></div>
+
+  <main class="ai-mobile-upload">
+    <section class="ai-mobile-upload__card">
+      <span class="section-kicker">Unifyo AI</span>
+      <h1 id="mobileUploadTitle">Nahraj fotku do otvoreného AI chatu</h1>
+      <p id="mobileUploadCopy">Vyber obrázok alebo odfoť novú fotku. Po odoslaní sa automaticky objaví v AI chate na počítači.</p>
+
+      <form id="mobileUploadForm" class="ai-mobile-upload__form">
+        <input id="mobileUploadToken" type="hidden" name="token" value="">
+        <input id="mobileUploadInput" class="sr-only" type="file" name="attachment" accept="image/*" capture="environment" required>
+        <label for="mobileUploadInput" class="ai-mobile-upload__dropzone">
+          <span id="mobileUploadDropTitle">Vyber alebo odfoť obrázok</span>
+          <small id="mobileUploadDropText">Podporované sú JPG, PNG, WEBP a ďalšie obrázky.</small>
+        </label>
+        <div id="mobileUploadPreview" class="ai-mobile-upload__preview is-hidden"></div>
+        <button id="mobileUploadSubmit" class="button button--primary" type="submit">Odoslať do AI chatu</button>
+        <p id="mobileUploadMessage" class="auth-message" hidden></p>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token") || "";
+      const form = document.getElementById("mobileUploadForm");
+      const input = document.getElementById("mobileUploadInput");
+      const tokenInput = document.getElementById("mobileUploadToken");
+      const preview = document.getElementById("mobileUploadPreview");
+      const submit = document.getElementById("mobileUploadSubmit");
+      const message = document.getElementById("mobileUploadMessage");
+      const storageLang = window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
+
+      const t = {
+        sk: {
+          title: "Nahraj fotku do otvoreného AI chatu",
+          copy: "Vyber obrázok alebo odfoť novú fotku. Po odoslaní sa automaticky objaví v AI chate na počítači.",
+          dropTitle: "Vyber alebo odfoť obrázok",
+          dropText: "Podporované sú JPG, PNG, WEBP a ďalšie obrázky.",
+          submit: "Odoslať do AI chatu",
+          sending: "Odosielam…",
+          missing: "Chýba token uploadu. Vygeneruj QR kód znova z AI chatu.",
+          choose: "Najprv vyber obrázok.",
+          success: "Hotovo. Obrázok je pripravený v AI chate na počítači.",
+        },
+        en: {
+          title: "Upload a photo to the open AI chat",
+          copy: "Choose an image or take a new photo. After upload, it will automatically appear in the AI chat on your computer.",
+          dropTitle: "Choose or capture an image",
+          dropText: "JPG, PNG, WEBP and other image formats are supported.",
+          submit: "Send to AI chat",
+          sending: "Uploading…",
+          missing: "Missing upload token. Generate the QR code again from the AI chat.",
+          choose: "Choose an image first.",
+          success: "Done. The image is ready in the AI chat on your computer.",
+        }
+      }[storageLang];
+
+      document.documentElement.lang = storageLang;
+      document.getElementById("mobileUploadTitle").textContent = t.title;
+      document.getElementById("mobileUploadCopy").textContent = t.copy;
+      document.getElementById("mobileUploadDropTitle").textContent = t.dropTitle;
+      document.getElementById("mobileUploadDropText").textContent = t.dropText;
+      submit.textContent = t.submit;
+
+      tokenInput.value = token;
+      if (!token) {
+        message.hidden = false;
+        message.textContent = t.missing;
+        message.classList.add("auth-message--error");
+        submit.disabled = true;
+      }
+
+      input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        if (!file) {
+          preview.classList.add("is-hidden");
+          preview.innerHTML = "";
+          return;
+        }
+        const url = URL.createObjectURL(file);
+        preview.classList.remove("is-hidden");
+        preview.innerHTML = `
+          <img src="${url}" alt="${file.name}">
+          <div>
+            <strong>${file.name}</strong>
+            <span>${Math.max(1, Math.round(file.size / 1024))} KB</span>
+          </div>
+        `;
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const file = input.files && input.files[0];
+        if (!file) {
+          message.hidden = false;
+          message.textContent = t.choose;
+          message.classList.add("auth-message--error");
+          return;
+        }
+        const body = new FormData(form);
+        submit.disabled = true;
+        submit.textContent = t.sending;
+        message.hidden = true;
+        message.textContent = "";
+        message.classList.remove("auth-message--error");
+        try {
+          const response = await fetch("/api/assistant-mobile-upload", {
+            method: "POST",
+            body,
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "Upload failed.");
+          }
+          message.hidden = false;
+          message.textContent = t.success;
+          submit.textContent = t.success;
+        } catch (error) {
+          message.hidden = false;
+          message.textContent = error.message || "Upload failed.";
+          message.classList.add("auth-message--error");
+          submit.disabled = false;
+          submit.textContent = t.submit;
+        }
+      });
+    }());
+  </script>
+</body>
+</html>
