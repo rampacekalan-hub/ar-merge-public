@@ -6197,6 +6197,9 @@ h1 {
 
 .ai-sidebar__new {
   width: 100%;
+  min-height: 46px;
+  padding: 12px 16px;
+  line-height: 1.1;
 }
 
 .ai-sidebar__section {
@@ -6843,6 +6846,15 @@ h1 {
   min-height: 34px;
 }
 
+.ai-workspace__summary {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ai-workspace__topbar {
+  align-items: flex-start;
+}
+
 .ai-topbar-brand {
   display: inline-flex;
   align-items: center;
@@ -7008,9 +7020,20 @@ h1 {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  min-height: 28px;
-  max-height: 28px;
+  min-height: 34px;
+  max-height: 34px;
   overflow: hidden;
+  width: 100%;
+}
+
+.ai-thread-titlebar h1 {
+  width: 100%;
+  margin: 0;
+  font-size: clamp(1.18rem, 1.7vw, 1.5rem);
+  line-height: 1.08;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ai-thread-titlebar h1.is-refreshing {

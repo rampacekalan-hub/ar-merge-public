@@ -724,7 +724,7 @@ def build_thread_title(message, language="sk"):
     if first_sentence.lower() in generic_titles or len(first_sentence) < 4:
         return "New chat" if language == "en" else "Nový chat"
     words = first_sentence.split()
-    normalized = " ".join(words[:8]).strip()
+    normalized = " ".join(words[:6]).strip()
     normalized = normalized[0].upper() + normalized[1:]
     return normalized[:68].rstrip(" .,;:-")
 
