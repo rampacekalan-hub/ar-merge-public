@@ -2262,14 +2262,24 @@ def user_payload(connection, user_row, headers=None):
 
 
 def get_request_base_url(handler):
+    if APP_BASE_URL:
+        return APP_BASE_URL.rstrip("/")
     forwarded_proto = handler.headers.get("X-Forwarded-Proto")
     proto = forwarded_proto or ("https" if PORT == 443 else "http")
     host = handler.headers.get("X-Forwarded-Host") or handler.headers.get("Host") or f"127.0.0.1:{PORT}"
     if host:
         return f"{proto}://{host}".rstrip("/")
-    if APP_BASE_URL:
-        return APP_BASE_URL.rstrip("/")
     return f"http://127.0.0.1:{PORT}"
+
+
+def normalize_host_name(value):
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    first = raw.split(",", 1)[0].strip()
+    parsed = urlparse(f"//{first}")
+    hostname = (parsed.hostname or "").strip().lower()
+    return hostname or first.split(":", 1)[0].strip().lower()
 
 
 def get_or_create_customer(connection, user_row):
@@ -2727,7 +2737,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             return False
         try:
             canonical = urlparse(APP_BASE_URL)
-            canonical_host = (canonical.netloc or "").strip().lower()
+            canonical_host = normalize_host_name(canonical.netloc or "")
             if not canonical_host:
                 return False
             request_host = (
@@ -2735,7 +2745,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 or self.headers.get("Host")
                 or ""
             ).strip().lower()
-            if not request_host or request_host == canonical_host:
+            if not request_host or normalize_host_name(request_host) == canonical_host:
                 return False
             destination = f"{APP_BASE_URL.rstrip('/')}{self.path}"
             self.send_response(HTTPStatus.MOVED_PERMANENTLY)
