@@ -84,6 +84,20 @@ const QUICK_ACTIONS = [
     promptSk: "Skráť tento text na stručnú verziu s hlavnou pointou:",
     promptEn: "Shorten this text into a concise version with the main point:",
   },
+  {
+    key: "table",
+    labelSk: "Vytvor tabuľku",
+    labelEn: "Create table",
+    promptSk: "Spracuj tento obsah do prehľadnej tabuľky vhodnej na rýchle porovnanie:",
+    promptEn: "Turn this content into a clear comparison table suitable for quick review:",
+  },
+  {
+    key: "pdf-ready",
+    labelSk: "Priprav PDF osnovu",
+    labelEn: "Prepare PDF outline",
+    promptSk: "Priprav čistý, PDF-ready text alebo osnovu, ktorú bude možné rovno exportovať alebo vložiť do dokumentu:",
+    promptEn: "Prepare a clean PDF-ready text or outline that can be exported or pasted into a document right away:",
+  },
 ];
 
 const FOLLOWUP_ACTIONS = [
@@ -198,6 +212,7 @@ const aiElements = {
   threadCount: document.getElementById("aiThreadCount"),
   sidebarQuickActions: document.getElementById("aiSidebarQuickActions"),
   quickActionBar: document.getElementById("aiQuickActionBar"),
+  toolLinks: document.getElementById("aiToolLinks"),
   qrModal: document.getElementById("aiQrModal"),
   qrModalBackdrop: document.getElementById("aiQrModalBackdrop"),
   qrModalClose: document.getElementById("aiQrModalClose"),
@@ -377,6 +392,7 @@ function renderAiState() {
     }
   });
   renderQuickActions();
+  renderToolLinks();
   renderAttachmentBar();
   renderThreadList();
 }
@@ -600,7 +616,31 @@ function renderEmptyChat(message = "", isError = false) {
           `).join("")}
         </div>
       </section>
+      <section class="ai-empty-panel ai-empty-panel--links">
+        <span class="ai-empty-panel__label">${escapeHtml(tr("Potrebuješ inú časť aplikácie?", "Need another part of the app?"))}</span>
+        <div class="ai-empty-state__links">
+          <a class="ai-utility-link" href="/app.html?view=contacts">${escapeHtml(tr("Otvoriť kontakty", "Open contacts"))}</a>
+          <a class="ai-utility-link" href="/app.html?view=compress">${escapeHtml(tr("Otvoriť kompresiu", "Open compression"))}</a>
+        </div>
+      </section>
     </div>
+  `;
+}
+
+function renderToolLinks() {
+  if (!aiElements.toolLinks) {
+    return;
+  }
+  const disabled = !aiState.user?.membership_active;
+  const contactsHref = "/app.html?view=contacts";
+  const compressHref = "/app.html?view=compress";
+  aiElements.toolLinks.innerHTML = `
+    <a class="ai-utility-link${disabled ? " is-muted" : ""}" href="${contactsHref}">
+      ${escapeHtml(tr("Kontakty v aplikácii", "Contacts in the app"))}
+    </a>
+    <a class="ai-utility-link${disabled ? " is-muted" : ""}" href="${compressHref}">
+      ${escapeHtml(tr("Kompresia v aplikácii", "Compression in the app"))}
+    </a>
   `;
 }
 
@@ -1125,7 +1165,7 @@ async function sendAssistantMessage(message) {
 }
 
 function handleAccountClick() {
-  window.location.href = "/app.html";
+  window.location.href = "/app.html?openAccount=1";
 }
 
 async function handleLogout() {

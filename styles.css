@@ -1786,6 +1786,87 @@ h3 {
   line-height: 1.6;
 }
 
+.account-ai-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.account-ai-stat {
+  display: grid;
+  gap: 6px;
+  padding: 14px 15px;
+  border-radius: 18px;
+  border: 1px solid rgba(37, 99, 235, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.account-ai-stat span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.account-ai-stat strong {
+  margin: 0;
+  color: var(--surface-dark);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.account-ai-stat--focus {
+  background: linear-gradient(135deg, rgba(237, 246, 255, 0.92), rgba(243, 255, 249, 0.88));
+}
+
+.account-ai-stat--threads {
+  background: linear-gradient(135deg, rgba(247, 245, 255, 0.92), rgba(242, 248, 255, 0.88));
+}
+
+.account-ai-stat--messages {
+  background: linear-gradient(135deg, rgba(255, 250, 238, 0.94), rgba(255, 245, 240, 0.9));
+}
+
+.account-ai-stat--memory {
+  background: linear-gradient(135deg, rgba(238, 255, 246, 0.92), rgba(240, 249, 255, 0.9));
+}
+
+.account-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(29, 115, 234, 0.1);
+  color: #1c56bf;
+  font-weight: 700;
+}
+
+.account-ai-topics {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(37, 99, 235, 0.08);
+}
+
+.account-ai-topics__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-ai-topic {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(246, 250, 255, 0.96);
+  border: 1px solid rgba(190, 209, 255, 0.32);
+  color: #32507f;
+  font-size: 0.84rem;
+}
+
 .activity-list {
   display: grid;
   gap: 8px;
@@ -6434,17 +6515,108 @@ h1 {
   gap: 14px;
   align-content: center;
   justify-items: start;
-  min-height: 260px;
-  padding: 28px;
+  min-height: 320px;
+  padding: 30px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(122, 151, 214, 0.14);
-  color: #f4f7ff;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(242, 248, 255, 0.92));
+  border: 1px solid rgba(180, 204, 244, 0.34);
+  color: #173059;
+  box-shadow: 0 24px 64px rgba(82, 118, 186, 0.14);
 }
 
 .ai-locked-card p {
-  color: #b1c4e8;
+  color: #6c7f9c;
   max-width: 760px;
+}
+
+.ai-locked-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(185, 207, 245, 0.32);
+}
+
+.ai-locked-price__label {
+  color: #6c7f9c;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-locked-price strong {
+  color: #173059;
+  font-size: 1.15rem;
+}
+
+.ai-locked-highlights,
+.ai-locked-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ai-locked-highlight {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(245, 249, 255, 0.96);
+  border: 1px solid rgba(196, 216, 255, 0.3);
+  color: #33507f;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.ai-utility-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(188, 210, 246, 0.34);
+  color: #1f4fbb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ai-utility-link:hover {
+  background: rgba(248, 252, 255, 0.96);
+}
+
+.ai-utility-link.is-muted {
+  opacity: 0.9;
+}
+
+.ai-locked-preview {
+  display: grid;
+  gap: 10px;
+  width: min(680px, 100%);
+  margin-top: 4px;
+}
+
+.ai-locked-preview__bubble {
+  max-width: 78%;
+  padding: 14px 16px;
+  border-radius: 18px;
+  line-height: 1.55;
+  box-shadow: 0 10px 24px rgba(66, 102, 168, 0.08);
+}
+
+.ai-locked-preview__bubble--user {
+  justify-self: end;
+  background: linear-gradient(135deg, rgba(78, 127, 255, 0.14), rgba(104, 153, 255, 0.18));
+  color: #24407a;
+}
+
+.ai-locked-preview__bubble--assistant {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(188, 210, 246, 0.3);
+  color: #35517d;
 }
 
 .ai-chatboard {
@@ -7636,6 +7808,16 @@ h1 {
   gap: 8px;
   padding: 10px 12px;
   border-radius: 18px;
+}
+
+.ai-empty-panel--links {
+  margin-top: 2px;
+}
+
+.ai-empty-state__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .ai-sidebar__section:first-of-type {

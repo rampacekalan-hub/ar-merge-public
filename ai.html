@@ -62,15 +62,33 @@
         <span class="pill">Premium</span>
         <h2 id="aiLockedTitle">Prihlás sa a odomkni Unifyo AI</h2>
         <p id="aiLockedText">AI chat je dostupný po prihlásení a aktivácii členstva.</p>
+        <div class="ai-locked-price">
+          <span class="ai-locked-price__label">Členstvo</span>
+          <strong>1,99 € / mesiac</strong>
+        </div>
+        <div class="ai-locked-highlights">
+          <span class="ai-locked-highlight">AI odpovede pre klienta</span>
+          <span class="ai-locked-highlight">Tabuľky a PDF-ready texty</span>
+          <span class="ai-locked-highlight">Kontakty a kompresia v appke</span>
+        </div>
         <div class="toolbar toolbar--compact">
           <a id="aiLoginLink" href="/app.html" class="button button--ghost">Prihlásiť sa</a>
           <button id="aiCheckoutBtn" class="button button--primary" type="button">Aktivovať členstvo</button>
+        </div>
+        <div class="ai-locked-links">
+          <a class="ai-utility-link" href="/app.html?view=contacts">Kontakty v aplikácii</a>
+          <a class="ai-utility-link" href="/app.html?view=compress">Kompresia v aplikácii</a>
+        </div>
+        <div class="ai-locked-preview">
+          <div class="ai-locked-preview__bubble ai-locked-preview__bubble--user">Napíš stručný email klientovi k hypotéke.</div>
+          <div class="ai-locked-preview__bubble ai-locked-preview__bubble--assistant">Pripravím stručnú verziu, dlhšiu verziu pre klienta a ďalší odporúčaný krok.</div>
         </div>
       </section>
 
       <section id="aiChatReady" class="ai-chatboard is-hidden">
         <div class="ai-workbench-tools ai-workbench-tools--compact">
           <div id="aiQuickActionBar" class="ai-quick-action-bar"></div>
+          <div id="aiToolLinks" class="ai-empty-state__links"></div>
         </div>
         <div id="aiChatFeed" class="ai-chatboard__feed empty-state">AI asistent je pripravený. Začni prvou otázkou.</div>
 
@@ -124,8 +142,16 @@
       { selector: "#aiAttachImageBtn", text: { sk: "Vybrať obrázok", en: "Choose image" } },
       { selector: "#aiAttachQrBtn", text: { sk: "Nahrať z mobilu cez QR", en: "Upload from phone via QR" } },
       { selector: "#aiLockedState .pill", text: { sk: "Premium", en: "Premium" } },
+      { selector: ".ai-locked-price__label", text: { sk: "Členstvo", en: "Membership" } },
+      { selector: ".ai-locked-highlight:nth-child(1)", text: { sk: "AI odpovede pre klienta", en: "AI replies for clients" } },
+      { selector: ".ai-locked-highlight:nth-child(2)", text: { sk: "Tabuľky a PDF-ready texty", en: "Tables and PDF-ready texts" } },
+      { selector: ".ai-locked-highlight:nth-child(3)", text: { sk: "Kontakty a kompresia v appke", en: "Contacts and compression in the app" } },
       { selector: "#aiLoginLink", text: { sk: "Prihlásiť sa", en: "Sign in" } },
       { selector: "#aiCheckoutBtn", text: { sk: "Aktivovať členstvo", en: "Activate membership" } },
+      { selector: ".ai-locked-links .ai-utility-link:nth-child(1)", text: { sk: "Kontakty v aplikácii", en: "Contacts in the app" } },
+      { selector: ".ai-locked-links .ai-utility-link:nth-child(2)", text: { sk: "Kompresia v aplikácii", en: "Compression in the app" } },
+      { selector: ".ai-locked-preview__bubble--user", text: { sk: "Napíš stručný email klientovi k hypotéke.", en: "Write a short mortgage email for the client." } },
+      { selector: ".ai-locked-preview__bubble--assistant", text: { sk: "Pripravím stručnú verziu, dlhšiu verziu pre klienta a ďalší odporúčaný krok.", en: "I will prepare a short version, a longer client version and the next recommended step." } },
       { selector: "#aiLogoutBtn", text: { sk: "Odhlásiť sa", en: "Sign out" } },
       { selector: "#aiAdminBtn", text: { sk: "AI admin", en: "AI admin" } },
       { selector: "#aiQrModalTitle", text: { sk: "Nahraj fotku z mobilu", en: "Upload a photo from your phone" } },

@@ -356,6 +356,10 @@ async function bootstrap() {
   renderChooserDealMini();
   if (shouldAutoOpenAdminPanel()) {
     openAdminPanel();
+    clearPanelQueryParams();
+  } else if (shouldAutoOpenAccountPanel()) {
+    openAccountPanel();
+    clearPanelQueryParams();
   }
 }
 
@@ -766,6 +770,23 @@ function shouldAutoOpenAdminPanel() {
   return params.get("openAdmin") === "1";
 }
 
+function shouldAutoOpenAccountPanel() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("openAccount") === "1";
+}
+
+function clearPanelQueryParams() {
+  const url = new URL(window.location.href);
+  const hasAccount = url.searchParams.get("openAccount") === "1";
+  const hasAdmin = url.searchParams.get("openAdmin") === "1";
+  if (!hasAccount && !hasAdmin) {
+    return;
+  }
+  url.searchParams.delete("openAccount");
+  url.searchParams.delete("openAdmin");
+  window.history.replaceState({}, "", url.toString());
+}
+
 function handleLanguageChange() {
   renderAccessState();
   renderCompressionAccessState();
@@ -1046,14 +1067,52 @@ function renderAccountAiMemory() {
   const messageCount = Array.isArray(overview.messages) ? overview.messages.length : 0;
   const focus = String(profile.focus || "").trim();
   const notes = String(profile.notes || "").trim();
+  const topics = notes
+    .split("|")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  const relevanceLabel = threadCount >= 4
+    ? tr("Vysoká", "High")
+    : threadCount >= 2
+      ? tr("Stredná", "Medium")
+      : tr("Základná", "Basic");
+  const memoryHealth = messageCount >= 10
+    ? tr("Silná", "Strong")
+    : messageCount >= 4
+      ? tr("Stabilná", "Stable")
+      : tr("Rozbieha sa", "Growing");
   elements.accountAiMemory.className = "account-summary";
   elements.accountAiMemory.innerHTML = `
     <article class="account-card">
-      <div class="account-card__row"><strong>${escapeHtml(tr("Aktívny fokus", "Active focus"))}</strong><span>${escapeHtml(focus || tr("Denný pracovný kontext", "Daily work context"))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("AI pozná tém", "Known topics"))}</strong><span>${escapeHtml(String(threadCount))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Správy v aktívnom vlákne", "Messages in active thread"))}</strong><span>${escapeHtml(String(messageCount))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Relevancia kontextu", "Context relevance"))}</strong><span>${escapeHtml(threadCount > 0 ? tr("Vysoká", "High") : tr("Základná", "Basic"))}</span></div>
+      <div class="account-ai-stats">
+        <article class="account-ai-stat account-ai-stat--focus">
+          <span>${escapeHtml(tr("Aktívny fokus", "Active focus"))}</span>
+          <strong>${escapeHtml(focus || tr("Denný pracovný kontext", "Daily work context"))}</strong>
+        </article>
+        <article class="account-ai-stat account-ai-stat--threads">
+          <span>${escapeHtml(tr("Chaty", "Chats"))}</span>
+          <strong>${escapeHtml(String(threadCount))}</strong>
+        </article>
+        <article class="account-ai-stat account-ai-stat--messages">
+          <span>${escapeHtml(tr("Správy", "Messages"))}</span>
+          <strong>${escapeHtml(String(messageCount))}</strong>
+        </article>
+        <article class="account-ai-stat account-ai-stat--memory">
+          <span>${escapeHtml(tr("Pamäť", "Memory"))}</span>
+          <strong>${escapeHtml(memoryHealth)}</strong>
+        </article>
+      </div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Relevancia kontextu", "Context relevance"))}</strong><span class="account-ai-badge">${escapeHtml(relevanceLabel)}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Aktualizované", "Updated"))}</strong><span>${escapeHtml(formatDate(profile.updated_at))}</span></div>
+      <div class="account-ai-topics">
+        <strong>${escapeHtml(tr("Čo si AI práve pamätá", "What AI is currently carrying"))}</strong>
+        <div class="account-ai-topics__list">
+          ${topics.length
+            ? topics.map((topic) => `<span class="account-ai-topic">${escapeHtml(topic)}</span>`).join("")
+            : `<span class="account-ai-topic">${escapeHtml(tr("Pracovný kontext sa ešte len tvorí", "Working context is still forming"))}</span>`}
+        </div>
+      </div>
       <div class="account-card__note">${escapeHtml(notes || tr("AI si drží pracovný kontext, klientské témy a smerovanie konverzácií naprieč chatmi.", "AI keeps working context, client topics and conversation direction across chats."))}</div>
     </article>
   `;
