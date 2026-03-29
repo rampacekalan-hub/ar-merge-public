@@ -7778,42 +7778,32 @@ h1 {
 }
 
 .modal__dialog--qr {
-  max-width: 640px;
+  max-width: 420px;
+  padding: 30px 28px 28px;
+  text-align: center;
 }
 
 .ai-qr-modal__grid {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 22px;
-  align-items: start;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  justify-items: center;
 }
 
 .ai-qr-modal__code-card {
   display: grid;
   place-items: center;
-  padding: 14px;
-  border-radius: 22px;
-  background: rgba(246, 250, 255, 0.92);
-  border: 1px solid rgba(193, 212, 255, 0.22);
+  padding: 16px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(247, 250, 255, 0.98), rgba(240, 246, 255, 0.96));
+  border: 1px solid rgba(193, 212, 255, 0.3);
+  box-shadow: 0 18px 40px rgba(89, 113, 155, 0.12);
 }
 
 .ai-qr-modal__image {
-  width: 220px;
-  height: 220px;
+  width: 236px;
+  height: 236px;
   object-fit: contain;
-}
-
-.ai-qr-modal__copy {
-  display: grid;
-  gap: 14px;
-  align-content: start;
-}
-
-.ai-qr-modal__hint {
-  margin: 0;
-  color: #667a97;
-  font-size: 0.86rem;
-  line-height: 1.5;
 }
 
 .ai-mobile-upload-page {
@@ -8188,7 +8178,7 @@ h1 {
   .ai-qr-modal__code-card,
   .ai-qr-modal__image {
     width: 100%;
-    max-width: 240px;
+    max-width: 236px;
     height: auto;
     justify-self: center;
   }
