@@ -40,6 +40,7 @@ const state = {
     },
   },
   chooserDealDismissed: false,
+  sessionTimer: null,
 };
 
 const elements = {
@@ -824,6 +825,7 @@ async function refreshCurrentUser() {
   const response = await fetch("/api/me");
   const payload = await response.json();
   state.user = payload.user;
+  scheduleSessionAutoLogout();
 
   const url = new URL(window.location.href);
   const checkoutState = url.searchParams.get("checkout");
@@ -857,6 +859,25 @@ async function refreshCurrentUser() {
     url.searchParams.delete("reset_token");
     window.history.replaceState({}, "", url.toString());
   }
+}
+
+function scheduleSessionAutoLogout() {
+  if (state.sessionTimer) {
+    window.clearTimeout(state.sessionTimer);
+    state.sessionTimer = null;
+  }
+  const expiry = state.user?.session_expires_at ? new Date(state.user.session_expires_at).getTime() : 0;
+  if (!expiry || Number.isNaN(expiry)) {
+    return;
+  }
+  const waitMs = Math.max(0, expiry - Date.now());
+  if (!waitMs) {
+    logout();
+    return;
+  }
+  state.sessionTimer = window.setTimeout(() => {
+    logout();
+  }, waitMs);
 }
 
 async function fetchAccountPanel() {
@@ -1072,11 +1093,7 @@ function renderAccountAiMemory() {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 5);
-  const relevanceLabel = threadCount >= 4
-    ? tr("Vysoká", "High")
-    : threadCount >= 2
-      ? tr("Stredná", "Medium")
-      : tr("Základná", "Basic");
+  const relevancePercent = Math.min(98, 34 + threadCount * 9 + Math.min(messageCount, 24));
   const memoryHealth = messageCount >= 10
     ? tr("Silná", "Strong")
     : messageCount >= 4
@@ -1102,8 +1119,12 @@ function renderAccountAiMemory() {
           <span>${escapeHtml(tr("Pamäť", "Memory"))}</span>
           <strong>${escapeHtml(memoryHealth)}</strong>
         </article>
+        <article class="account-ai-stat account-ai-stat--relevance">
+          <span>${escapeHtml(tr("Relevancia", "Relevance"))}</span>
+          <strong>${escapeHtml(String(relevancePercent))}%</strong>
+        </article>
       </div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Relevancia kontextu", "Context relevance"))}</strong><span class="account-ai-badge">${escapeHtml(relevanceLabel)}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Aktuálne smerovanie", "Current direction"))}</strong><span class="account-ai-badge">${escapeHtml(focus || tr("Denný pracovný kontext", "Daily work context"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Aktualizované", "Updated"))}</strong><span>${escapeHtml(formatDate(profile.updated_at))}</span></div>
       <div class="account-ai-topics">
         <strong>${escapeHtml(tr("Čo si AI práve pamätá", "What AI is currently carrying"))}</strong>
@@ -1137,6 +1158,8 @@ function renderActivityList(target, items) {
         ${item.count > 1 ? `<span>${escapeHtml(String(item.count))}×</span>` : ""}
         ${item.files ? `<span>${escapeHtml(String(item.files))} súbory</span>` : ""}
         ${item.status ? `<span>${escapeHtml(item.status)}</span>` : ""}
+        ${item.ip ? `<span>${escapeHtml(item.ip)}</span>` : ""}
+        ${item.target ? `<span>${escapeHtml(item.target)}</span>` : ""}
       </div>
     </article>
   `).join("");
@@ -1167,6 +1190,8 @@ function collapseActivityFeed(items, limit = 12) {
       count: 1,
       files,
       status: item.meta?.status || "",
+      ip: item.meta?.ip || "",
+      target: item.meta?.target_user_email || item.meta?.contact_email || "",
       last_at: item.created_at || "",
     };
     buckets.push(bucket);
@@ -1207,6 +1232,30 @@ function renderAdminStats() {
       <span>Registrácie za 30 dní</span>
       <strong>${escapeHtml(String(stats.recent_registrations || 0))}</strong>
     </article>
+    <article class="summary-card">
+      <span>AI aktívni používatelia</span>
+      <strong>${escapeHtml(String(stats.ai_active_users || 0))}</strong>
+    </article>
+    <article class="summary-card">
+      <span>AI vlákna</span>
+      <strong>${escapeHtml(String(stats.ai_threads || 0))}</strong>
+    </article>
+    <article class="summary-card">
+      <span>AI správy</span>
+      <strong>${escapeHtml(String(stats.ai_messages || 0))}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Aktivity za 30 dní</span>
+      <strong>${escapeHtml(String(stats.recent_logs || 0))}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Unikátne IP</span>
+      <strong>${escapeHtml(String(stats.recent_unique_ips || 0))}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Admin zásahy</span>
+      <strong>${escapeHtml(String(stats.recent_admin_actions || 0))}</strong>
+    </article>
   `;
 }
 
@@ -1246,8 +1295,8 @@ function renderAdminUsers() {
             <td>
               <div class="admin-actions">
                 <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="detail" type="button">Detail</button>
-                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="activate_30d" type="button">+30 dní</button>` : ""}
-                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="deactivate" type="button">Deaktivovať</button>` : ""}
+                ${canManageAdminTools ? `<button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="activate_30d" type="button">Aktivovať 30 dní</button>` : ""}
+                ${canManageAdminTools ? `<button class="button button--ghost admin-action admin-action--danger" data-user-id="${user.id}" data-action="delete_account" type="button">Vymazať účet</button>` : ""}
               </div>
             </td>
           </tr>
@@ -1289,6 +1338,12 @@ async function handleAdminAction(event) {
   if (action === "detail") {
     await openAdminUserDetail(userId);
     return;
+  }
+  if (action === "delete_account") {
+    const confirmed = window.confirm("Naozaj chceš používateľovi vymazať účet? Ak bola strhnutá platba, e-mailom odíde informácia o vrátení peňazí do 1 týždňa.");
+    if (!confirmed) {
+      return;
+    }
   }
   if (!state.user?.can_manage_admin_tools) {
     window.alert("Členstvá môže upravovať len hlavný správca.");
@@ -1339,10 +1394,7 @@ async function openAdminUserDetail(userId, threadId = 0) {
 function renderAdminUserDetail(payload) {
   const user = payload.user;
   const activity = payload.activity || [];
-  const aiThreads = payload.ai_threads || [];
-  const aiMessages = payload.ai_messages || [];
-  const aiActiveThread = payload.ai_active_thread || null;
-  const activeThreadId = Number(aiActiveThread?.id || 0);
+  const assistantStats = payload.assistant_stats || {};
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   elements.adminUserDetail.className = "panel-card";
   elements.adminUserDetail.innerHTML = `
@@ -1358,18 +1410,33 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_status || "inactive")}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
     </div>
-    ${canManageAdminTools ? `<form id="adminMembershipForm" class="inline-form">
-      <label class="auth-field auth-field--inline">
-        <span>Predĺžiť o dni</span>
-        <input id="adminMembershipDays" type="number" min="1" max="365" value="30">
-      </label>
-      <div class="admin-actions">
-        <button class="button button--primary" type="submit">Predĺžiť členstvo</button>
-        <button id="adminDeactivateBtn" class="button button--ghost" type="button">Deaktivovať</button>
-        <button id="adminRoleBtn" class="button button--ghost" type="button">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
-      </div>
-    </form>` : `<p class="panel-copy">Tento administrátorský účet má prístup k prehľadu, ale zmeny členstva a rolí môže robiť len hlavný správca.</p>`}
+    ${canManageAdminTools ? `<div class="admin-actions">
+      <button id="adminActivateBtn" class="button button--primary" type="button">Aktivovať 30 dní</button>
+      <button id="adminDeleteBtn" class="button button--ghost admin-action--danger" type="button">Vymazať účet</button>
+      <button id="adminRoleBtn" class="button button--ghost" type="button">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
+    </div>
+    <p class="panel-copy">Vymazanie účtu je finálne. Používateľ dostane e-mail a informáciu, že prípadné vrátenie platby bude vybavené do 7 dní.</p>` : `<p class="panel-copy">Tento administrátorský účet má prístup k prehľadu, ale zmeny členstva a rolí môže robiť len hlavný správca.</p>`}
     <p id="adminUserMessage" class="auth-message" hidden></p>
+    <div class="section-head section-head--tight">
+      <div>
+        <p class="section-kicker">AI štatistiky používateľa</p>
+        <h3>Pracovný kontext a využitie</h3>
+      </div>
+      <button id="adminAssistantResetBtn" class="button button--ghost" type="button">Vymazať AI pamäť</button>
+    </div>
+    <div class="summary-grid summary-grid--admin-user">
+      <article class="summary-card summary-card--accent"><span>Fokus</span><strong>${escapeHtml(assistantStats.focus || "—")}</strong></article>
+      <article class="summary-card"><span>Chaty</span><strong>${escapeHtml(String(assistantStats.thread_count || 0))}</strong></article>
+      <article class="summary-card"><span>Správy</span><strong>${escapeHtml(String(assistantStats.message_count || 0))}</strong></article>
+      <article class="summary-card"><span>AI odpovede</span><strong>${escapeHtml(String(assistantStats.assistant_count || 0))}</strong></article>
+      <article class="summary-card"><span>Web overenia</span><strong>${escapeHtml(String(assistantStats.web_count || 0))}</strong></article>
+      <article class="summary-card"><span>Obrázky</span><strong>${escapeHtml(String(assistantStats.image_count || 0))}</strong></article>
+      <article class="summary-card"><span>Relevancia</span><strong>${escapeHtml(String(assistantStats.relevance_percent || 0))}%</strong></article>
+      <article class="summary-card"><span>Naposledy aktívny</span><strong>${escapeHtml(formatDateTime(assistantStats.last_message_at))}</strong></article>
+    </div>
+    <div class="account-card">
+      <div class="account-card__row"><strong>Aktívne témy</strong><span>${escapeHtml((assistantStats.topics || []).join(", ") || "Zatiaľ bez tém")}</span></div>
+    </div>
     <div class="section-head section-head--tight">
       <div>
         <p class="section-kicker">História používateľa</p>
@@ -1377,133 +1444,30 @@ function renderAdminUserDetail(payload) {
       </div>
     </div>
     <div id="adminUserActivity" class="activity-list"></div>
-    <div class="section-head section-head--tight">
-      <div>
-        <p class="section-kicker">AI chaty</p>
-        <h3>História konverzácií</h3>
-      </div>
-      <button id="adminAssistantResetBtn" class="button button--ghost" type="button">Vymazať AI pamäť</button>
-    </div>
-    <div id="adminAssistantThreads" class="admin-thread-list"></div>
-    <div id="adminAssistantMessages" class="admin-assistant-feed"></div>
   `;
 
-  const membershipForm = document.getElementById("adminMembershipForm");
-  const daysInput = document.getElementById("adminMembershipDays");
-  const deactivateBtn = document.getElementById("adminDeactivateBtn");
+  const activateBtn = document.getElementById("adminActivateBtn");
+  const deleteBtn = document.getElementById("adminDeleteBtn");
   const roleBtn = document.getElementById("adminRoleBtn");
   const messageEl = document.getElementById("adminUserMessage");
   renderActivityList(document.getElementById("adminUserActivity"), activity);
-  renderAdminAssistantThreads(document.getElementById("adminAssistantThreads"), aiThreads, aiActiveThread);
-  renderAdminAssistantMessages(document.getElementById("adminAssistantMessages"), aiMessages, user.id, activeThreadId);
 
-  membershipForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await submitAdminMembershipAction(user.id, "activate_days", {
-      days: Number(daysInput?.value || 30),
-      messageEl,
-    });
+  activateBtn?.addEventListener("click", async () => {
+    await submitAdminMembershipAction(user.id, "activate_30d", { messageEl });
   });
-  deactivateBtn?.addEventListener("click", async () => {
-    await submitAdminMembershipAction(user.id, "deactivate", { messageEl });
+  deleteBtn?.addEventListener("click", async () => {
+    const confirmed = window.confirm("Naozaj chceš účet vymazať? Používateľ dostane e-mail a prípadné vrátenie peňazí bude komunikované do 1 týždňa.");
+    if (!confirmed) {
+      return;
+    }
+    await submitAdminMembershipAction(user.id, "delete_account", { messageEl });
   });
   roleBtn?.addEventListener("click", async () => {
     await submitAdminRoleUpdate(user.id, user.role === "admin" ? "user" : "admin", messageEl);
   });
-  document.getElementById("adminAssistantThreads")?.querySelectorAll("[data-admin-thread-id]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      await openAdminUserDetail(user.id, Number(button.dataset.adminThreadId || 0));
-    });
-  });
-  document.getElementById("adminAssistantMessages")?.querySelectorAll("[data-review-status]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      await submitAdminAssistantReview(
-        user.id,
-        Number(button.dataset.messageId || 0),
-        button.dataset.reviewStatus,
-        Number(button.dataset.threadId || activeThreadId || 0),
-        messageEl
-      );
-    });
-  });
   document.getElementById("adminAssistantResetBtn")?.addEventListener("click", async () => {
     await submitAdminAssistantMemoryReset(user.id, messageEl);
   });
-}
-
-function renderAdminAssistantThreads(target, threads, activeThread) {
-  if (!target) {
-    return;
-  }
-  if (!threads.length) {
-    target.className = "empty-state";
-    target.textContent = "Používateľ zatiaľ nemá AI konverzácie.";
-    return;
-  }
-  target.className = "admin-thread-list";
-  target.innerHTML = threads.map((thread) => `
-    <button
-      class="admin-thread-item${Number(thread.id) === Number(activeThread?.id || 0) ? " is-active" : ""}"
-      type="button"
-      data-admin-thread-id="${thread.id}"
-    >
-      <strong>${escapeHtml(thread.title || "Nový chat")}</strong>
-      <span>${escapeHtml(thread.last_message ? truncateText(thread.last_message, 110) : "Bez správ")}</span>
-    </button>
-  `).join("");
-}
-
-function renderAdminAssistantMessages(target, messages, userId, activeThreadId = 0) {
-  if (!target) {
-    return;
-  }
-  if (!messages.length) {
-    target.className = "empty-state";
-    target.textContent = "Vo vybranom AI chate zatiaľ nie sú správy.";
-    return;
-  }
-  target.className = "admin-assistant-feed";
-  target.innerHTML = messages.map((message) => `
-    <article class="admin-assistant-message admin-assistant-message--${escapeHtml(message.role || "assistant")}">
-      <div class="admin-assistant-message__head">
-        <strong>${escapeHtml(message.role === "user" ? "Používateľ" : "AI asistent")}</strong>
-        <span>${escapeHtml(formatDateTime(message.created_at))}</span>
-        ${message.role === "assistant" ? `<span class="pill pill--small">${escapeHtml(formatReviewStatus(message.review_status))}</span>` : ""}
-      </div>
-      ${renderAdminAssistantMeta(message.meta)}
-      <div class="admin-assistant-message__body">${formatMessageHtml(message.content || "")}</div>
-      ${message.role === "assistant" ? `
-        <div class="admin-actions">
-          <button class="button button--ghost" type="button" data-message-id="${message.id}" data-thread-id="${activeThreadId}" data-review-status="approved">Schváliť</button>
-          <button class="button button--ghost" type="button" data-message-id="${message.id}" data-thread-id="${activeThreadId}" data-review-status="needs_review">Označiť na kontrolu</button>
-        </div>
-      ` : ""}
-    </article>
-  `).join("");
-}
-
-function renderAdminAssistantMeta(meta) {
-  const normalized = meta && typeof meta === "object" ? meta : {};
-  const chips = [];
-  if (normalized.prompt_version) {
-    chips.push(`Prompt ${escapeHtml(String(normalized.prompt_version))}`);
-  }
-  if (normalized.model) {
-    chips.push(escapeHtml(String(normalized.model)));
-  }
-  if (normalized.used_web_search) {
-    chips.push("Web overenie");
-  }
-  if (normalized.used_image) {
-    chips.push("Obrázok");
-  }
-  if (normalized.attachment_name) {
-    chips.push(`Príloha: ${escapeHtml(String(normalized.attachment_name))}`);
-  }
-  if (!chips.length) {
-    return "";
-  }
-  return `<div class="admin-assistant-message__meta-row">${chips.map((chip) => `<span class="pill pill--small">${chip}</span>`).join("")}</div>`;
 }
 
 async function submitAdminAssistantReview(userId, messageId, reviewStatus, threadId, messageEl) {
@@ -1578,7 +1542,12 @@ async function submitAdminMembershipAction(userId, action, { days = 0, messageEl
       messageEl.classList.remove("auth-message--error");
     }
     await fetchAdminPanel();
-    await openAdminUserDetail(userId);
+    if (action !== "delete_account") {
+      await openAdminUserDetail(userId);
+    } else {
+      elements.adminUserDetail.className = "panel-card empty-state";
+      elements.adminUserDetail.textContent = "Účet bol vymazaný.";
+    }
     if (state.user && state.user.id === userId) {
       await refreshCurrentUser();
       renderAccessState();

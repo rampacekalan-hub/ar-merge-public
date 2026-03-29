@@ -13,6 +13,7 @@ const aiState = {
   lastRenderedTitle: "",
   freshAssistantKey: "",
   freshAssistantResetTimer: null,
+  sessionTimer: null,
 };
 
 const QUICK_ACTIONS = [
@@ -303,6 +304,26 @@ async function refreshAiUser() {
   const response = await fetch("/api/me");
   const payload = await response.json();
   aiState.user = payload.user || null;
+  scheduleAiSessionAutoLogout();
+}
+
+function scheduleAiSessionAutoLogout() {
+  if (aiState.sessionTimer) {
+    window.clearTimeout(aiState.sessionTimer);
+    aiState.sessionTimer = null;
+  }
+  const expiresAt = aiState.user?.session_expires_at ? new Date(aiState.user.session_expires_at).getTime() : 0;
+  if (!expiresAt) {
+    return;
+  }
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) {
+    handleLogout();
+    return;
+  }
+  aiState.sessionTimer = window.setTimeout(() => {
+    handleLogout();
+  }, remaining);
 }
 
 function getThreadStorageKey() {
@@ -504,6 +525,7 @@ function renderMessages() {
           ${renderMessageContent(message, index)}
           ${renderMessageSource(message)}
           ${renderMessageAttachment(message)}
+          ${renderGeneratedAsset(message)}
           ${renderFollowupActions(message, index)}
         </div>
       </div>
@@ -1240,6 +1262,7 @@ function formatMessageHtml(text) {
   const lines = normalized.split("\n");
   const blocks = [];
   let listItems = [];
+  let tableLines = [];
 
   function flushList() {
     if (!listItems.length) {
@@ -1249,12 +1272,34 @@ function formatMessageHtml(text) {
     listItems = [];
   }
 
+  function flushTable() {
+    if (!tableLines.length) {
+      return;
+    }
+    const renderedTable = renderMarkdownTable(tableLines);
+    if (renderedTable) {
+      blocks.push(renderedTable);
+    } else {
+      tableLines.forEach((line) => {
+        blocks.push(`<p>${formatInlineText(line)}</p>`);
+      });
+    }
+    tableLines = [];
+  }
+
   lines.forEach((line) => {
     const trimmed = line.trim();
     if (!trimmed) {
       flushList();
+      flushTable();
       return;
     }
+    if (trimmed.includes("|") && /^\|?.+\|.+/.test(trimmed)) {
+      flushList();
+      tableLines.push(trimmed);
+      return;
+    }
+    flushTable();
     if (/^(zdroj|source)\s*:/i.test(trimmed)) {
       flushList();
       return;
@@ -1288,7 +1333,42 @@ function formatMessageHtml(text) {
   });
 
   flushList();
+  flushTable();
   return blocks.join("");
+}
+
+function renderMarkdownTable(lines) {
+  if (!Array.isArray(lines) || lines.length < 2) {
+    return "";
+  }
+  const rows = lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim()));
+  if (rows.length < 2) {
+    return "";
+  }
+  const separatorIndex = rows.findIndex((row) => row.every((cell) => /^:?-{2,}:?$/.test(cell)));
+  if (separatorIndex !== 1) {
+    return "";
+  }
+  const headers = rows[0];
+  const bodyRows = rows.slice(2).filter((row) => row.some((cell) => cell));
+  if (!headers.length || !bodyRows.length) {
+    return "";
+  }
+  return `
+    <div class="ai-message__table-wrap">
+      <table class="ai-message__table">
+        <thead>
+          <tr>${headers.map((cell) => `<th>${formatInlineText(cell)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${bodyRows.map((row) => `<tr>${headers.map((_, index) => `<td>${formatInlineText(row[index] || "")}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function getExpandKey(message, index) {
@@ -1443,7 +1523,8 @@ function formatThreadTitle(value) {
   if (!normalized || normalized === "Nový chat" || normalized === "New chat") {
     return tr("Nový chat", "New chat");
   }
-  return truncateText(normalized, 44);
+  const compact = normalized.split(/\s+/).slice(0, 8).join(" ");
+  return truncateText(compact, 56);
 }
 
 function renderMessageAttachment(message) {
@@ -1459,6 +1540,23 @@ function renderMessageAttachment(message) {
         <span>${escapeHtml(tr("Priložený obrázok", "Attached image"))}</span>
         <strong>${escapeHtml(attachmentName)}</strong>
       </div>
+    </div>
+  `;
+}
+
+function renderGeneratedAsset(message) {
+  const url = String(message?.meta?.generated_asset_url || "").trim();
+  const name = String(message?.meta?.generated_asset_name || "").trim();
+  const kind = String(message?.meta?.generated_asset_kind || "").trim();
+  if (!url || !name) {
+    return "";
+  }
+  return `
+    <div class="ai-message__download">
+      <a class="ai-message__download-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" download="${escapeHtml(name)}">
+        ${escapeHtml(kind === "pdf" ? tr("Stiahnuť PDF", "Download PDF") : tr("Stiahnuť súbor", "Download file"))}
+      </a>
+      <span class="ai-message__download-name">${escapeHtml(name)}</span>
     </div>
   `;
 }

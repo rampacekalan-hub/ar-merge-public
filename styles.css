@@ -1867,6 +1867,25 @@ h3 {
   font-size: 0.84rem;
 }
 
+.summary-grid--admin-user {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-card--accent {
+  background: linear-gradient(135deg, rgba(61, 117, 255, 0.1), rgba(89, 212, 181, 0.12));
+  border: 1px solid rgba(79, 126, 244, 0.16);
+}
+
+.admin-action--danger {
+  color: #c23d4f !important;
+  border-color: rgba(194, 61, 79, 0.18) !important;
+}
+
+.admin-action--danger:hover {
+  background: rgba(255, 241, 243, 0.92) !important;
+  border-color: rgba(194, 61, 79, 0.26) !important;
+}
+
 .activity-list {
   display: grid;
   gap: 8px;
@@ -8018,6 +8037,39 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.ai-message__download {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ai-message__download-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2f63ea, #3c7dff);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 12px 26px rgba(47, 99, 234, 0.2);
+}
+
+.ai-message__download-link:hover {
+  filter: brightness(1.03);
+}
+
+.ai-message__download-name {
+  color: #617493;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
 .ai-message__source {
   display: inline-flex;
   align-items: center;
@@ -8065,6 +8117,45 @@ h1 {
 .ai-message__source-link {
   color: #1d63dc;
   font-weight: 700;
+}
+
+.ai-message__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 10px;
+  border: 1px solid rgba(178, 196, 226, 0.22);
+  border-radius: 18px;
+  background: rgba(248, 251, 255, 0.9);
+}
+
+.ai-message__table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+}
+
+.ai-message__table th,
+.ai-message__table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #173059;
+  border-bottom: 1px solid rgba(187, 204, 231, 0.2);
+}
+
+.ai-message__table th {
+  background: rgba(235, 242, 255, 0.82);
+  color: #24407a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ai-message__table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .ai-message__typing-wrap {

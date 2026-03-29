@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 import openpyxl
 import stripe
 import xlrd
+import fitz
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -37,7 +38,7 @@ PORT = int(os.environ.get("PORT", "8080"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "app.db"))
 SESSION_COOKIE_NAME = "cdc_session"
-SESSION_TTL_DAYS = 30
+SESSION_TTL_SECONDS = 60 * 60
 PASSWORD_ITERATIONS = 200_000
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
@@ -218,6 +219,19 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (thread_id) REFERENCES assistant_threads(id) ON DELETE CASCADE,
                 FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS generated_assets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT NOT NULL UNIQUE,
+                file_name TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                payload_base64 TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'file',
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS assistant_upload_sessions (
@@ -429,6 +443,174 @@ Správa:
         smtp.send_message(message)
 
 
+def send_account_deleted_email(to_email, name):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
+        return
+
+    message = EmailMessage()
+    message["Subject"] = "Unifyo - účet bol zrušený"
+    message["From"] = SMTP_FROM_EMAIL
+    message["To"] = to_email
+    greeting = name or to_email
+    message.set_content(
+        f"""Dobrý deň {greeting},
+
+váš účet v Unifyo bol administratívne zrušený.
+
+Ak na účte prebehla platba alebo obnova členstva, prípadné vrátenie platby bude spracované do 7 dní.
+
+Ak ide o nedorozumenie, odpovedzte priamo na tento e-mail.
+"""
+    )
+
+    if SMTP_PORT == 465:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+            smtp.send_message(message)
+        return
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
+        smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.send_message(message)
+
+
+def sanitize_download_filename(value, fallback="export"):
+    raw = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value or "").strip())
+    raw = raw.strip("._-")
+    return raw[:80] or fallback
+
+
+def parse_markdown_table(text):
+    lines = [line.rstrip() for line in str(text or "").splitlines() if line.strip()]
+    for index in range(len(lines) - 1):
+        header_line = lines[index]
+        divider_line = lines[index + 1]
+        if "|" not in header_line or "|" not in divider_line:
+            continue
+        divider_clean = divider_line.replace("|", "").replace(":", "").replace("-", "").replace(" ", "")
+        if divider_clean:
+            continue
+        headers = [cell.strip() for cell in header_line.strip().strip("|").split("|")]
+        rows = []
+        for row_line in lines[index + 2:]:
+            if "|" not in row_line:
+                break
+            values = [cell.strip() for cell in row_line.strip().strip("|").split("|")]
+            if len(values) != len(headers):
+                break
+            rows.append(values)
+        if headers and rows:
+            return {"headers": headers, "rows": rows}
+    return None
+
+
+def build_pdf_bytes(title, body_text, table_data=None):
+    document = fitz.open()
+    page = document.new_page()
+    margin_x = 46
+    y = 54
+    page.insert_text((margin_x, y), title or "Unifyo export", fontsize=18, fontname="helv", fill=(0.07, 0.13, 0.24))
+    y += 28
+
+    if table_data and table_data.get("headers") and table_data.get("rows"):
+        headers = table_data["headers"][:6]
+        rows = table_data["rows"][:24]
+        widths = [78, 86, 82, 96, 96, 96][: len(headers)]
+        x_positions = [margin_x]
+        for width in widths[:-1]:
+            x_positions.append(x_positions[-1] + width)
+
+        for idx, header in enumerate(headers):
+            page.insert_text((x_positions[idx], y), str(header)[:28], fontsize=10, fontname="helv", fill=(0.1, 0.22, 0.4))
+        y += 18
+        for row in rows:
+            for idx, value in enumerate(row[: len(headers)]):
+                page.insert_text((x_positions[idx], y), str(value)[:30], fontsize=9, fontname="helv", fill=(0.15, 0.18, 0.24))
+            y += 16
+            if y > 760:
+                page = document.new_page()
+                y = 54
+    else:
+        text = str(body_text or "").strip()
+        for paragraph in [item.strip() for item in text.split("\n") if item.strip()]:
+            rect = fitz.Rect(margin_x, y, 550, 790)
+            written = page.insert_textbox(rect, paragraph, fontsize=11, fontname="helv", fill=(0.15, 0.18, 0.24), lineheight=1.25)
+            y += max(26, int((rect.height - written) / 8) if written < 0 else 24)
+            if y > 760:
+                page = document.new_page()
+                y = 54
+
+    pdf_bytes = document.tobytes()
+    document.close()
+    return pdf_bytes
+
+
+def strip_markdown_table_lines(text):
+    lines = str(text or "").splitlines()
+    kept = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("|") and stripped.endswith("|"):
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()
+
+
+def should_generate_pdf_asset(user_message, assistant_reply):
+    combined = f"{user_message or ''} {assistant_reply or ''}".lower()
+    triggers = (
+        " pdf",
+        "v pdf",
+        "do pdf",
+        "stiahnuť pdf",
+        "stiahnut pdf",
+        "download pdf",
+        "pdf-ready",
+    )
+    return any(trigger in combined for trigger in triggers)
+
+
+def store_generated_asset(connection, user_id, file_name, content_type, payload_bytes, kind="file", ttl_minutes=30):
+    now = utc_now()
+    token = secrets.token_urlsafe(18)
+    connection.execute(
+        """
+        INSERT INTO generated_assets (user_id, token, file_name, content_type, payload_base64, kind, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            token,
+            file_name,
+            content_type,
+            base64.b64encode(payload_bytes).decode("ascii"),
+            kind,
+            format_timestamp(now),
+            format_timestamp(now + timedelta(minutes=ttl_minutes)),
+        ),
+    )
+    connection.commit()
+    return token
+
+
+def get_generated_asset(connection, user_id, token):
+    row = connection.execute(
+        "SELECT * FROM generated_assets WHERE token = ? AND user_id = ?",
+        (str(token or "").strip(), user_id),
+    ).fetchone()
+    if not row:
+        return None
+    expires_at = parse_timestamp(row["expires_at"])
+    if not expires_at or expires_at <= utc_now():
+        connection.execute("DELETE FROM generated_assets WHERE token = ?", (token,))
+        connection.commit()
+        return None
+    return row
+
+
 def require_json(handler):
     try:
         content_length = int(handler.headers.get("Content-Length", "0"))
@@ -451,7 +633,7 @@ def get_cookie_token(headers):
 def create_session(connection, user_id):
     token = secrets.token_urlsafe(32)
     now = utc_now()
-    expires_at = now + timedelta(days=SESSION_TTL_DAYS)
+    expires_at = now + timedelta(seconds=SESSION_TTL_SECONDS)
     connection.execute(
         """
         INSERT INTO sessions (user_id, token_hash, expires_at, created_at)
@@ -478,6 +660,20 @@ def log_activity(connection, event_type, event_label, user_id=None, **meta):
         ),
     )
     connection.commit()
+
+
+def get_request_ip(handler):
+    forwarded = str(handler.headers.get("X-Forwarded-For", "") or "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    client = getattr(handler, "client_address", None)
+    if client and client[0]:
+        return str(client[0])
+    return ""
+
+
+def get_request_agent(handler):
+    return str(handler.headers.get("User-Agent", "") or "").strip()
 
 
 def clear_session(connection, token):
@@ -513,6 +709,17 @@ def get_session_user(connection, headers):
         clear_session(connection, token)
         return None
     return row
+
+
+def get_session_expiry(connection, headers):
+    token = get_cookie_token(headers)
+    if not token:
+        return ""
+    row = connection.execute(
+        "SELECT expires_at FROM sessions WHERE token_hash = ?",
+        (hash_session_token(token),),
+    ).fetchone()
+    return row["expires_at"] if row else ""
 
 
 def get_membership(connection, user_id):
@@ -970,6 +1177,77 @@ def refresh_assistant_profile_memory(connection, user_id):
     connection.commit()
 
 
+def get_assistant_usage_stats(connection, user_id):
+    counts_row = connection.execute(
+        """
+        SELECT
+            COUNT(DISTINCT thread_id) AS thread_count,
+            COUNT(*) AS message_count,
+            SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) AS assistant_count,
+            SUM(CASE WHEN role = 'assistant' AND instr(meta_json, '"used_web_search": true') > 0 THEN 1 ELSE 0 END) AS web_count,
+            SUM(CASE WHEN instr(meta_json, 'attachment_preview') > 0 OR instr(meta_json, '"used_image": true') > 0 THEN 1 ELSE 0 END) AS image_count,
+            MAX(created_at) AS last_message_at
+        FROM assistant_messages
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    ).fetchone()
+    profile = get_assistant_profile(connection, user_id)
+    topics = [item.strip() for item in str(profile.get("notes") or "").split("|") if item.strip()]
+    message_count = int(counts_row["message_count"] or 0)
+    thread_count = int(counts_row["thread_count"] or 0)
+    web_count = int(counts_row["web_count"] or 0)
+    image_count = int(counts_row["image_count"] or 0)
+    relevance = 0
+    if message_count:
+        relevance = min(96, 35 + min(thread_count, 6) * 7 + min(message_count, 30) // 2 + min(web_count, 8) * 3)
+    return {
+        "focus": profile.get("focus") or "",
+        "topics": topics[:6],
+        "updated_at": profile.get("updated_at") or "",
+        "thread_count": thread_count,
+        "message_count": message_count,
+        "assistant_count": int(counts_row["assistant_count"] or 0),
+        "web_count": web_count,
+        "image_count": image_count,
+        "last_message_at": counts_row["last_message_at"] or "",
+        "relevance_percent": relevance,
+    }
+
+
+def get_activity_system_stats(connection):
+    threshold = format_timestamp(utc_now() - timedelta(days=30))
+    total_logs = int(connection.execute("SELECT COUNT(*) AS total FROM activity_logs").fetchone()["total"] or 0)
+    recent_logs = int(
+        connection.execute(
+            "SELECT COUNT(*) AS total FROM activity_logs WHERE created_at >= ?",
+            (threshold,),
+        ).fetchone()["total"]
+        or 0
+    )
+    unique_ips = set()
+    admin_actions = 0
+    rows = connection.execute(
+        "SELECT event_type, event_meta FROM activity_logs ORDER BY created_at DESC LIMIT 250"
+    ).fetchall()
+    for row in rows:
+        try:
+            meta = json.loads(row["event_meta"] or "{}")
+        except Exception:
+            meta = {}
+        ip_value = str(meta.get("ip") or "").strip()
+        if ip_value:
+            unique_ips.add(ip_value)
+        if str(row["event_type"] or "").startswith("admin_"):
+            admin_actions += 1
+    return {
+        "total_logs": total_logs,
+        "recent_logs": recent_logs,
+        "recent_unique_ips": len(unique_ips),
+        "recent_admin_actions": admin_actions,
+    }
+
+
 def build_openai_chat_messages(user_row, profile, history_messages, user_message, attachment=None, language="sk"):
     messages = [
         {
@@ -1256,8 +1534,8 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
             "For unrelated topics, keep the answer very short, ideally within one or two sentences plus the redirect. "
             "When possible, anchor the answer in action: what to send, whom to call, what to prioritise, or what the next best step is. "
             "If the user asks for contact cleanup or file compression, briefly explain that the actual processing is available in the app module and naturally suggest opening the relevant section of the Unifyo app. "
-            "If the user asks for a table, structure the answer as a clean comparison table or compact structured rows. "
-            "If the user asks for a PDF, prepare a clean PDF-ready text or outline that can be exported into a document. "
+            "If the user asks for a table, structure the answer as a clean comparison table or compact structured rows, not markdown pipe syntax. "
+            "If the user asks for a PDF, prepare content that can be exported into a real PDF in the app. Do not claim that a file was generated unless it was actually attached by the system. "
             "If the user asks for text, first provide the shortest useful version. Then offer an expanded version only on request. "
             "End many answers with one practical work-oriented question or suggestion, but do not sound repetitive or robotic. "
             "Never invent facts, names, regulations, rates, product details, legal interpretations or source claims. "
@@ -1305,7 +1583,8 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
         "Keď sa dá, odpoveď ukotvi do akcie: čo poslať, komu zavolať, čo vysvetliť klientovi, čo prioritizovať alebo aký je ďalší najlepší krok. "
         "Ak používateľ potrebuje čistenie kontaktov alebo kompresiu súborov, stručne vysvetli, že samotné spracovanie je dostupné v príslušnej časti aplikácie Unifyo, a prirodzene navrhni otvorenie správneho modulu. "
         "Ak používateľ pýta tabuľku, spracuj odpoveď ako čisté porovnanie alebo prehľadné riadky. "
-        "Ak používateľ pýta PDF, priprav čistý PDF-ready text alebo osnovu, ktorú bude možné vložiť do dokumentu. "
+        "Ak používateľ pýta tabuľku, priprav ju ako čistú porovnávaciu tabuľku alebo kompaktné štruktúrované riadky, nie v markdown pipe zápise. "
+        "Ak používateľ pýta PDF, priprav obsah vhodný na reálny export do PDF v aplikácii. Nikdy netvrď, že súbor bol vytvorený alebo priložený, pokiaľ ho systém reálne nepridal. "
         "Pri požiadavke na text najprv daj krátku použiteľnú verziu. Rozšírenú verziu ponúkni len na požiadanie. "
         "Veľa odpovedí ukonči jednou stručnou pracovnou otázkou alebo návrhom ďalšieho kroku, ale neopakuj sa mechanicky v každej odpovedi. "
         "Nikdy si nevymýšľaj fakty, sadzby, mená, pravidlá, legislatívu, produktové parametre ani zdroje. "
@@ -1533,7 +1812,7 @@ def is_membership_active(membership):
     return period_end > utc_now()
 
 
-def user_payload(connection, user_row):
+def user_payload(connection, user_row, headers=None):
     membership = get_membership(connection, user_row["id"])
     period_end = membership.get("current_period_end") if membership else None
     membership_started = membership.get("created_at") if membership else None
@@ -1551,6 +1830,7 @@ def user_payload(connection, user_row):
             "membership_status": membership.get("status") if membership else "inactive",
             "membership_valid_until": format_timestamp(period_end) if period_end else "",
             "membership_started_at": format_timestamp(membership_started) if membership_started else "",
+            "session_expires_at": get_session_expiry(connection, headers) if headers else "",
         },
     }
 
@@ -1959,6 +2239,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/assistant"):
             self.handle_assistant()
             return
+        if self.path.startswith("/api/generated-asset"):
+            self.handle_generated_asset_download()
+            return
         if self.path.startswith("/api/admin/user-detail"):
             self.handle_admin_user_detail()
             return
@@ -2067,6 +2350,32 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def handle_generated_asset_download(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.send_error(HTTPStatus.UNAUTHORIZED, "Najprv sa prihláste.")
+                return
+            params = parse_qs(urlparse(self.path).query)
+            token = str((params.get("token") or [""])[0]).strip()
+            if not token:
+                self.send_error(HTTPStatus.BAD_REQUEST, "Chýba token súboru.")
+                return
+            row = get_generated_asset(connection, user["id"], token)
+            if not row:
+                self.send_error(HTTPStatus.NOT_FOUND, "Súbor už nie je dostupný.")
+                return
+            body = base64.b64decode(row["payload_base64"])
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", row["content_type"] or "application/octet-stream")
+            self.send_header("Content-Disposition", f'attachment; filename="{row["file_name"]}"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        finally:
+            connection.close()
+
     def handle_ads_txt(self):
         ads_path = os.path.join(BASE_DIR, "public", "ads.txt")
         if not os.path.exists(ads_path):
@@ -2089,7 +2398,7 @@ class AppHandler(SimpleHTTPRequestHandler):
     def session_cookie_header(self, token, expires_at):
         secure_flag = " Secure;" if self.is_secure_request() else ""
         return (
-            f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax;{secure_flag} Max-Age={SESSION_TTL_DAYS * 24 * 60 * 60}; "
+            f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax;{secure_flag} Max-Age={SESSION_TTL_SECONDS}; "
             f"Expires={expires_at.astimezone(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT')}"
         )
 
@@ -2113,7 +2422,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
             except Exception:
                 pass
-            self.write_json(user_payload(connection, user))
+            self.write_json(user_payload(connection, user, self.headers))
         finally:
             connection.close()
 
@@ -2143,7 +2452,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 pass
             self.write_json(
                 {
-                    **user_payload(connection, user),
+                    **user_payload(connection, user, self.headers),
                     "activity": get_recent_activity(connection, user["id"], limit=25),
                 }
             )
@@ -2194,6 +2503,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 user["id"] if user else None,
                 contact_email=contact_email,
                 subject=subject,
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
             )
             self.write_json({"ok": True})
         except RuntimeError as exc:
@@ -2343,7 +2654,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "SELECT COUNT(*) AS total FROM users WHERE created_at >= ?",
                     (threshold,),
                 ).fetchone()["total"],
+                "ai_threads": connection.execute("SELECT COUNT(*) AS total FROM assistant_threads").fetchone()["total"],
+                "ai_messages": connection.execute("SELECT COUNT(*) AS total FROM assistant_messages").fetchone()["total"],
+                "ai_active_users": connection.execute(
+                    "SELECT COUNT(DISTINCT user_id) AS total FROM assistant_messages WHERE created_at >= ?",
+                    (threshold,),
+                ).fetchone()["total"],
             }
+            stats.update(get_activity_system_stats(connection))
             self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50), "stats": stats})
         finally:
             connection.close()
@@ -2380,10 +2698,6 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
 
             params = parse_qs(urlparse(self.path).query)
-            requested_thread_id = parse_positive_int((params.get("thread_id") or ["0"])[0], 0)
-            ai_threads = get_assistant_threads(connection, row["id"], limit=50)
-            ai_thread_detail = get_admin_assistant_thread_detail(connection, row["id"], requested_thread_id, limit=80) if ai_threads else {"thread": None, "messages": []}
-
             self.write_json(
                 {
                     "user": {
@@ -2396,9 +2710,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "membership_valid_until": row["membership_valid_until"] or "",
                     },
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
-                    "ai_threads": ai_threads,
-                    "ai_active_thread": ai_thread_detail["thread"],
-                    "ai_messages": ai_thread_detail["messages"],
+                    "assistant_stats": get_assistant_usage_stats(connection, row["id"]),
                 }
             )
         finally:
@@ -2413,7 +2725,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             sync_membership_for_user(connection, user)
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
-            self.write_json(user_payload(connection, user))
+            self.write_json(user_payload(connection, user, self.headers))
         except stripe.error.StripeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
         finally:
@@ -2458,10 +2770,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             user_id = cursor.lastrowid
             token, expires_at = create_session(connection, user_id)
-            log_activity(connection, "register", "Používateľ si vytvoril účet.", user_id, email=email, role=role)
+            log_activity(connection, "register", "Používateľ si vytvoril účet.", user_id, email=email, role=role, ip=get_request_ip(self), agent=get_request_agent(self))
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             self.write_json(
-                user_payload(connection, user),
+                user_payload(connection, user, self.headers),
                 status=HTTPStatus.CREATED,
                 cookie_headers=[self.session_cookie_header(token, expires_at)],
             )
@@ -2488,9 +2800,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             old_token = get_cookie_token(self.headers)
             clear_session(connection, old_token)
             token, expires_at = create_session(connection, user["id"])
-            log_activity(connection, "login", "Používateľ sa prihlásil.", user["id"], email=email)
+            log_activity(connection, "login", "Používateľ sa prihlásil.", user["id"], email=email, ip=get_request_ip(self), agent=get_request_agent(self))
             self.write_json(
-                user_payload(connection, user),
+                user_payload(connection, user, self.headers),
                 cookie_headers=[self.session_cookie_header(token, expires_at)],
             )
         finally:
@@ -2832,6 +3144,28 @@ class AppHandler(SimpleHTTPRequestHandler):
                 }
             save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta, language=language)
             reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
+            parsed_table = parse_markdown_table(reply)
+            if parsed_table:
+                reply_meta["table_data"] = parsed_table
+            if should_generate_pdf_asset(message, reply):
+                pdf_title = derive_thread_title(
+                    history_messages + [{"role": "user", "content": message}, {"role": "assistant", "content": reply}],
+                    language=language,
+                    existing_title=active_thread["title"],
+                )
+                pdf_bytes = build_pdf_bytes(pdf_title, strip_markdown_table_lines(reply) or reply, table_data=parsed_table)
+                pdf_name = sanitize_download_filename(pdf_title, "unifyo_ai_export")
+                pdf_token = store_generated_asset(
+                    connection,
+                    user["id"],
+                    f"{pdf_name}.pdf",
+                    "application/pdf",
+                    pdf_bytes,
+                    kind="pdf",
+                )
+                reply_meta["generated_asset_name"] = f"{pdf_name}.pdf"
+                reply_meta["generated_asset_url"] = f"/api/generated-asset?token={pdf_token}"
+                reply_meta["generated_asset_kind"] = "pdf"
             save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta, language=language)
             updated_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
             next_title = derive_thread_title(updated_messages, language=language, existing_title=active_thread["title"])
@@ -2846,6 +3180,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 thread_id=active_thread["id"],
                 used_image=bool(attachment),
                 attachment_name=attachment["filename"] if attachment else "",
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
             )
             self.write_json(
                 {
@@ -2959,7 +3295,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             user = get_session_user(connection, self.headers)
             if user:
-                log_activity(connection, "logout", "Používateľ sa odhlásil.", user["id"])
+                log_activity(connection, "logout", "Používateľ sa odhlásil.", user["id"], ip=get_request_ip(self), agent=get_request_agent(self))
             clear_session(connection, get_cookie_token(self.headers))
             self.write_json(
                 {"ok": True},
@@ -3033,8 +3369,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             payload = require_json(self)
             user_id = int(payload.get("user_id") or 0)
             action = str(payload.get("action") or "").strip()
-            days = parse_positive_int(payload.get("days"), 30)
-            if not user_id or action not in {"activate_30d", "activate_days", "deactivate"}:
+            if not user_id or action not in {"activate_30d", "delete_account", "deactivate"}:
                 self.write_json({"error": "Neplatná admin akcia."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
@@ -3045,8 +3380,8 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             now = utc_now()
             now_value = format_timestamp(now)
-            if action in {"activate_30d", "activate_days"}:
-                extend_days = 30 if action == "activate_30d" else max(1, min(days, 365))
+            if action == "activate_30d":
+                extend_days = 30
                 end_value = format_timestamp(now + timedelta(days=extend_days))
                 connection.execute(
                     """
@@ -3059,20 +3394,42 @@ class AppHandler(SimpleHTTPRequestHandler):
                     """,
                     (user_id, target_user["stripe_customer_id"], "", end_value, now_value, now_value),
                 )
-                log_activity(connection, "admin_membership_update", f"Admin aktivoval členstvo na {extend_days} dní.", admin_user["id"], target_user_id=user_id, days=extend_days)
-            else:
-                connection.execute(
-                    """
-                    INSERT INTO memberships (user_id, status, stripe_customer_id, stripe_subscription_id, current_period_end, created_at, updated_at)
-                    VALUES (?, 'inactive', ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        status = 'inactive',
-                        current_period_end = '',
-                        updated_at = excluded.updated_at
-                    """,
-                    (user_id, target_user["stripe_customer_id"], "", "", now_value, now_value),
+                log_activity(
+                    connection,
+                    "admin_membership_update",
+                    f"Admin aktivoval členstvo na {extend_days} dní.",
+                    admin_user["id"],
+                    target_user_id=user_id,
+                    days=extend_days,
+                    ip=get_request_ip(self),
+                    agent=get_request_agent(self),
                 )
-                log_activity(connection, "admin_membership_update", "Admin deaktivoval členstvo.", admin_user["id"], target_user_id=user_id)
+            else:
+                target_email = target_user["email"] or ""
+                target_name = target_user["name"] or ""
+                connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM memberships WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_tasks WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_profiles WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM assistant_upload_sessions WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM generated_assets WHERE user_id = ?", (user_id,))
+                connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                log_activity(
+                    connection,
+                    "admin_account_deleted",
+                    "Admin vymazal používateľský účet.",
+                    admin_user["id"],
+                    target_user_id=user_id,
+                    target_user_email=target_email,
+                    ip=get_request_ip(self),
+                    agent=get_request_agent(self),
+                )
+                try:
+                    send_account_deleted_email(target_email, target_name)
+                except Exception:
+                    pass
             connection.commit()
             self.write_json({"ok": True})
         except ValueError as exc:
