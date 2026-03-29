@@ -887,6 +887,84 @@ def get_admin_assistant_thread_detail(connection, user_id, thread_id=None, limit
     }
 
 
+def refresh_assistant_profile_memory(connection, user_id):
+    rows = connection.execute(
+        """
+        SELECT content, created_at
+        FROM assistant_messages
+        WHERE user_id = ? AND role = 'user'
+        ORDER BY id DESC
+        LIMIT 12
+        """,
+        (user_id,),
+    ).fetchall()
+    recent_topics = []
+    for row in rows:
+        title = build_thread_title(row["content"] or "", language="sk")
+        if title in {"Nový chat", "New chat", "Starší chat"}:
+            continue
+        if title not in recent_topics:
+            recent_topics.append(title)
+    focus_value = recent_topics[0] if recent_topics else ""
+    notes_value = " | ".join(recent_topics[:5])
+    now_value = format_timestamp(utc_now())
+    connection.execute(
+        """
+        INSERT INTO assistant_profiles (user_id, focus, notes, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            focus = excluded.focus,
+            notes = excluded.notes,
+            updated_at = excluded.updated_at
+        """,
+        (user_id, focus_value, notes_value, now_value),
+    )
+    connection.commit()
+
+
+def build_openai_chat_messages(user_row, profile, history_messages, user_message, attachment=None, language="sk"):
+    messages = [
+        {
+            "role": "system",
+            "content": build_assistant_system_prompt(user_row, profile, language=language),
+        }
+    ]
+    for message in history_messages[-10:]:
+        role = "assistant" if message["role"] == "assistant" else "user"
+        meta = message.get("meta") or {}
+        attachment_preview = str(meta.get("attachment_preview") or "").strip()
+        if role == "user" and attachment_preview:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": message.get("content") or "Pozri priložený obrázok v predchádzajúcej správe."},
+                        {"type": "image_url", "image_url": {"url": attachment_preview}},
+                    ],
+                }
+            )
+        else:
+            messages.append(
+                {
+                    "role": role,
+                    "content": message.get("content") or "",
+                }
+            )
+    if attachment:
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_message or "Vyhodnoť priložený obrázok a poraď mi ďalší krok."},
+                    {"type": "image_url", "image_url": {"url": attachment["data_url"]}},
+                ],
+            }
+        )
+    else:
+        messages.append({"role": "user", "content": user_message})
+    return messages
+
+
 def extract_openai_response_text(payload):
     output_text = str(payload.get("output_text") or "").strip()
     if output_text:
@@ -1231,31 +1309,23 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
         "used_image": bool(attachment),
         "attachment_name": attachment["filename"] if attachment else "",
     }
+    history_has_images = any(
+        str((message.get("meta") or {}).get("attachment_preview") or "").strip()
+        for message in history_messages[-10:]
+        if message.get("role") == "user"
+    )
+    if history_has_images:
+        response_meta["used_image"] = True
 
-    if attachment:
-        fallback_messages = [
-            {
-                "role": "system",
-                "content": build_assistant_system_prompt(user_row, profile, language=language),
-            }
-        ]
-        for message in history_messages[-8:]:
-            fallback_messages.append(
-                {
-                    "role": "assistant" if message["role"] == "assistant" else "user",
-                    "content": message["content"],
-                }
-            )
-        fallback_messages.append(
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_message or "Vyhodnoť priložený obrázok a poraď mi ďalší krok."},
-                    {"type": "image_url", "image_url": {"url": attachment["data_url"]}},
-                ],
-            }
+    if attachment or history_has_images:
+        fallback_messages = build_openai_chat_messages(
+            user_row,
+            profile,
+            history_messages,
+            user_message,
+            attachment=attachment,
+            language=language,
         )
-
         fallback_payload = perform_openai_request(
             "https://api.openai.com/v1/chat/completions",
             {
@@ -1766,6 +1836,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/admin/assistant-review":
             self.handle_admin_assistant_review()
+            return
+        if self.path == "/api/admin/assistant-memory-reset":
+            self.handle_admin_assistant_memory_reset()
             return
         if self.path == "/api/create-checkout-session":
             self.handle_create_checkout_session()
@@ -2563,6 +2636,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta, language=language)
             reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
             save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta, language=language)
+            refresh_assistant_profile_memory(connection, user["id"])
             log_activity(
                 connection,
                 "assistant_chat_message",
@@ -2897,6 +2971,54 @@ class AppHandler(SimpleHTTPRequestHandler):
                 target_user_id=user_id,
                 message_id=message_id,
                 review_status=review_status,
+            )
+            self.write_json({"ok": True})
+        finally:
+            connection.close()
+
+    def handle_admin_assistant_memory_reset(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            user_id = parse_positive_int(payload.get("user_id"), 0)
+            if not user_id:
+                self.write_json({"error": "Chýba používateľ."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            target_user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not target_user:
+                self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user_id,))
+            connection.execute(
+                """
+                INSERT INTO assistant_profiles (user_id, focus, notes, updated_at)
+                VALUES (?, '', '', ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    focus = '',
+                    notes = '',
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, format_timestamp(utc_now())),
+            )
+            connection.commit()
+            log_activity(
+                connection,
+                "assistant_memory_reset",
+                "Admin vymazal AI históriu a pamäť používateľa.",
+                admin_user["id"],
+                target_user_id=user_id,
             )
             self.write_json({"ok": True})
         finally:

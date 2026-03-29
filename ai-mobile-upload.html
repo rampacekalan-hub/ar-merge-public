@@ -18,12 +18,18 @@
 
       <form id="mobileUploadForm" class="ai-mobile-upload__form">
         <input id="mobileUploadToken" type="hidden" name="token" value="">
-        <label for="mobileUploadInput" class="ai-mobile-upload__dropzone">
-          <input id="mobileUploadInput" class="ai-mobile-upload__native-input" type="file" name="attachment" accept="image/*" capture="environment" required>
-          <span id="mobileUploadDropTitle">Vyber alebo odfoť obrázok</span>
-          <small id="mobileUploadDropText">Podporované sú JPG, PNG, WEBP a ďalšie obrázky.</small>
-        </label>
-        <button id="mobileUploadPickBtn" class="button button--ghost" type="button">Vybrať fotku</button>
+        <input id="mobileUploadCameraInput" class="sr-only" type="file" accept="image/*" capture="environment">
+        <input id="mobileUploadLibraryInput" class="sr-only" type="file" accept="image/*">
+        <div class="ai-mobile-upload__picker-grid">
+          <button id="mobileUploadCameraBtn" class="ai-mobile-upload__picker" type="button">
+            <strong id="mobileUploadCameraTitle">Odfotiť teraz</strong>
+            <small id="mobileUploadCameraText">Otvorí fotoaparát a spraví novú fotku.</small>
+          </button>
+          <button id="mobileUploadLibraryBtn" class="ai-mobile-upload__picker" type="button">
+            <strong id="mobileUploadLibraryTitle">Vybrať z galérie</strong>
+            <small id="mobileUploadLibraryText">Otvorí fotky a súbory v mobile.</small>
+          </button>
+        </div>
         <div id="mobileUploadPreview" class="ai-mobile-upload__preview is-hidden"></div>
         <button id="mobileUploadSubmit" class="button button--primary" type="submit">Odoslať do AI chatu</button>
         <p id="mobileUploadMessage" class="auth-message" hidden></p>
@@ -36,22 +42,25 @@
       const params = new URLSearchParams(window.location.search);
       const token = params.get("token") || "";
       const form = document.getElementById("mobileUploadForm");
-      const input = document.getElementById("mobileUploadInput");
+      const cameraInput = document.getElementById("mobileUploadCameraInput");
+      const libraryInput = document.getElementById("mobileUploadLibraryInput");
       const tokenInput = document.getElementById("mobileUploadToken");
       const preview = document.getElementById("mobileUploadPreview");
       const submit = document.getElementById("mobileUploadSubmit");
-      const pickBtn = document.getElementById("mobileUploadPickBtn");
-      const dropzone = document.querySelector(".ai-mobile-upload__dropzone");
+      const cameraBtn = document.getElementById("mobileUploadCameraBtn");
+      const libraryBtn = document.getElementById("mobileUploadLibraryBtn");
       const message = document.getElementById("mobileUploadMessage");
       const storageLang = window.localStorage.getItem("unifyo_lang") === "en" ? "en" : "sk";
+      let selectedFile = null;
 
       const t = {
         sk: {
           title: "Nahraj fotku do otvoreného AI chatu",
-          copy: "Vyber obrázok alebo odfoť novú fotku. Po odoslaní sa automaticky objaví v AI chate na počítači.",
-          dropTitle: "Vyber alebo odfoť obrázok",
-          dropText: "Podporované sú JPG, PNG, WEBP a ďalšie obrázky.",
-          pick: "Vybrať fotku",
+          copy: "Vyber, či chceš spraviť novú fotku alebo nahrať obrázok z galérie. Po odoslaní sa automaticky objaví v AI chate na počítači.",
+          cameraTitle: "Odfotiť teraz",
+          cameraText: "Otvorí fotoaparát a spraví novú fotku.",
+          libraryTitle: "Vybrať z galérie",
+          libraryText: "Otvorí fotky a súbory v mobile.",
           submit: "Odoslať do AI chatu",
           sending: "Odosielam…",
           missing: "Chýba token uploadu. Vygeneruj QR kód znova z AI chatu.",
@@ -60,10 +69,11 @@
         },
         en: {
           title: "Upload a photo to the open AI chat",
-          copy: "Choose an image or take a new photo. After upload, it will automatically appear in the AI chat on your computer.",
-          dropTitle: "Choose or capture an image",
-          dropText: "JPG, PNG, WEBP and other image formats are supported.",
-          pick: "Choose photo",
+          copy: "Choose whether you want to take a new photo or upload one from your gallery. After upload, it will automatically appear in the AI chat on your computer.",
+          cameraTitle: "Take a photo now",
+          cameraText: "Opens the camera and captures a new photo.",
+          libraryTitle: "Choose from gallery",
+          libraryText: "Opens photos and files on your phone.",
           submit: "Send to AI chat",
           sending: "Uploading…",
           missing: "Missing upload token. Generate the QR code again from the AI chat.",
@@ -75,9 +85,10 @@
       document.documentElement.lang = storageLang;
       document.getElementById("mobileUploadTitle").textContent = t.title;
       document.getElementById("mobileUploadCopy").textContent = t.copy;
-      document.getElementById("mobileUploadDropTitle").textContent = t.dropTitle;
-      document.getElementById("mobileUploadDropText").textContent = t.dropText;
-      pickBtn.textContent = t.pick;
+      document.getElementById("mobileUploadCameraTitle").textContent = t.cameraTitle;
+      document.getElementById("mobileUploadCameraText").textContent = t.cameraText;
+      document.getElementById("mobileUploadLibraryTitle").textContent = t.libraryTitle;
+      document.getElementById("mobileUploadLibraryText").textContent = t.libraryText;
       submit.textContent = t.submit;
 
       tokenInput.value = token;
@@ -88,46 +99,42 @@
         submit.disabled = true;
       }
 
-      function openPicker() {
-        input.click();
-      }
-
-      pickBtn.addEventListener("click", openPicker);
-      dropzone.addEventListener("click", (event) => {
-        if (event.target === input) {
-          return;
-        }
-        openPicker();
-      });
-
-      input.addEventListener("change", () => {
-        const file = input.files && input.files[0];
-        if (!file) {
+      function setSelectedFile(file) {
+        selectedFile = file || null;
+        if (!selectedFile) {
           preview.classList.add("is-hidden");
           preview.innerHTML = "";
           return;
         }
-        const url = URL.createObjectURL(file);
+        const url = URL.createObjectURL(selectedFile);
         preview.classList.remove("is-hidden");
         preview.innerHTML = `
-          <img src="${url}" alt="${file.name}">
+          <img src="${url}" alt="${selectedFile.name}">
           <div>
-            <strong>${file.name}</strong>
-            <span>${Math.max(1, Math.round(file.size / 1024))} KB</span>
+            <strong>${selectedFile.name}</strong>
+            <span>${Math.max(1, Math.round(selectedFile.size / 1024))} KB</span>
           </div>
         `;
-      });
+      }
+
+      cameraBtn.addEventListener("click", () => cameraInput.click());
+      libraryBtn.addEventListener("click", () => libraryInput.click());
+
+      cameraInput.addEventListener("change", () => setSelectedFile(cameraInput.files && cameraInput.files[0]));
+      libraryInput.addEventListener("change", () => setSelectedFile(libraryInput.files && libraryInput.files[0]));
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const file = input.files && input.files[0];
+        const file = selectedFile;
         if (!file) {
           message.hidden = false;
           message.textContent = t.choose;
           message.classList.add("auth-message--error");
           return;
         }
-        const body = new FormData(form);
+        const body = new FormData();
+        body.append("token", tokenInput.value);
+        body.append("attachment", file, file.name);
         submit.disabled = true;
         submit.textContent = t.sending;
         message.hidden = true;

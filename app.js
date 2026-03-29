@@ -1257,6 +1257,7 @@ function renderAdminUserDetail(payload) {
         <p class="section-kicker">AI chaty</p>
         <h3>História konverzácií</h3>
       </div>
+      <button id="adminAssistantResetBtn" class="button button--ghost" type="button">Vymazať AI pamäť</button>
     </div>
     <div id="adminAssistantThreads" class="admin-thread-list"></div>
     <div id="adminAssistantMessages" class="admin-assistant-feed"></div>
@@ -1299,6 +1300,9 @@ function renderAdminUserDetail(payload) {
         messageEl
       );
     });
+  });
+  document.getElementById("adminAssistantResetBtn")?.addEventListener("click", async () => {
+    await submitAdminAssistantMemoryReset(user.id, messageEl);
   });
 }
 
@@ -1394,6 +1398,35 @@ async function submitAdminAssistantReview(userId, messageId, reviewStatus, threa
       messageEl.classList.remove("auth-message--error");
     }
     await openAdminUserDetail(userId, Number(threadId || 0));
+  } catch (error) {
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = error.message;
+      messageEl.classList.add("auth-message--error");
+    }
+  }
+}
+
+async function submitAdminAssistantMemoryReset(userId, messageEl) {
+  if (!window.confirm("Naozaj chceš vymazať AI históriu a pamäť tohto používateľa?")) {
+    return;
+  }
+  try {
+    const response = await fetch("/api/admin/assistant-memory-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "AI pamäť sa nepodarilo vymazať.");
+    }
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = "AI história a pamäť používateľa boli vymazané.";
+      messageEl.classList.remove("auth-message--error");
+    }
+    await openAdminUserDetail(userId, 0);
   } catch (error) {
     if (messageEl) {
       messageEl.hidden = false;
