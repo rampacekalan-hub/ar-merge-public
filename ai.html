@@ -30,7 +30,7 @@
       </div>
 
       <div class="ai-sidebar__section ai-sidebar__section--prompts">
-        <span class="ai-sidebar__label">Najčastejšie akcie</span>
+        <span class="ai-sidebar__label">Akcie</span>
         <div id="aiSidebarQuickActions" class="ai-quick-actions-grid"></div>
       </div>
 
@@ -69,11 +69,7 @@
       </section>
 
       <section id="aiChatReady" class="ai-chatboard is-hidden">
-        <div class="ai-workbench-tools">
-          <div class="ai-workbench-tools__copy">
-            <span class="ai-workbench-tools__eyebrow">Rýchle použitie</span>
-            <p>Vyber akciu a doplníš len obsah alebo kontext.</p>
-          </div>
+        <div class="ai-workbench-tools ai-workbench-tools--compact">
           <div id="aiQuickActionBar" class="ai-quick-action-bar"></div>
         </div>
         <div id="aiChatFeed" class="ai-chatboard__feed empty-state">AI asistent je pripravený. Začni prvou otázkou.</div>
@@ -101,11 +97,9 @@
       { selector: ".ai-topbar-brand", text: { sk: "Unifyo", en: "Unifyo" } },
       { selector: "#aiNewThreadBtn", text: { sk: "+ Nový chat", en: "+ New chat" } },
       { selector: ".ai-sidebar__section:first-of-type .ai-sidebar__label", text: { sk: "Konverzácie", en: "Conversations" } },
-      { selector: ".ai-sidebar__section--prompts .ai-sidebar__label", text: { sk: "Najčastejšie akcie", en: "Most used actions" } },
+      { selector: ".ai-sidebar__section--prompts .ai-sidebar__label", text: { sk: "Akcie", en: "Actions" } },
       { selector: ".ai-workspace__eyebrow", text: { sk: "AI pre sprostredkovateľov", en: "AI for intermediaries" } },
       { selector: ".ai-workspace__microcopy", text: { sk: "Praktický asistent pre komunikáciu, zhrnutia, vysvetlenia a ďalší postup v slovenskej praxi.", en: "A practical assistant for communication, summaries, explanations and next steps in Slovak day-to-day practice." } },
-      { selector: ".ai-workbench-tools__eyebrow", text: { sk: "Rýchle použitie", en: "Quick use" } },
-      { selector: ".ai-workbench-tools__copy p", text: { sk: "Vyber akciu a doplníš len obsah alebo kontext.", en: "Pick an action and only add the content or context." } },
       { selector: "#aiChatInput", attr: "placeholder", values: { sk: "Napíš otázku, situáciu alebo úlohu...", en: "Write your question, situation or task..." } },
       { selector: "#aiChatSubmit", text: { sk: "Odoslať", en: "Send" } },
       { selector: "#aiLockedState .pill", text: { sk: "Premium", en: "Premium" } },

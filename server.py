@@ -683,7 +683,13 @@ def build_thread_title(message, language="sk"):
         flags=re.IGNORECASE,
     ).strip()
     first_sentence = re.sub(
-        r"^(priprav mi|napíš mi|napis mi|pomôž mi|pomoz mi|vyhodnoť|vyhodnot)\s+",
+        r"^(priprav mi|napíš mi|napis mi|pomôž mi|pomoz mi|vyhodnoť|vyhodnot|vysvetli|navrhni|zhrň|zhrn|zjednoduš|zjednodus|preformuluj|napíš|napis)\s+",
+        "",
+        first_sentence,
+        flags=re.IGNORECASE,
+    ).strip()
+    first_sentence = re.sub(
+        r"^(prosím|prosim)\s+",
         "",
         first_sentence,
         flags=re.IGNORECASE,
@@ -692,8 +698,10 @@ def build_thread_title(message, language="sk"):
     generic_titles = {"", "ahoj", "dobrý deň", "dobry den", "čau", "cau", "hello", "hi"}
     if first_sentence.lower() in generic_titles or len(first_sentence) < 4:
         return "New chat" if language == "en" else "Nový chat"
-    normalized = first_sentence[0].upper() + first_sentence[1:]
-    return normalized[:72].rstrip(" .,;:-")
+    words = first_sentence.split()
+    normalized = " ".join(words[:8]).strip()
+    normalized = normalized[0].upper() + normalized[1:]
+    return normalized[:68].rstrip(" .,;:-")
 
 
 def create_assistant_thread(connection, user_id, title="Nový chat"):
@@ -981,7 +989,9 @@ def build_assistant_system_prompt(user_row, _profile, language="sk"):
             "Always communicate in natural, concise, professional English, while keeping Slovak market context in mind. "
             "Internally evaluate: 1) user intent, 2) question type, 3) Slovak market context, 4) best response format. Never show this hidden process. "
             "Default response structure: 1) direct answer, 2) short explanation, 3) recommended next step if useful. "
+            "Keep the first version concise and easy to use. People prefer less text. If more detail would help, end with a short sentence offering an extended version on request. "
             "Do not add sources automatically. Mention them only when genuinely useful, especially for regulatory or official topics. "
+            "If a source is important, add only one minimalist final line in this exact style: Source: https://... "
             "Prefer official sources such as nbs.sk, slov-lex.sk, official financial institution sites and, when relevant, alanrampacek.sk or prosight.sk. "
             f"The current reference date and time are {today_value} {time_value}. If the user asks for the current date or time, answer directly from this reference. "
             "For time-sensitive topics, use the latest public information when technically available. "
@@ -1004,8 +1014,11 @@ def build_assistant_system_prompt(user_row, _profile, language="sk"):
         "Tento interný postup nikdy nevypisuj. Používateľovi ukáž iba finálnu odpoveď. "
         "Predvolený výstup drž v 3 častiach: "
         "1) Priama odpoveď, 2) Stručné vysvetlenie, 3) Odporúčaný ďalší krok (ak je vhodný). "
+        "Prvú verziu odpovede drž stručnú a výstižnú, lebo ľudia nemajú radi veľa textu. "
+        "Ak je vhodné doplniť viac detailov, ukonči odpoveď krátkou vetou, že môžeš doplniť rozšírenú verziu na požiadanie. "
         "Zdroje alebo odkazy neuvádzaj automaticky. Uveď ich len vtedy, keď sú skutočne potrebné "
         "alebo užitočné (najmä pri regulačných, právnych, dohľadových a oficiálnych témach). "
+        "Ak je dôležité uviesť zdroj, daj na úplný koniec iba jeden minimalistický riadok v tvare: Zdroj: https://... "
         "Ak je vhodné odporučiť zdroj, preferuj oficiálne a dôveryhodné weby: nbs.sk, slov-lex.sk, "
         "oficiálne stránky finančných inštitúcií, prípadne podľa kontextu alanrampacek.sk a prosight.sk. "
         f"Aktuálny referenčný dátum a čas sú {today_value} {time_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "

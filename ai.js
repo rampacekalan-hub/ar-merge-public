@@ -83,6 +83,13 @@ const QUICK_ACTIONS = [
 
 const FOLLOWUP_ACTIONS = [
   {
+    key: "more",
+    labelSk: "Zisti viac",
+    labelEn: "Learn more",
+    promptSk: "Rozšír túto odpoveď do dlhšej, ale stále praktickej verzie. Zachovaj jasnú štruktúru a doplň užitočné detaily:\n\n{content}",
+    promptEn: "Expand this answer into a longer but still practical version. Keep a clear structure and add useful details:\n\n{content}",
+  },
+  {
     key: "shorten",
     labelSk: "Skrátiť",
     labelEn: "Shorter",
@@ -416,9 +423,11 @@ function renderMessages() {
             <span>${escapeHtml(message.role === "user" ? tr("Ty", "You") : "Unifyo AI")}</span>
             <span>${escapeHtml(formatDateTime(message.created_at))}</span>
             ${message.role === "assistant" ? `<span class="ai-review-pill ai-review-pill--${escapeHtml(message.review_status || "unreviewed")}">${escapeHtml(formatReviewStatus(message.review_status))}</span>` : ""}
+            ${message.role === "assistant" && message.meta?.used_web_search ? `<span class="ai-source-pill">${escapeHtml(tr("Web kontext", "Web context"))}</span>` : ""}
             ${message.role === "assistant" ? `<button class="ai-copy-btn js-ai-copy" type="button">${escapeHtml(tr("Kopírovať", "Copy"))}</button>` : ""}
           </div>
           <div class="ai-message__content">${formatMessageHtml(message.content || "")}</div>
+          ${renderMessageSource(message)}
           ${renderMessageAttachment(message)}
           ${renderFollowupActions(message, index)}
         </div>
@@ -474,17 +483,18 @@ function renderQuickActions() {
   const allActions = QUICK_ACTIONS.slice(0, 10);
   if (aiElements.sidebarQuickActions) {
     aiElements.sidebarQuickActions.innerHTML = renderQuickActionRollup(
-      tr("Najčastejšie akcie", "Common actions"),
+      tr("Vybrať akciu", "Choose action"),
       allActions,
       "stack"
     );
   }
   if (aiElements.quickActionBar) {
-    aiElements.quickActionBar.innerHTML = renderQuickActionRollup(
-      tr("Vybrať akciu", "Choose action"),
-      allActions,
-      "chip"
-    );
+    const primaryActions = allActions.slice(0, 3);
+    const extraActions = allActions.slice(3);
+    aiElements.quickActionBar.innerHTML = `
+      ${primaryActions.map((action) => renderQuickActionButton(action, "chip")).join("")}
+      ${renderQuickActionRollup(tr("Viac akcií", "More actions"), extraActions, "chip")}
+    `;
   }
   const disabled = !aiState.user?.membership_active;
   document.querySelectorAll(".js-ai-prompt").forEach((button) => {
@@ -505,24 +515,11 @@ function renderEmptyChat(message = "", isError = false) {
       <div class="ai-empty-state__hero">
         <span class="pill">${escapeHtml(tr("Pripravené na prácu", "Ready to work"))}</span>
         <h3>${escapeHtml(tr("AI asistent pre prax", "AI assistant for daily work"))}</h3>
-        <p>${escapeHtml(tr("Vysvetlí tému, pripraví odpoveď a navrhne ďalší krok.", "It explains the topic, drafts a reply and suggests the next step."))}</p>
+        <p>${escapeHtml(tr("Napíš otázku alebo klikni na rýchlu akciu.", "Write a prompt or click a quick action."))}</p>
       </div>
-      <div class="ai-empty-state__grid">
-        <section class="ai-empty-panel">
-          <span class="ai-empty-panel__label">${escapeHtml(tr("Čo vie vybaviť", "What it can handle"))}</span>
-          <div class="ai-empty-panel__list">
-            <div class="ai-empty-panel__item">${escapeHtml(tr("Vysvetlenie témy klientovi jednoduchšie", "Explain a topic to a client more simply"))}</div>
-            <div class="ai-empty-panel__item">${escapeHtml(tr("Stručný email, správa alebo follow-up", "Concise email, message or follow-up"))}</div>
-            <div class="ai-empty-panel__item">${escapeHtml(tr("Zhrnutie dokumentu a dôležitých bodov", "Summary of a document and the key points"))}</div>
-            <div class="ai-empty-panel__item">${escapeHtml(tr("Návrh ďalšieho postupu v situácii", "Suggested next step in a situation"))}</div>
-          </div>
-        </section>
-        <section class="ai-empty-panel">
-          <span class="ai-empty-panel__label">${escapeHtml(tr("Rýchly výber", "Quick selection"))}</span>
-          <div class="ai-empty-state__actions">
-            ${renderQuickActionRollup(tr("Vybrať akciu", "Choose action"), QUICK_ACTIONS.slice(0, 10), "chip", true)}
-          </div>
-        </section>
+      <div class="ai-empty-state__actions">
+        ${QUICK_ACTIONS.slice(0, 3).map((action) => renderQuickActionButton(action, "chip")).join("")}
+        ${renderQuickActionRollup(tr("Viac akcií", "More actions"), QUICK_ACTIONS.slice(3, 10), "chip")}
       </div>
       <section class="ai-empty-panel ai-empty-panel--examples">
         <span class="ai-empty-panel__label">${escapeHtml(tr("Príklady otázok", "Example questions"))}</span>
@@ -536,6 +533,28 @@ function renderEmptyChat(message = "", isError = false) {
       </section>
     </div>
   `;
+}
+
+function renderMessageSource(message) {
+  if (!message || message.role !== "assistant") {
+    return "";
+  }
+  const text = String(message.content || "");
+  const urlMatch = text.match(/https?:\/\/[^\s)<]+/);
+  if (!urlMatch) {
+    return "";
+  }
+  try {
+    const url = new URL(urlMatch[0]);
+    return `
+      <div class="ai-message__source">
+        <span>${escapeHtml(tr("Zdroj", "Source"))}</span>
+        <a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url.hostname.replace(/^www\./, ""))}</a>
+      </div>
+    `;
+  } catch (_error) {
+    return "";
+  }
 }
 
 async function handleChatFeedClick(event) {
@@ -768,7 +787,7 @@ async function handleChatSubmit(event) {
   aiElements.chatForm.reset();
   autoResizeTextarea(aiElements.chatInput);
   aiElements.chatSubmit.disabled = true;
-  aiElements.chatSubmit.textContent = tr("Posielam...", "Sending...");
+  aiElements.chatSubmit.textContent = tr("AI premýšľa…", "AI is thinking…");
 
   try {
     const response = await sendAssistantMessage(message);
@@ -964,7 +983,7 @@ function formatReviewStatus(value) {
   if (value === "needs_review") {
     return tr("Na kontrolu", "Needs review");
   }
-  return tr("Bez kontroly", "Unchecked");
+  return tr("AI návrh", "AI draft");
 }
 
 function truncateText(value, length = 60) {

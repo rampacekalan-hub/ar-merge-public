@@ -903,12 +903,12 @@ function formatDate(value) {
 
 function formatReviewStatus(value) {
   if (value === "approved") {
-    return "Schválené";
+    return tr("Schválené", "Approved");
   }
   if (value === "needs_review") {
-    return "Na kontrolu";
+    return tr("Na kontrolu", "Needs review");
   }
-  return "Bez kontroly";
+  return tr("AI návrh", "AI draft");
 }
 
 function truncateText(value, length = 60) {
