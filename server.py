@@ -1069,10 +1069,43 @@ def build_assistant_upload_payload(row):
     }
 
 
-def build_assistant_system_prompt(user_row, _profile, language="sk"):
+def build_assistant_system_prompt(user_row, profile, language="sk"):
     now_value = datetime.now().astimezone()
     today_value = now_value.strftime("%d.%m.%Y")
     time_value = now_value.strftime("%H:%M")
+    brief = (profile or {}).get("brief") or {}
+    counts = brief.get("counts") or {}
+    focus = brief.get("focus") or []
+    suggestions = brief.get("suggestions") or []
+    focus_line = " | ".join(str(item).strip() for item in focus[:2] if str(item).strip())
+    suggestion_line = " | ".join(str(item.get("title") or "").strip() for item in suggestions[:3] if str(item.get("title") or "").strip())
+    stored_focus = str((profile or {}).get("focus") or "").strip()
+    brief_summary_sk = (
+        f"Interný denný kontext: otvorené úlohy {counts.get('open_tasks', 0)}, "
+        f"dnes {counts.get('due_today', 0)}, omeškané {counts.get('overdue', 0)}, "
+        f"vysoká priorita {counts.get('high_priority', 0)}."
+    )
+    brief_summary_en = (
+        f"Internal day context: open tasks {counts.get('open_tasks', 0)}, "
+        f"due today {counts.get('due_today', 0)}, overdue {counts.get('overdue', 0)}, "
+        f"high priority {counts.get('high_priority', 0)}."
+    )
+    brief_append_sk = brief_summary_sk + " "
+    if focus_line:
+        brief_append_sk += f"Aktuálne fokusy dňa: {focus_line}. "
+    if suggestion_line:
+        brief_append_sk += f"Navrhované pracovné okruhy: {suggestion_line}. "
+    if stored_focus:
+        brief_append_sk += f"Uložený fokus používateľa: {stored_focus}. "
+
+    brief_append_en = brief_summary_en + " "
+    if focus_line:
+        brief_append_en += f"Current focus cues: {focus_line}. "
+    if suggestion_line:
+        brief_append_en += f"Suggested work tracks: {suggestion_line}. "
+    if stored_focus:
+        brief_append_en += f"Stored user focus: {stored_focus}. "
+
     if language == "en":
         return (
             "You are Unifyo AI, a professional internal assistant for financial intermediaries working in Slovakia. "
@@ -1086,11 +1119,17 @@ def build_assistant_system_prompt(user_row, _profile, language="sk"):
             "Prefer official sources such as nbs.sk, slov-lex.sk, official financial institution sites and, when relevant, alanrampacek.sk or prosight.sk. "
             f"The current reference date and time are {today_value} {time_value}. If the user asks for the current date or time, answer directly from this reference. "
             "For time-sensitive topics, use the latest public information when technically available. "
+            "Your default mode is work guidance for the user's day. Prefer helping with tasks, clients, follow-ups, priorities, objections, emails, meetings and next actions. "
+            "If the user asks something outside work, answer briefly and helpfully, but then gently bring the conversation back to practical work support with one short follow-up such as: How can I help with your clients or today's tasks? "
+            "When possible, anchor the answer in action: what to send, whom to call, what to prioritise, or what the next best step is. "
+            "If the user asks for text, first provide the shortest useful version. Then offer an expanded version only on request. "
+            "End many answers with one practical work-oriented question or suggestion, but do not sound repetitive or robotic. "
             "Do not invent facts. If uncertain, say so naturally and recommend verification. "
             "Do not provide binding legal, tax or regulated investment advice; suggest checking with compliance or a qualified expert. "
             "If the user attaches an image or screenshot, first evaluate it clearly and then suggest a next step. "
             "Do not use markdown asterisks or noisy formatting. Write in short paragraphs or simple bullets without markdown artefacts. "
             "If helpful, proactively offer a short email/SMS version or a concrete next step. "
+            f"{brief_append_en}"
             f"The user's name is {user_row['name'] or user_row['email']}. "
             f"Use internal prompt version {PROMPT_VERSION}, but do not mention it unless necessary."
         )
@@ -1115,6 +1154,11 @@ def build_assistant_system_prompt(user_row, _profile, language="sk"):
         f"Aktuálny referenčný dátum a čas sú {today_value} {time_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
         "Ak sa používateľ pýta priamo na aktuálny dátum alebo čas, odpovedz priamo z tohto referenčného dátumu a času a netvrď, že k nim nemáš prístup. "
         "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
+        "Tvoj predvolený režim je pomoc s pracovným dňom používateľa. Prirodzene smeruj odpovede k úlohám, klientom, follow-upom, prioritám, argumentácii, komunikácii a ďalšiemu kroku. "
+        "Ak sa používateľ spýta mimo práce, odpovedz normálne a stručne, ale potom ho jemne vráť späť k praktickej pomoci otázkou alebo návrhom typu: Ako ti s tým viem pomôcť v práci dnes? Ktorý klient alebo úloha je teraz najdôležitejšia? "
+        "Keď sa dá, odpoveď ukotvi do akcie: čo poslať, komu zavolať, čo vysvetliť klientovi, čo prioritizovať alebo aký je ďalší najlepší krok. "
+        "Pri požiadavke na text najprv daj krátku použiteľnú verziu. Rozšírenú verziu ponúkni len na požiadanie. "
+        "Veľa odpovedí ukonči jednou stručnou pracovnou otázkou alebo návrhom ďalšieho kroku, ale neopakuj sa mechanicky v každej odpovedi. "
         "Nevymýšľaj si fakty. Ak si neistý, povedz to prirodzene a navrhni overenie. "
         "Nedávaj záväzné právne, daňové ani regulované investičné odporúčania; pri takých otázkach "
         "odporuč overenie cez compliance alebo kvalifikovaného odborníka. "
@@ -1122,6 +1166,7 @@ def build_assistant_system_prompt(user_row, _profile, language="sk"):
         "Nepoužívaj markdown hviezdičky ani zbytočné formátovanie typu **text**. "
         "Píš čisto, priamo a štruktúrovane pomocou krátkych odsekov alebo jednoduchých bodov bez markdown artefaktov. "
         "Ak to pomôže používateľovi, proaktívne ponúkni krátku verziu do e-mailu/SMS alebo konkrétny ďalší krok. "
+        f"{brief_append_sk}"
         f"Používateľ sa volá {user_row['name'] or user_row['email']}. "
         f"Používaj internú prompt verziu {PROMPT_VERSION}, ale túto informáciu bežne nevypisuj používateľovi."
     )
@@ -2503,6 +2548,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 new_thread_id = create_assistant_thread(connection, user["id"], build_thread_title(message, language=language))
                 active_thread = resolve_assistant_thread(connection, user["id"], new_thread_id)
             profile = get_assistant_profile(connection, user["id"])
+            profile["brief"] = build_assistant_brief(get_assistant_tasks(connection, user["id"], include_done=True))
             history_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
             user_message_content = message
             user_meta = {}
