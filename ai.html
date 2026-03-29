@@ -41,18 +41,13 @@
         <div class="ai-workspace__summary">
           <div class="ai-workspace__summary-row">
             <button id="aiSidebarToggle" class="ai-sidebar-toggle" type="button" aria-label="Otvoriť históriu chatov">☰</button>
+            <a href="/index.html" class="ai-topbar-brand">Unifyo</a>
             <p class="ai-workspace__eyebrow">AI pre sprostredkovateľov</p>
           </div>
           <div class="ai-thread-titlebar">
             <h1 id="aiChatHeadline">Nový chat</h1>
-            <button id="aiRenameThreadBtn" class="button button--ghost ai-rename-btn" type="button">Premenovať</button>
           </div>
           <p class="ai-workspace__microcopy">Praktický asistent pre komunikáciu, zhrnutia, vysvetlenia a ďalší postup v slovenskej praxi.</p>
-          <form id="aiRenameForm" class="ai-rename-form is-hidden">
-            <input id="aiRenameInput" type="text" maxlength="72" placeholder="Nový názov chatu">
-            <button class="button button--primary" type="submit">Uložiť</button>
-            <button id="aiRenameCancelBtn" class="button button--ghost" type="button">Zrušiť</button>
-          </form>
         </div>
         <div class="ai-workspace__actions" data-lang-switch-host>
           <span id="aiNowPill" class="pill pill--subtle">Načítavam čas…</span>
@@ -103,6 +98,7 @@
     window.UNIFYO_PAGE_I18N = [
       { selector: "title", text: { sk: "Unifyo AI | Asistent pre finančných sprostredkovateľov", en: "Unifyo AI | Assistant for financial intermediaries" } },
       { selector: ".ai-sidebar__brand-text", text: { sk: "Unifyo AI", en: "Unifyo AI" } },
+      { selector: ".ai-topbar-brand", text: { sk: "Unifyo", en: "Unifyo" } },
       { selector: "#aiNewThreadBtn", text: { sk: "+ Nový chat", en: "+ New chat" } },
       { selector: ".ai-sidebar__section:first-of-type .ai-sidebar__label", text: { sk: "Konverzácie", en: "Conversations" } },
       { selector: ".ai-sidebar__section--prompts .ai-sidebar__label", text: { sk: "Najčastejšie akcie", en: "Most used actions" } },
@@ -110,8 +106,6 @@
       { selector: ".ai-workspace__microcopy", text: { sk: "Praktický asistent pre komunikáciu, zhrnutia, vysvetlenia a ďalší postup v slovenskej praxi.", en: "A practical assistant for communication, summaries, explanations and next steps in Slovak day-to-day practice." } },
       { selector: ".ai-workbench-tools__eyebrow", text: { sk: "Rýchle použitie", en: "Quick use" } },
       { selector: ".ai-workbench-tools__copy p", text: { sk: "Vyber akciu a doplníš len obsah alebo kontext.", en: "Pick an action and only add the content or context." } },
-      { selector: "#aiRenameThreadBtn", text: { sk: "Premenovať", en: "Rename" } },
-      { selector: "#aiRenameInput", attr: "placeholder", values: { sk: "Nový názov chatu", en: "New chat title" } },
       { selector: "#aiChatInput", attr: "placeholder", values: { sk: "Napíš otázku, situáciu alebo úlohu...", en: "Write your question, situation or task..." } },
       { selector: "#aiChatSubmit", text: { sk: "Odoslať", en: "Send" } },
       { selector: "#aiLockedState .pill", text: { sk: "Premium", en: "Premium" } },

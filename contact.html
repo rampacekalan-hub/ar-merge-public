@@ -126,6 +126,10 @@
   <script>
     window.UNIFYO_PAGE_I18N = [
       { selector: "title", text: { sk: "Unifyo | Kontakt", en: "Unifyo | Contact" } },
+      { selector: ".sidebar__link[href=\"/index.html\"] span:last-child", text: { sk: "Domov", en: "Home" } },
+      { selector: ".sidebar__link[href=\"/app.html\"] span:last-child", text: { sk: "Aplikácia", en: "App" } },
+      { selector: ".sidebar__link[href=\"/pricing.html\"] span:last-child", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".sidebar__link[href=\"/contact.html\"] span:last-child", text: { sk: "Kontakt", en: "Contact" } },
       { selector: ".hero__topbar-actions .ghost-link[href=\"/index.html\"]", text: { sk: "Domov", en: "Home" } },
       { selector: ".hero__topbar-actions .ghost-link[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
       { selector: ".hero__eyebrow", text: { sk: "Kontakt", en: "Contact" } },
@@ -136,7 +140,22 @@
       { selector: "label[for=\"contactName\"] span", text: { sk: "Tvoj kontakt", en: "Your contact" } },
       { selector: "label[for=\"contactEmail\"] span", text: { sk: "Tvoj e-mail", en: "Your email" } },
       { selector: "label[for=\"contactSubject\"] span", text: { sk: "Predmet", en: "Subject" } },
-      { selector: "label[for=\"contactMessage\"] span", text: { sk: "Správa", en: "Message" } }
+      { selector: "label[for=\"contactMessage\"] span", text: { sk: "Správa", en: "Message" } },
+      { selector: "#contactSubmit", text: { sk: "Odoslať správu", en: "Send message" } },
+      { selector: ".panel-card:last-of-type .section-kicker", text: { sk: "Čo vybavíme", en: "What we handle" } },
+      { selector: ".panel-card:last-of-type h2", text: { sk: "Typické požiadavky", en: "Typical requests" } },
+      { selector: ".info-card:nth-of-type(1) strong", text: { sk: "Členstvo a platby", en: "Membership and payments" } },
+      { selector: ".info-card:nth-of-type(1) p", text: { sk: "Aktivácia, fakturácia, Stripe a prístupy.", en: "Activation, billing, Stripe and access." } },
+      { selector: ".info-card:nth-of-type(2) strong", text: { sk: "Aplikácia a importy", en: "App and imports" } },
+      { selector: ".info-card:nth-of-type(2) p", text: { sk: "Kontakty, kompresia, exporty a spracovanie súborov.", en: "Contacts, compression, exports and file processing." } },
+      { selector: ".info-card:nth-of-type(3) strong", text: { sk: "AI asistent", en: "AI assistant" } },
+      { selector: ".info-card:nth-of-type(3) p", text: { sk: "Chat workflow, použitie v praxi a pomoc so slovenským trhom.", en: "Chat workflow, practical use and help with the Slovak market." } },
+      { selector: ".site-footer a:nth-of-type(1)", text: { sk: "Domov", en: "Home" } },
+      { selector: ".site-footer a:nth-of-type(2)", text: { sk: "Cenník", en: "Pricing" } },
+      { selector: ".site-footer a:nth-of-type(3)", text: { sk: "Ochrana súkromia", en: "Privacy" } },
+      { selector: ".site-footer a:nth-of-type(4)", text: { sk: "Podmienky používania", en: "Terms" } },
+      { selector: ".site-footer a:nth-of-type(5)", text: { sk: "Cookies", en: "Cookies" } },
+      { selector: ".site-footer a:nth-of-type(6)", text: { sk: "Kontakt", en: "Contact" } }
     ];
   </script>
   <script src="lang-switch.js"></script>
@@ -146,6 +165,7 @@
       const form = document.getElementById("contactForm");
       const message = document.getElementById("contactStatusMessage");
       const submitButton = document.getElementById("contactSubmit");
+      const t = (sk, en) => (window.localStorage.getItem("unifyo_lang") === "en" ? en : sk);
 
       if (!form || !message || !submitButton) {
         return;
@@ -157,7 +177,7 @@
         message.classList.remove("auth-message--error");
         const originalLabel = submitButton.textContent;
         submitButton.disabled = true;
-        submitButton.textContent = "Odosielam...";
+        submitButton.textContent = t("Odosielam...", "Sending...");
 
         try {
           const response = await fetch("/api/contact", {
@@ -172,11 +192,11 @@
           });
           const payload = await response.json();
           if (!response.ok) {
-            throw new Error(payload.error || "Správu sa nepodarilo odoslať.");
+            throw new Error(payload.error || t("Správu sa nepodarilo odoslať.", "The message could not be sent."));
           }
           form.reset();
           message.hidden = false;
-          message.textContent = "Správa bola odoslaná. Ozveme sa ti čo najskôr.";
+          message.textContent = t("Správa bola odoslaná. Ozveme sa ti čo najskôr.", "Your message has been sent. We will get back to you soon.");
         } catch (error) {
           message.hidden = false;
           message.textContent = error.message;

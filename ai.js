@@ -178,10 +178,6 @@ const aiElements = {
   chatSubmit: document.getElementById("aiChatSubmit"),
   chatMessage: document.getElementById("aiChatMessage"),
   chatHeadline: document.getElementById("aiChatHeadline"),
-  renameThreadBtn: document.getElementById("aiRenameThreadBtn"),
-  renameForm: document.getElementById("aiRenameForm"),
-  renameInput: document.getElementById("aiRenameInput"),
-  renameCancelBtn: document.getElementById("aiRenameCancelBtn"),
   newThreadBtn: document.getElementById("aiNewThreadBtn"),
   threadList: document.getElementById("aiThreadList"),
   threadCount: document.getElementById("aiThreadCount"),
@@ -217,9 +213,6 @@ function bindAiEvents() {
   aiElements.attachmentBar?.addEventListener("click", handleAttachmentBarClick);
   aiElements.threadList?.addEventListener("click", handleThreadListClick);
   aiElements.newThreadBtn?.addEventListener("click", handleNewThreadClick);
-  aiElements.renameThreadBtn?.addEventListener("click", openRenameThread);
-  aiElements.renameCancelBtn?.addEventListener("click", closeRenameThread);
-  aiElements.renameForm?.addEventListener("submit", handleRenameThreadSubmit);
   aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
   aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
   aiElements.chatInput?.addEventListener("paste", handleChatPaste);
@@ -327,9 +320,6 @@ function renderAiState() {
   if (aiElements.newThreadBtn) {
     aiElements.newThreadBtn.disabled = !hasMembership;
   }
-  if (aiElements.renameThreadBtn) {
-    aiElements.renameThreadBtn.disabled = !hasMembership || !aiState.activeThreadId;
-  }
   if (aiElements.attachBtn) {
     aiElements.attachBtn.disabled = !hasMembership;
   }
@@ -366,9 +356,6 @@ function renderAssistantData() {
   const activeThread = getActiveThread();
   if (aiElements.chatHeadline) {
     aiElements.chatHeadline.textContent = formatThreadTitle(activeThread?.title || "");
-  }
-  if (aiElements.renameInput && activeThread) {
-    aiElements.renameInput.value = activeThread.title || "";
   }
   renderThreadList();
   renderAttachmentBar();
@@ -671,55 +658,6 @@ function handleComposerDrop(event) {
   const file = event.dataTransfer?.files?.[0];
   if (file) {
     setAttachment(file);
-  }
-}
-
-function openRenameThread() {
-  const activeThread = getActiveThread();
-  if (!activeThread || !aiElements.renameForm || !aiElements.renameInput) {
-    return;
-  }
-  aiState.renaming = true;
-  aiElements.renameForm.classList.remove("is-hidden");
-  aiElements.renameInput.value = activeThread.title || "";
-  aiElements.renameInput.focus();
-  aiElements.renameInput.select();
-}
-
-function closeRenameThread() {
-  aiState.renaming = false;
-  aiElements.renameForm?.classList.add("is-hidden");
-}
-
-async function handleRenameThreadSubmit(event) {
-  event.preventDefault();
-  const activeThread = getActiveThread();
-  const title = aiElements.renameInput?.value.trim() || "";
-  if (!activeThread || title.length < 2) {
-    setInlineMessage(aiElements.chatMessage, tr("Zadaj názov chatu.", "Enter a chat title."), true);
-    return;
-  }
-  try {
-    const response = await fetch("/api/assistant/thread", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "rename",
-        thread_id: activeThread.id,
-        title,
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error || tr("Názov chatu sa nepodarilo uložiť.", "Could not save the chat title."));
-    }
-    aiState.threads = payload.threads || aiState.threads;
-    aiState.activeThreadId = Number(payload.thread?.id || aiState.activeThreadId || 0);
-    aiState.messages = payload.messages || aiState.messages;
-    closeRenameThread();
-    renderAssistantData();
-  } catch (error) {
-    setInlineMessage(aiElements.chatMessage, error.message, true);
   }
 }
 
