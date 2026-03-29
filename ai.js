@@ -11,6 +11,8 @@ const aiState = {
   mobileUploadToken: "",
   mobileUploadPoll: null,
   lastRenderedTitle: "",
+  freshAssistantKey: "",
+  freshAssistantResetTimer: null,
 };
 
 const QUICK_ACTIONS = [
@@ -1085,6 +1087,22 @@ function stopTypingAnimation() {
   }
 }
 
+function markLatestAssistantMessageFresh() {
+  const assistantMessages = aiState.messages.filter((message) => message.role === "assistant");
+  const latestAssistant = assistantMessages[assistantMessages.length - 1];
+  if (!latestAssistant) {
+    return;
+  }
+  const latestIndex = aiState.messages.lastIndexOf(latestAssistant);
+  aiState.freshAssistantKey = getExpandKey(latestAssistant, latestIndex);
+  if (aiState.freshAssistantResetTimer) {
+    window.clearTimeout(aiState.freshAssistantResetTimer);
+  }
+  aiState.freshAssistantResetTimer = window.setTimeout(() => {
+    aiState.freshAssistantKey = "";
+  }, 900);
+}
+
 async function handleChatSubmit(event) {
   event.preventDefault();
   if (!aiState.user?.membership_active) {
@@ -1132,6 +1150,7 @@ async function handleChatSubmit(event) {
     aiState.threads = payload.threads || aiState.threads;
     aiState.activeThreadId = Number(payload.active_thread_id || aiState.activeThreadId || 0);
     aiState.messages = payload.messages || aiState.messages;
+    markLatestAssistantMessageFresh();
     setInlineMessage(aiElements.chatMessage, "", false, true);
   } catch (error) {
     setInlineMessage(aiElements.chatMessage, error.message, true);
@@ -1287,17 +1306,18 @@ function shouldCollapseMessageText(text) {
 
 function renderMessageContent(message, index) {
   const html = formatMessageHtml(message.content || "");
+  const expandKey = getExpandKey(message, index);
+  const freshClass = message.role === "assistant" && aiState.freshAssistantKey === expandKey ? " ai-message__content--fresh" : "";
   if (!html) {
-    return `<div class="ai-message__content"></div>`;
+    return `<div class="ai-message__content${freshClass}"></div>`;
   }
   const collapsible = message.role === "assistant" && shouldCollapseMessageText(message.content || "");
   if (!collapsible) {
-    return `<div class="ai-message__content">${html}</div>`;
+    return `<div class="ai-message__content${freshClass}">${html}</div>`;
   }
-  const expandKey = getExpandKey(message, index);
   const expanded = Boolean(aiState.expandedMessages[expandKey]);
   return `
-    <div class="ai-message__content${expanded ? " is-expanded" : " is-collapsed"}" data-expand-key="${escapeHtml(expandKey)}">
+    <div class="ai-message__content${freshClass}${expanded ? " is-expanded" : " is-collapsed"}" data-expand-key="${escapeHtml(expandKey)}">
       ${html}
     </div>
     <button class="ai-message__expand js-ai-expand" type="button" data-expand-key="${escapeHtml(expandKey)}">

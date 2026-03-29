@@ -700,6 +700,19 @@ def build_thread_title(message, language="sk"):
     text = re.sub(r"\[priložený obrázok:[^\]]+\]", "", text, flags=re.IGNORECASE).strip()
     if not text:
         return "New chat" if language == "en" else "Nový chat"
+    lowered = text.lower()
+    if any(token in lowered for token in ("úrok", "urok", "sadzb", "fixáci", "fixac", "hypot")) and any(
+        token in lowered for token in ("banka", "bank", "slovensk", "slovensku", "svk")
+    ):
+        return "Bank rates in Slovakia" if language == "en" else "Úroky v bankách na Slovensku"
+    if any(token in lowered for token in ("inflác", "inflac", "deflác", "deflac", "ceny", "zdraž")):
+        return "Inflation and prices in Slovakia" if language == "en" else "Inflácia a ceny na Slovensku"
+    if any(token in lowered for token in ("poisten", "krytie", "rizik")):
+        return "Insurance coverage for clients" if language == "en" else "Poistenie a krytie klienta"
+    if any(token in lowered for token in ("invest", "portfól", "portfolio", "fond")):
+        return "Investing and client portfolio" if language == "en" else "Investovanie a portfólio klienta"
+    if any(token in lowered for token in ("refinanc", "refi")):
+        return "Mortgage refinancing in Slovakia" if language == "en" else "Refinancovanie hypotéky na Slovensku"
     first_sentence = re.split(r"[.!?\n]", text, maxsplit=1)[0].strip()
     first_sentence = re.sub(
         r"^(prosím|prosim|ahoj|dobrý deň|dobry den|čau|cau|hello|hi)\s*[,:-]*\s*",
@@ -724,12 +737,15 @@ def build_thread_title(message, language="sk"):
     if first_sentence.lower() in generic_titles or len(first_sentence) < 4:
         return "New chat" if language == "en" else "Nový chat"
     words = first_sentence.split()
-    normalized = " ".join(words[:6]).strip()
+    normalized = " ".join(words[:7]).strip()
     normalized = normalized[0].upper() + normalized[1:]
     return normalized[:68].rstrip(" .,;:-")
 
 
-def derive_thread_title(messages, language="sk"):
+def derive_thread_title(messages, language="sk", existing_title=""):
+    generic = {"Nový chat", "New chat", "", None}
+    if str(existing_title or "").strip() not in generic:
+        return str(existing_title).strip()
     user_messages = []
     for message in messages or []:
         if str(message.get("role") or "") != "user":
@@ -739,8 +755,7 @@ def derive_thread_title(messages, language="sk"):
             user_messages.append(content)
     if not user_messages:
         return "New chat" if language == "en" else "Nový chat"
-    candidate = build_thread_title(user_messages[-1], language=language)
-    generic = {"Nový chat", "New chat"}
+    candidate = build_thread_title(" ".join(user_messages[-4:]), language=language)
     if candidate not in generic:
         return candidate
     merged = " ".join(user_messages[-3:])
@@ -2819,7 +2834,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
             save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta, language=language)
             updated_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
-            next_title = derive_thread_title(updated_messages, language=language)
+            next_title = derive_thread_title(updated_messages, language=language, existing_title=active_thread["title"])
             touch_assistant_thread(connection, active_thread["id"], title=next_title)
             connection.commit()
             refresh_assistant_profile_memory(connection, user["id"])
