@@ -229,6 +229,10 @@ function tr(sk, en) {
   return getCurrentLang() === "en" ? en : sk;
 }
 
+function hasUnlockedAccess(user = state.user) {
+  return Boolean(user?.membership_active || user?.is_admin);
+}
+
 bootstrap();
 
 async function bootstrap() {
@@ -384,11 +388,18 @@ async function bootstrap() {
   } else if (shouldAutoOpenAccountPanel()) {
     openAccountPanel();
     clearPanelQueryParams();
+  } else if (shouldAutoStartCheckout()) {
+    if (!state.user) {
+      openAuthModal("register");
+    } else if (!hasUnlockedAccess()) {
+      openCheckoutModal();
+    }
+    clearPanelQueryParams();
   }
 }
 
 function renderAccessState() {
-  const hasMembership = Boolean(state.user?.membership_active);
+  const hasMembership = hasUnlockedAccess();
   const isLoggedIn = Boolean(state.user);
   const isAdmin = Boolean(state.user?.is_admin);
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
@@ -467,7 +478,11 @@ function renderAccessState() {
     elements.logoutBtn.classList.toggle("is-hidden", !isLoggedIn);
   }
   if (elements.accountStatus) {
-    if (hasMembership) {
+    if (isAdmin && !state.user?.membership_active) {
+      elements.accountStatus.textContent = getCurrentLang() === "en"
+        ? `Signed-in account ${accountLabel} has full admin access. Membership activation is not required for administrator tools.`
+        : `Prihlásený účet ${accountLabel} má plný administrátorský prístup. Aktivácia členstva nie je pre správcu potrebná.`;
+    } else if (hasMembership) {
       elements.accountStatus.textContent = getCurrentLang() === "en"
         ? `Signed-in account ${accountLabel} has active membership${membershipUntil !== "—" ? ` until ${membershipUntil}` : ""}${canManageAdminTools ? " and full admin access." : isAdmin ? " and admin access." : "."}`
         : `Prihlásený účet ${accountLabel} má aktívne členstvo${membershipUntil !== "—" ? ` do ${membershipUntil}` : ""}${canManageAdminTools ? " a plný správca prístup." : isAdmin ? " a zároveň administrátorský prístup." : "."}`;
@@ -593,7 +608,7 @@ function renderMode() {
   if (elements.heroModeCompressBtn) {
     elements.heroModeCompressBtn.setAttribute("aria-pressed", String(isCompress));
   }
-  if (isAssistant && state.user?.membership_active) {
+  if (isAssistant && hasUnlockedAccess()) {
     fetchAssistantDashboard();
   }
   renderChooserDealMini();
@@ -614,7 +629,7 @@ function renderUploadState() {
     return;
   }
 
-  const membershipActive = Boolean(state.user?.membership_active);
+  const membershipActive = hasUnlockedAccess();
   const fileCount = state.files.length;
   const { phase, progress } = state.uploadUi;
 
@@ -688,7 +703,7 @@ function handleModalEscape(event) {
 }
 
 function maybeOpenPromoModal() {
-  if (state.user?.membership_active) {
+  if (hasUnlockedAccess()) {
     return;
   }
   if (sessionStorage.getItem("promo_seen") === "1") {
@@ -838,15 +853,22 @@ function shouldAutoOpenAccountPanel() {
   return params.get("openAccount") === "1";
 }
 
+function shouldAutoStartCheckout() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("startCheckout") === "1";
+}
+
 function clearPanelQueryParams() {
   const url = new URL(window.location.href);
   const hasAccount = url.searchParams.get("openAccount") === "1";
   const hasAdmin = url.searchParams.get("openAdmin") === "1";
-  if (!hasAccount && !hasAdmin) {
+  const hasCheckout = url.searchParams.get("startCheckout") === "1";
+  if (!hasAccount && !hasAdmin && !hasCheckout) {
     return;
   }
   url.searchParams.delete("openAccount");
   url.searchParams.delete("openAdmin");
+  url.searchParams.delete("startCheckout");
   window.history.replaceState({}, "", url.toString());
 }
 
@@ -910,7 +932,7 @@ async function refreshCurrentUser() {
       // ignore sync issue here; current state stays visible
     }
 
-    if (state.user?.membership_active) {
+    if (hasUnlockedAccess()) {
       window.alert("Členstvo bolo úspešne aktivované.");
     } else if (!state.user) {
       window.alert("Platba prebehla. Prihlás sa znova a členstvo sa následne zosynchronizuje.");
@@ -970,8 +992,8 @@ async function fetchAccountPanel() {
   try {
     const [accountResponse, profileResponse, assistantResponse] = await Promise.all([
       fetch("/api/account"),
-      state.user?.membership_active ? fetch("/api/assistant/profile") : Promise.resolve(null),
-      state.user?.membership_active ? fetch("/api/assistant") : Promise.resolve(null),
+      hasUnlockedAccess() ? fetch("/api/assistant/profile") : Promise.resolve(null),
+      hasUnlockedAccess() ? fetch("/api/assistant") : Promise.resolve(null),
     ]);
     const payload = await accountResponse.json();
     if (!accountResponse.ok) {
@@ -1085,7 +1107,8 @@ function renderAccountSubscriptionCard() {
     elements.accountSubscriptionCard.textContent = tr("Prihlás sa a zobrazia sa údaje o predplatnom.", "Sign in to see subscription details.");
     return;
   }
-  const isActive = Boolean(user.membership_active);
+  const isActive = hasUnlockedAccess(user);
+  const isAdminOnlyAccess = Boolean(user?.is_admin && !user?.membership_active);
   const registration = user.registration_consent_at
     ? `${tr("GDPR a podmienky potvrdené", "Privacy and terms confirmed")} • ${formatDateTime(user.registration_consent_at)}`
     : tr("Registračné súhlasy zatiaľ neevidujeme.", "Registration consents are not recorded yet.");
@@ -1099,11 +1122,13 @@ function renderAccountSubscriptionCard() {
       <div class="account-card__row"><strong>${escapeHtml(tr("Číslo predplatného", "Subscription number"))}</strong><span>${escapeHtml(subscription.internal_subscription_number || user.membership_internal_subscription_number || "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Stripe subscription ID", "Stripe subscription ID"))}</strong><span class="mono">${escapeHtml(subscription.stripe_subscription_id || user.membership_stripe_subscription_id || "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Ďalšie obnovenie", "Next renewal"))}</strong><span>${escapeHtml(formatDate(subscription.next_renewal_at || user.membership_next_renewal_at))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Stav v Stripe", "Stripe status"))}</strong><span>${escapeHtml(subscription.stripe_status || user.membership_stripe_status || (isActive ? "active" : "inactive"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav v Stripe", "Stripe status"))}</strong><span>${escapeHtml(isAdminOnlyAccess ? tr("Admin prístup", "Admin access") : subscription.stripe_status || user.membership_stripe_status || (isActive ? "active" : "inactive"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Stav ukončenia", "Cancellation status"))}</strong><span>${escapeHtml(subscription.cancel_at_period_end || user.membership_cancel_at_period_end ? tr("Ukončí sa ku koncu obdobia", "Ends at period end") : tr("Pokračuje", "Continuing"))}</span></div>
       <div class="account-card__note">${escapeHtml(registration)}</div>
       <div class="account-card__note">${escapeHtml(checkout)}</div>
-      ${isActive ? `
+      ${isAdminOnlyAccess ? `
+        <div class="account-card__note">${escapeHtml(tr("Správca má trvalý prístup bez potreby plateného členstva.", "Administrator access stays unlocked without paid membership."))}</div>
+      ` : isActive ? `
         <div class="account-card__cta">
           <button id="cancelSubscriptionBtn" class="button button--ghost" type="button">${escapeHtml(tr("Zrušiť predplatné", "Cancel subscription"))}</button>
         </div>
@@ -1129,6 +1154,7 @@ function renderAccountSummary() {
   }
 
   const showMembershipDates = Boolean(state.user.membership_active);
+  const hasAccess = hasUnlockedAccess(state.user);
   elements.accountSummary.className = "account-summary";
   elements.accountSummary.innerHTML = `
     <article class="account-card">
@@ -1136,11 +1162,11 @@ function renderAccountSummary() {
       <div class="account-card__row"><strong>${escapeHtml(tr("E-mail", "Email"))}</strong><span>${escapeHtml(state.user.email || "")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(state.user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Registrovaný od", "Registered since"))}</strong><span>${escapeHtml(formatDate(state.user.created_at))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(state.user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(state.user.is_admin && !state.user.membership_active ? tr("Admin prístup", "Admin access") : hasAccess ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(state.user.membership_started_at) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(state.user.membership_valid_until) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Cena", "Price"))}</strong><span>${escapeHtml(tr("1,99 € / mesiac", "€1.99 / month"))}</span></div>
-      ${state.user.membership_active ? "" : `
+      ${hasAccess ? "" : `
         <div class="account-card__cta">
           <button id="accountSummaryCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
         </div>
@@ -1163,17 +1189,18 @@ function renderAccountPanel() {
     return;
   }
   const showMembershipDates = Boolean(user.membership_active);
+  const hasAccess = hasUnlockedAccess(user);
   elements.accountPanelSummary.className = "account-summary";
   elements.accountPanelSummary.innerHTML = `
     <article class="account-card">
       <div class="account-card__row"><strong>${escapeHtml(tr("Meno", "Name"))}</strong><span>${escapeHtml(user.name || "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("E-mail", "Email"))}</strong><span>${escapeHtml(user.email || "")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Registrovaný od", "Registered since"))}</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
-      <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(user.membership_active ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(user.is_admin && !user.membership_active ? tr("Admin prístup", "Admin access") : hasAccess ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(user.membership_started_at) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(user.membership_valid_until) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
-      ${user.membership_active ? "" : `
+      ${hasAccess ? "" : `
         <div class="account-card__cta">
           <button id="accountPanelCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
         </div>
@@ -1206,7 +1233,7 @@ function renderAccountAiMemory() {
   if (!elements.accountAiMemory) {
     return;
   }
-  if (!state.user?.membership_active) {
+  if (!hasUnlockedAccess()) {
     elements.accountAiMemory.className = "account-summary empty-state";
     elements.accountAiMemory.textContent = tr(
       "Po aktivácii členstva tu uvidíš AI pamäť, hlavné témy a pracovný kontext.",
@@ -2004,7 +2031,7 @@ async function startCheckoutFlow() {
     openAuthModal("register");
     return;
   }
-  if (state.user.membership_active) {
+  if (hasUnlockedAccess()) {
     if (state.mode === "chooser") {
       navigateToMode("contacts");
       return;
@@ -2023,7 +2050,7 @@ async function startCheckoutFlow() {
 }
 
 function handleUnlockUploadAction() {
-  if (state.user?.membership_active) {
+  if (hasUnlockedAccess()) {
     openFilePicker(elements.fileInput);
     return;
   }
@@ -2035,7 +2062,7 @@ function handleOpenCompressorAction() {
 }
 
 function handleOpenAssistantAction() {
-  if (state.user?.membership_active) {
+  if (hasUnlockedAccess()) {
     window.location.href = "/ai.html";
     return;
   }
@@ -2180,7 +2207,7 @@ function renderChooserDealMini() {
     return;
   }
   const dismissed = state.chooserDealDismissed || window.localStorage.getItem(CHOOSER_DEAL_DISMISSED_KEY) === "1";
-  const hasMembership = Boolean(state.user?.membership_active);
+  const hasMembership = hasUnlockedAccess();
   const shouldShow = state.mode === "chooser" && !hasMembership && !dismissed;
   elements.chooserDealMini.hidden = !shouldShow;
 }
@@ -2190,7 +2217,7 @@ function renderStickyDealBar() {
     return;
   }
   const dismissed = state.stickyDealDismissed || window.localStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
-  const hasMembership = Boolean(state.user?.membership_active);
+  const hasMembership = hasUnlockedAccess();
   const shouldShow =
     !dismissed &&
     !hasMembership &&
@@ -2218,7 +2245,7 @@ function handleUploadBoxClick(event) {
   if (event.target.closest("button")) {
     return;
   }
-  if (state.user?.membership_active) {
+  if (hasUnlockedAccess()) {
     openFilePicker(elements.fileInput);
     return;
   }
@@ -2227,7 +2254,7 @@ function handleUploadBoxClick(event) {
 
 function handleUploadDragOver(event) {
   event.preventDefault();
-  if (!state.user?.membership_active) {
+  if (!hasUnlockedAccess()) {
     return;
   }
   elements.uploadBox.classList.add("is-dragover");
@@ -2242,7 +2269,7 @@ function handleUploadDragLeave(event) {
 function handleUploadDrop(event) {
   event.preventDefault();
   elements.uploadBox.classList.remove("is-dragover");
-  if (!state.user?.membership_active) {
+  if (!hasUnlockedAccess()) {
     startCheckoutFlow();
     return;
   }
@@ -2257,7 +2284,7 @@ function handleUploadDrop(event) {
 }
 
 function renderCompressionAccessState() {
-  const hasMembership = Boolean(state.user?.membership_active);
+  const hasMembership = hasUnlockedAccess();
   const hasFile = Boolean(state.compression.file);
 
   if (elements.compressFileInput) {
@@ -2273,7 +2300,7 @@ function renderCompressionAccessState() {
 }
 
 function renderAssistantAccessState() {
-  const hasMembership = Boolean(state.user?.membership_active);
+  const hasMembership = hasUnlockedAccess();
   if (elements.assistantSubtitle) {
     elements.assistantSubtitle.textContent = hasMembership
       ? tr("Konverzačný asistent, ktorý ti pomáha s denným plánom, follow-upmi, komunikáciou s klientmi a organizáciou práce.", "A conversational assistant that helps with your daily plan, follow-ups, client communication and work organization.")
@@ -2330,7 +2357,7 @@ function renderAssistantLockedState() {
 }
 
 async function fetchAssistantDashboard() {
-  if (!state.user?.membership_active || state.mode !== "assistant") {
+  if (!hasUnlockedAccess() || state.mode !== "assistant") {
     return;
   }
   try {
@@ -2456,7 +2483,7 @@ function renderCompressionUploadState() {
     return;
   }
 
-  const hasMembership = Boolean(state.user?.membership_active);
+  const hasMembership = hasUnlockedAccess();
   const hasFile = Boolean(state.compression.file);
   const { phase, progress } = state.compression.uploadUi;
   const elapsedSeconds = state.compression.startedAt ? Math.round((Date.now() - state.compression.startedAt) / 1000) : 0;
@@ -2530,7 +2557,7 @@ function renderCompressionUploadState() {
 }
 
 function requestCompressionAccess() {
-  if (state.user?.membership_active) {
+  if (hasUnlockedAccess()) {
     return true;
   }
   setMode("compress");
@@ -2568,7 +2595,7 @@ function handleCompressionUploadKeydown(event) {
 
 function handleCompressionDragOver(event) {
   event.preventDefault();
-  if (!state.user?.membership_active) {
+  if (!hasUnlockedAccess()) {
     return;
   }
   elements.compressUploadBox?.classList.add("is-dragover");
@@ -2772,7 +2799,7 @@ function handleAssistantPromptClick(event) {
 
 async function handleAssistantChatSubmit(event) {
   event.preventDefault();
-  if (!state.user?.membership_active) {
+  if (!hasUnlockedAccess()) {
     startCheckoutFlow();
     return;
   }
@@ -2901,7 +2928,7 @@ async function disableServiceWorkers() {
 }
 
 function handleFileSelection(event) {
-  if (!state.user?.membership_active) {
+  if (!hasUnlockedAccess()) {
     startCheckoutFlow();
     return;
   }

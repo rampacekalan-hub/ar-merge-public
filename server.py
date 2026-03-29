@@ -2183,6 +2183,14 @@ def is_membership_active(membership):
     return period_end > utc_now()
 
 
+def user_has_service_access(user_row, membership=None):
+    if not user_row:
+        return False
+    if user_row["role"] == "admin" and is_admin_email(user_row["email"]):
+        return True
+    return is_membership_active(membership)
+
+
 def get_membership_display_state(membership):
     active = is_membership_active(membership)
     if not membership:
@@ -2265,9 +2273,10 @@ def get_request_base_url(handler):
 
 
 def get_or_create_customer(connection, user_row):
-    customer_id = user_row["stripe_customer_id"]
-    if customer_id:
+    customer_id = str(user_row["stripe_customer_id"] or "").strip()
+    if customer_id and re.fullmatch(r"cus_[A-Za-z0-9]+", customer_id):
         return customer_id
+    customer_id = ""
 
     customer = stripe.Customer.create(
         email=user_row["email"],
@@ -3019,7 +3028,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
             upload_session = create_assistant_upload_session(connection, user["id"])
@@ -3092,7 +3101,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
@@ -3350,6 +3359,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 marketing_consent=marketing_consent,
                 legal_version=LEGAL_VERSION,
             )
+            connection.commit()
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             self.write_json(
                 user_payload(connection, user, self.headers),
@@ -3578,7 +3588,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
@@ -3595,7 +3605,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
@@ -3677,7 +3687,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
@@ -3795,7 +3805,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": "Na použitie AI asistenta je potrebné aktívne členstvo."}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return
 
@@ -4466,7 +4476,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return None
 
             membership = get_membership(connection, user["id"])
-            if not is_membership_active(membership):
+            if not user_has_service_access(user, membership):
                 self.write_json({"error": membership_error_message}, status=HTTPStatus.PAYMENT_REQUIRED)
                 return None
             return user

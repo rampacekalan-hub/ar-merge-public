@@ -103,6 +103,10 @@ const QUICK_ACTIONS = [
   },
 ];
 
+function hasAiAccess(user = aiState.user) {
+  return Boolean(user?.membership_active || user?.is_admin);
+}
+
 const FOLLOWUP_ACTIONS = [
   {
     key: "more",
@@ -232,7 +236,7 @@ async function bootstrapAi() {
   startNowTicker();
   await refreshAiUser();
   renderAiState();
-  if (aiState.user?.membership_active) {
+  if (hasAiAccess()) {
     await loadAssistant();
   }
 }
@@ -354,7 +358,7 @@ function getPreferredThreadId() {
 function renderAiState() {
   const user = aiState.user;
   const isLoggedIn = Boolean(user);
-  const hasMembership = Boolean(user?.membership_active);
+  const hasMembership = hasAiAccess(user);
 
   if (aiElements.accountBtn) {
     aiElements.accountBtn.textContent = isLoggedIn ? (user.name?.trim() || user.email || tr("Účet", "Account")) : tr("Prihlásiť sa", "Sign in");
@@ -455,7 +459,7 @@ function renderAssistantData() {
   renderAttachmentBar();
   autoResizeTextarea(aiElements.chatInput);
   renderMessages();
-  if (aiElements.chatInput && aiState.user?.membership_active) {
+  if (aiElements.chatInput && hasAiAccess()) {
     aiElements.chatInput.focus();
   }
 }
@@ -471,7 +475,7 @@ function renderThreadList() {
   if (aiElements.threadCount) {
     aiElements.threadCount.textContent = String(aiState.threads.length || 0);
   }
-  if (!aiState.user?.membership_active) {
+  if (!hasAiAccess()) {
     aiElements.threadList.className = "ai-thread-list empty-state";
     aiElements.threadList.textContent = tr("História chatov sa zobrazí po aktivácii členstva.", "Conversation history will appear after membership activation.");
     return;
@@ -605,7 +609,7 @@ function renderQuickActions() {
       ${renderQuickActionRollup(tr("Viac akcií", "More actions"), extraActions, "chip")}
     `;
   }
-  const disabled = !aiState.user?.membership_active;
+  const disabled = !hasAiAccess();
   document.querySelectorAll(".js-ai-prompt").forEach((button) => {
     button.disabled = disabled;
   });
@@ -932,7 +936,7 @@ function handleOutsideAttachMenuClick(event) {
 }
 
 async function openQrUploadModal() {
-  if (!aiState.user?.membership_active) {
+  if (!hasAiAccess()) {
     await startCheckoutFlow();
     return;
   }
@@ -1034,7 +1038,7 @@ async function setAttachmentFromDataUrl(dataUrl, filename, mimeType) {
 }
 
 async function handleNewThreadClick() {
-  if (!aiState.user?.membership_active) {
+  if (!hasAiAccess()) {
     await startCheckoutFlow();
     return;
   }
@@ -1081,7 +1085,7 @@ function handleChatPaste(event) {
 }
 
 function applyPromptToComposer(prompt) {
-  if (!aiElements.chatInput || !aiState.user?.membership_active) {
+  if (!aiElements.chatInput || !hasAiAccess()) {
     return;
   }
   aiElements.chatInput.value = String(prompt || "");
@@ -1134,7 +1138,7 @@ function markLatestAssistantMessageFresh() {
 
 async function handleChatSubmit(event) {
   event.preventDefault();
-  if (!aiState.user?.membership_active) {
+  if (!hasAiAccess()) {
     await startCheckoutFlow();
     return;
   }
@@ -1233,24 +1237,13 @@ async function handleLogout() {
 
 async function startCheckoutFlow() {
   if (!aiState.user) {
-    window.location.href = "/app.html";
+    window.location.href = "/app.html?startCheckout=1";
     return;
   }
-  if (aiState.user.membership_active) {
+  if (hasAiAccess()) {
     return;
   }
-
-  try {
-    const response = await fetch("/api/create-checkout-session", { method: "POST" });
-    const payload = await response.json();
-    if (!response.ok) {
-      window.alert(payload.error || tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout could not be started."));
-      return;
-    }
-    window.location.href = payload.url;
-  } catch (_error) {
-    window.alert(tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout could not be started."));
-  }
+  window.location.href = "/app.html?startCheckout=1";
 }
 
 function setInlineMessage(target, text, isError = false, hidden = false) {
