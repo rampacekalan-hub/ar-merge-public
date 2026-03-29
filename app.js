@@ -788,6 +788,14 @@ function closeAccountPanel() {
   syncModalState();
 }
 
+function startCheckoutFromAccountPanel() {
+  closeAccountPanel();
+  // Ensure panel/backdrop is fully removed before showing checkout.
+  window.setTimeout(() => {
+    startCheckoutFlow();
+  }, 120);
+}
+
 async function openAdminPanel() {
   if (!state.user) {
     openAuthModal("login");
@@ -1077,7 +1085,7 @@ function renderAccountSubscriptionCard() {
       `}
     </article>
   `;
-  document.getElementById("accountSubscriptionCheckoutBtn")?.addEventListener("click", startCheckoutFlow);
+  document.getElementById("accountSubscriptionCheckoutBtn")?.addEventListener("click", startCheckoutFromAccountPanel);
   document.getElementById("cancelSubscriptionBtn")?.addEventListener("click", cancelSubscriptionFlow);
 }
 
@@ -1109,7 +1117,7 @@ function renderAccountSummary() {
       `}
     </article>
   `;
-  document.getElementById("accountSummaryCheckoutBtn")?.addEventListener("click", startCheckoutFlow);
+  document.getElementById("accountSummaryCheckoutBtn")?.addEventListener("click", startCheckoutFromAccountPanel);
 }
 
 function renderAccountPanel() {
@@ -1141,7 +1149,7 @@ function renderAccountPanel() {
       `}
     </article>
   `;
-  document.getElementById("accountPanelCheckoutBtn")?.addEventListener("click", startCheckoutFlow);
+  document.getElementById("accountPanelCheckoutBtn")?.addEventListener("click", startCheckoutFromAccountPanel);
   if (elements.accountNameInput) {
     elements.accountNameInput.value = user.name || "";
   }
@@ -1973,6 +1981,21 @@ function handleOpenAssistantAction() {
 }
 
 async function startProCheckout() {
+  const configuredPaymentLink = (
+    window.AR_MERGE_BILLING?.stripePaymentLink ||
+    ""
+  ).trim();
+  const hasValidPaymentLink = /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+/.test(configuredPaymentLink);
+  const isPricePatternError = (text) => {
+    const normalized = String(text || "").toLowerCase();
+    return (
+      normalized.includes("expected pattern") ||
+      normalized.includes("identifikátor ceny") ||
+      normalized.includes("stripe_price_id") ||
+      normalized.includes("price_")
+    );
+  };
+
   try {
     const response = await fetch("/api/create-checkout-session", {
       method: "POST",
@@ -1984,10 +2007,26 @@ async function startProCheckout() {
       if (response.status === 401) {
         openAuthModal("login");
       }
+      if (hasValidPaymentLink && isPricePatternError(payload?.error)) {
+        window.location.href = configuredPaymentLink;
+        return;
+      }
       throw new Error(payload.error || "Stripe checkout sa nepodarilo spustiť.");
     }
-    window.location.href = payload.url;
+    if (payload?.url) {
+      window.location.href = payload.url;
+      return;
+    }
+    if (hasValidPaymentLink) {
+      window.location.href = configuredPaymentLink;
+      return;
+    }
+    throw new Error("Stripe checkout URL nie je dostupná.");
   } catch (error) {
+    if (hasValidPaymentLink && isPricePatternError(error?.message)) {
+      window.location.href = configuredPaymentLink;
+      return;
+    }
     window.alert(error.message);
   }
 }
