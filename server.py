@@ -3731,6 +3731,18 @@ class AppHandler(SimpleHTTPRequestHandler):
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
             return
+        if not re.fullmatch(r"price_[A-Za-z0-9]+", STRIPE_PRICE_ID.strip()):
+            self.write_json(
+                {
+                    "error": (
+                        "Stripe cena nie je nastavená správne. "
+                        "Premenná STRIPE_PRICE_ID musí byť vo formáte price_... "
+                        "(nie payment link URL)."
+                    )
+                },
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+            return
 
         connection = get_db()
         try:
@@ -3835,7 +3847,13 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             self.write_json({"url": session["url"]})
         except stripe.error.StripeError as exc:
-            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+            error_text = str(exc)
+            if "expected pattern" in error_text.lower():
+                error_text = (
+                    "Stripe odmietol identifikátor ceny. "
+                    "Skontrolujte STRIPE_PRICE_ID (musí byť price_...)."
+                )
+            self.write_json({"error": error_text}, status=HTTPStatus.BAD_GATEWAY)
         except ValueError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:
