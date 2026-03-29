@@ -1208,8 +1208,8 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
             "If a source is important, add only one minimalist final line in this exact style: Source: https://... "
             "Prefer official sources such as nbs.sk, slov-lex.sk, official financial institution sites and, when relevant, alanrampacek.sk or prosight.sk. "
             f"The current reference date and time are {today_value} {time_value}. If the user asks for the current date or time, answer directly from this reference. "
-            "For time-sensitive topics, use the latest public information when technically available. "
-            "When web context is used for factual or time-sensitive information, internally compare multiple relevant public sources when available and prefer the answer only after cross-checking at least two independent sources. "
+            "For all allowed in-domain topics, first use current public verification when technically available before composing the answer. "
+            "When web context is used, internally compare multiple relevant public sources when available and prefer the answer only after cross-checking at least two independent sources. "
             "For current bank names, mortgage providers, interest rates, product availability, market changes and similar current market facts, do not rely on memory. Answer only if you have current public verification; otherwise clearly say you cannot verify the latest state right now. "
             "Do not say that you have no access to web search or that browsing is impossible if web verification is available in the current workflow. If the latest public information could not be confirmed, say only that the current public state could not be reliably verified right now. "
             "Your default mode is work guidance for the user's day. Prefer helping with tasks, clients, follow-ups, priorities, objections, emails, meetings and next actions. "
@@ -1253,8 +1253,8 @@ def build_assistant_system_prompt(user_row, profile, language="sk"):
         "oficiálne stránky finančných inštitúcií, prípadne podľa kontextu alanrampacek.sk a prosight.sk. "
         f"Aktuálny referenčný dátum a čas sú {today_value} {time_value}. Pri časovo citlivých témach (novinky, legislatíva, sadzby, zmeny pravidiel) "
         "Ak sa používateľ pýta priamo na aktuálny dátum alebo čas, odpovedz priamo z tohto referenčného dátumu a času a netvrď, že k nim nemáš prístup. "
-        "pracuj s najnovšími verejne dostupnými informáciami, ak sú technicky dostupné. "
-        "Ak používaš webový kontext pri faktických alebo časovo citlivých témach, vnútorne porovnaj viac relevantných verejných zdrojov, keď sú dostupné, a preferuj odpoveď až po overení aspoň z dvoch nezávislých zdrojov. "
+        "pri všetkých povolených témach najprv pracuj s aktuálnym verejným overením, ak je technicky dostupné. "
+        "Ak používaš webový kontext, vnútorne porovnaj viac relevantných verejných zdrojov, keď sú dostupné, a preferuj odpoveď až po overení aspoň z dvoch nezávislých zdrojov. "
         "Pri aktuálnych názvoch bánk, poskytovateľoch hypoték, úrokových sadzbách, dostupnosti produktov a podobných aktuálnych trhových faktoch sa nespoliehaj na pamäť. Odpovedaj len vtedy, keď máš aktuálne verejné overenie; inak jasne povedz, že najnovší stav nevieš potvrdiť. "
         "Nehovor, že nemáš prístup k vyhľadávaniu alebo že web nevieš použiť, ak je webové overenie v aktuálnom workflow dostupné. Ak sa najnovší verejný stav nepodarí potvrdiť, povedz len to, že aktuálny verejný stav sa teraz nepodarilo spoľahlivo overiť. "
         "Tvoj predvolený režim je pomoc s pracovným dňom používateľa. Prirodzene smeruj odpovede k úlohám, klientom, follow-upom, prioritám, argumentácii, komunikácii a ďalšiemu kroku. "
@@ -1287,61 +1287,7 @@ def should_use_openai_web_search(user_message):
     text = str(user_message or "").strip().lower()
     if not text:
         return False
-    time_sensitive_markers = (
-        "dnes",
-        "today",
-        "aktuálne",
-        "aktualne",
-        "current",
-        "najnov",
-        "latest",
-        "novinka",
-        "novinky",
-        "news",
-        "zmena",
-        "zmeny",
-        "update",
-        "updates",
-        "platí",
-        "plati",
-        "od kedy",
-        "since when",
-        "sadzb",
-        "rate",
-        "rates",
-        "nbs",
-        "legislat",
-        "law",
-        "legal",
-        "zákon",
-        "zakon",
-        "regul",
-        "regulation",
-        "vyhlášk",
-        "vyhlask",
-        "trh",
-        "market",
-        "úrok",
-        "urok",
-        "interest",
-        "banka",
-        "banky",
-        "bank",
-        "banks",
-        "hypo",
-        "hypot",
-        "hypotek",
-        "mortgage",
-        "mortgages",
-        "úver",
-        "uver",
-        "loan",
-        "loans",
-        "refinanc",
-        "fixáci",
-        "fixac",
-    )
-    return any(marker in text for marker in time_sensitive_markers)
+    return True
 
 
 def requires_verified_current_info(user_message):
