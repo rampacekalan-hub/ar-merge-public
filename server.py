@@ -2745,7 +2745,13 @@ class AppHandler(SimpleHTTPRequestHandler):
                 or self.headers.get("Host")
                 or ""
             ).strip().lower()
-            if not request_host or normalize_host_name(request_host) == canonical_host:
+            normalized_request_host = normalize_host_name(request_host)
+            if not normalized_request_host or normalized_request_host == canonical_host:
+                return False
+            # Redirect only from Render hostnames to canonical public hostname.
+            # Keep apex/www handling on DNS/CDN level to avoid redirect loops
+            # and session host switching after payment return.
+            if not normalized_request_host.endswith(".onrender.com"):
                 return False
             destination = f"{APP_BASE_URL.rstrip('/')}{self.path}"
             self.send_response(HTTPStatus.MOVED_PERMANENTLY)

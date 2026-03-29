@@ -14,7 +14,7 @@ services:
       - key: DB_PATH
         value: /var/data/app.db
       - key: APP_BASE_URL
-        value: https://unifyo.online
+        value: https://www.unifyo.online
       - key: MAX_REQUEST_BODY_MB
         value: "110"
       - key: MAX_CONTACT_FILE_MB
