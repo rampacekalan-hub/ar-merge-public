@@ -885,9 +885,15 @@ function clearAuthMessage() {
 }
 
 async function refreshCurrentUser() {
-  const response = await fetch("/api/me");
-  const payload = await response.json();
-  state.user = payload.user;
+  let response;
+  let payload;
+  try {
+    response = await fetch("/api/me");
+    payload = await response.json();
+    state.user = payload.user;
+  } catch (_error) {
+    state.user = null;
+  }
   scheduleSessionAutoLogout();
 
   const url = new URL(window.location.href);
@@ -906,6 +912,8 @@ async function refreshCurrentUser() {
 
     if (state.user?.membership_active) {
       window.alert("Členstvo bolo úspešne aktivované.");
+    } else if (!state.user) {
+      window.alert("Platba prebehla. Prihlás sa znova a členstvo sa následne zosynchronizuje.");
     } else {
       window.alert("Platba prebehla. Členstvo sa ešte synchronizuje, skús stránku obnoviť o pár sekúnd.");
     }
@@ -2044,6 +2052,9 @@ async function startProCheckout() {
     ""
   ).trim();
   const hasValidPaymentLink = /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+/.test(configuredPaymentLink);
+  const paymentLinkWithEmail = hasValidPaymentLink && state.user?.email
+    ? `${configuredPaymentLink}${configuredPaymentLink.includes("?") ? "&" : "?"}prefilled_email=${encodeURIComponent(state.user.email)}`
+    : configuredPaymentLink;
   const isPricePatternError = (text) => {
     const normalized = String(text || "").toLowerCase();
     return (
@@ -2066,7 +2077,7 @@ async function startProCheckout() {
         openAuthModal("login");
       }
       if (hasValidPaymentLink && isPricePatternError(payload?.error)) {
-        window.location.href = configuredPaymentLink;
+        window.location.href = paymentLinkWithEmail;
         return;
       }
       throw new Error(payload.error || "Stripe checkout sa nepodarilo spustiť.");
@@ -2076,13 +2087,13 @@ async function startProCheckout() {
       return;
     }
     if (hasValidPaymentLink) {
-      window.location.href = configuredPaymentLink;
+      window.location.href = paymentLinkWithEmail;
       return;
     }
     throw new Error("Stripe checkout URL nie je dostupná.");
   } catch (error) {
     if (hasValidPaymentLink && isPricePatternError(error?.message)) {
-      window.location.href = configuredPaymentLink;
+      window.location.href = paymentLinkWithEmail;
       return;
     }
     window.alert(error.message);

@@ -662,8 +662,8 @@ def record_registration_consent(connection, user_id, email, ip_address, marketin
     cursor = connection.execute(
         """
         INSERT INTO registration_consents (
-            user_id, email, ip_address, terms_accepted, privacy_accepted, marketing_consent,
-            confirmation_text, legal_version, created_at
+            user_id, email, ip_address, accepted_terms, accepted_privacy, marketing_consent,
+            consent_text, legal_version, created_at
         ) VALUES (?, ?, ?, 1, 1, ?, ?, ?, ?)
         """,
         (
@@ -684,15 +684,20 @@ def record_checkout_consent(connection, user_row, ip_address):
     cursor = connection.execute(
         """
         INSERT INTO checkout_consents (
-            user_id, email, ip_address, consent_text, consent_version, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
+            user_id, email, consent_text, consent_version, price_label, subscription_label,
+            renewal_label, no_refund_label, ip_address, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             user_row["id"],
             user_row["email"],
-            ip_address,
             CHECKOUT_CONSENT_TEXT,
             CHECKOUT_CONSENT_VERSION,
+            "1,99 € / mesiac",
+            "Mesačné predplatné s automatickým obnovením",
+            "Predplatné sa automaticky obnovuje, kým ho nezrušíte.",
+            "Platba sa po aktivácii služby nevracia.",
+            ip_address,
             now_value,
         ),
     )
@@ -2249,12 +2254,14 @@ def user_payload(connection, user_row, headers=None):
 
 
 def get_request_base_url(handler):
-    if APP_BASE_URL:
-        return APP_BASE_URL.rstrip("/")
     forwarded_proto = handler.headers.get("X-Forwarded-Proto")
     proto = forwarded_proto or ("https" if PORT == 443 else "http")
     host = handler.headers.get("X-Forwarded-Host") or handler.headers.get("Host") or f"127.0.0.1:{PORT}"
-    return f"{proto}://{host}".rstrip("/")
+    if host:
+        return f"{proto}://{host}".rstrip("/")
+    if APP_BASE_URL:
+        return APP_BASE_URL.rstrip("/")
+    return f"http://127.0.0.1:{PORT}"
 
 
 def get_or_create_customer(connection, user_row):
@@ -2295,6 +2302,17 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
             "SELECT * FROM users WHERE stripe_customer_id = ?",
             (customer_id,),
         ).fetchone()
+    if not user_row and customer_id:
+        try:
+            customer = stripe.Customer.retrieve(customer_id)
+            customer_email = normalize_email(customer.get("email"))
+        except Exception:
+            customer_email = ""
+        if customer_email:
+            user_row = connection.execute(
+                "SELECT * FROM users WHERE email = ?",
+                (customer_email,),
+            ).fetchone()
     if not user_row and fallback_user_id:
         user_row = connection.execute(
             "SELECT * FROM users WHERE id = ?",
@@ -2385,7 +2403,23 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
 
 def sync_membership_for_user(connection, user_row):
     customer_id = user_row["stripe_customer_id"]
-    if not customer_id or not STRIPE_SECRET_KEY:
+    if not STRIPE_SECRET_KEY:
+        return
+    if not customer_id:
+        try:
+            customers = stripe.Customer.list(email=user_row["email"], limit=5)
+            for customer in customers.get("data", []):
+                customer_id = customer.get("id") or ""
+                if customer_id:
+                    connection.execute(
+                        "UPDATE users SET stripe_customer_id = ?, updated_at = ? WHERE id = ?",
+                        (customer_id, format_timestamp(utc_now()), user_row["id"]),
+                    )
+                    connection.commit()
+                    break
+        except Exception:
+            customer_id = ""
+    if not customer_id:
         return
 
     subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
@@ -4330,6 +4364,18 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             if event_type == "checkout.session.completed":
                 user_id = int(data.get("metadata", {}).get("user_id") or data.get("client_reference_id") or 0)
+                customer_email = normalize_email(
+                    (data.get("customer_details") or {}).get("email")
+                    or data.get("customer_email")
+                    or ""
+                )
+                if not user_id and customer_email:
+                    matched_user = connection.execute(
+                        "SELECT * FROM users WHERE email = ?",
+                        (customer_email,),
+                    ).fetchone()
+                    if matched_user:
+                        user_id = int(matched_user["id"])
                 subscription_id = data.get("subscription")
                 internal_order_number = data.get("metadata", {}).get("internal_order_number") or ""
                 internal_subscription_number = data.get("metadata", {}).get("internal_subscription_number") or ""
