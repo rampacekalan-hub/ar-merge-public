@@ -182,7 +182,9 @@ const aiElements = {
   chatInput: document.getElementById("aiChatInput"),
   imageInput: document.getElementById("aiImageInput"),
   attachBtn: document.getElementById("aiAttachBtn"),
-  qrBtn: document.getElementById("aiQrBtn"),
+  attachImageBtn: document.getElementById("aiAttachImageBtn"),
+  attachQrBtn: document.getElementById("aiAttachQrBtn"),
+  attachMenu: document.querySelector(".ai-attach-menu"),
   attachmentBar: document.getElementById("aiAttachmentBar"),
   chatSubmit: document.getElementById("aiChatSubmit"),
   chatMessage: document.getElementById("aiChatMessage"),
@@ -231,8 +233,14 @@ function bindAiEvents() {
   aiElements.chatInput?.addEventListener("input", () => autoResizeTextarea(aiElements.chatInput));
   aiElements.chatInput?.addEventListener("keydown", handleChatKeydown);
   aiElements.chatInput?.addEventListener("paste", handleChatPaste);
-  aiElements.attachBtn?.addEventListener("click", () => aiElements.imageInput?.click());
-  aiElements.qrBtn?.addEventListener("click", openQrUploadModal);
+  aiElements.attachImageBtn?.addEventListener("click", () => {
+    aiElements.attachMenu?.removeAttribute("open");
+    aiElements.imageInput?.click();
+  });
+  aiElements.attachQrBtn?.addEventListener("click", () => {
+    aiElements.attachMenu?.removeAttribute("open");
+    openQrUploadModal();
+  });
   aiElements.imageInput?.addEventListener("change", handleAttachmentSelection);
   aiElements.composerShell?.addEventListener("dragover", handleComposerDragOver);
   aiElements.composerShell?.addEventListener("dragleave", handleComposerDragLeave);
@@ -245,7 +253,11 @@ function bindAiEvents() {
     if (event.key === "Escape" && aiElements.qrModal && !aiElements.qrModal.hidden) {
       closeQrUploadModal();
     }
+    if (event.key === "Escape" && aiElements.attachMenu?.hasAttribute("open")) {
+      aiElements.attachMenu.removeAttribute("open");
+    }
   });
+  document.addEventListener("click", handleOutsideAttachMenuClick);
 }
 
 function startNowTicker() {
@@ -346,8 +358,14 @@ function renderAiState() {
   if (aiElements.attachBtn) {
     aiElements.attachBtn.disabled = !hasMembership;
   }
-  if (aiElements.qrBtn) {
-    aiElements.qrBtn.disabled = !hasMembership;
+  if (aiElements.attachImageBtn) {
+    aiElements.attachImageBtn.disabled = !hasMembership;
+  }
+  if (aiElements.attachQrBtn) {
+    aiElements.attachQrBtn.disabled = !hasMembership;
+  }
+  if (aiElements.attachMenu) {
+    aiElements.attachMenu.classList.toggle("is-disabled", !hasMembership);
   }
   [aiElements.chatInput, aiElements.chatSubmit].forEach((element) => {
     if (element) {
@@ -703,6 +721,15 @@ function handleComposerDrop(event) {
   const file = event.dataTransfer?.files?.[0];
   if (file) {
     setAttachment(file);
+  }
+}
+
+function handleOutsideAttachMenuClick(event) {
+  if (!aiElements.attachMenu || !aiElements.attachMenu.hasAttribute("open")) {
+    return;
+  }
+  if (!aiElements.attachMenu.contains(event.target)) {
+    aiElements.attachMenu.removeAttribute("open");
   }
 }
 

@@ -78,8 +78,13 @@
           <label class="sr-only" for="aiChatInput">Tvoja správa</label>
           <input id="aiImageInput" type="file" accept="image/*" hidden>
           <div class="ai-chatboard__composer-shell">
-            <button id="aiAttachBtn" class="button button--ghost ai-attach-btn" type="button" aria-label="Pridať obrázok">+</button>
-            <button id="aiQrBtn" class="button button--ghost ai-attach-btn ai-attach-btn--qr" type="button" aria-label="Nahrať fotku cez QR">QR</button>
+            <details class="ai-attach-menu">
+              <summary id="aiAttachBtn" class="button button--ghost ai-attach-btn" aria-label="Pridať prílohu">+</summary>
+              <div class="ai-attach-menu__panel">
+                <button id="aiAttachImageBtn" class="ai-attach-menu__item" type="button">Vybrať obrázok</button>
+                <button id="aiAttachQrBtn" class="ai-attach-menu__item" type="button">Nahrať z mobilu cez QR</button>
+              </div>
+            </details>
             <textarea id="aiChatInput" rows="1" placeholder="Napíš otázku, situáciu alebo úlohu..." required></textarea>
             <button id="aiChatSubmit" class="button button--primary" type="submit">Odoslať</button>
           </div>
@@ -123,6 +128,8 @@
       { selector: ".ai-workspace__microcopy", text: { sk: "Praktický asistent pre komunikáciu, zhrnutia, vysvetlenia a ďalší postup v slovenskej praxi.", en: "A practical assistant for communication, summaries, explanations and next steps in Slovak day-to-day practice." } },
       { selector: "#aiChatInput", attr: "placeholder", values: { sk: "Napíš otázku, situáciu alebo úlohu...", en: "Write your question, situation or task..." } },
       { selector: "#aiChatSubmit", text: { sk: "Odoslať", en: "Send" } },
+      { selector: "#aiAttachImageBtn", text: { sk: "Vybrať obrázok", en: "Choose image" } },
+      { selector: "#aiAttachQrBtn", text: { sk: "Nahrať z mobilu cez QR", en: "Upload from phone via QR" } },
       { selector: "#aiLockedState .pill", text: { sk: "Premium", en: "Premium" } },
       { selector: "#aiLoginLink", text: { sk: "Prihlásiť sa", en: "Sign in" } },
       { selector: "#aiCheckoutBtn", text: { sk: "Aktivovať členstvo", en: "Activate membership" } },
