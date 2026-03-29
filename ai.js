@@ -471,20 +471,20 @@ function renderAttachmentBar() {
 }
 
 function renderQuickActions() {
-  const topActions = QUICK_ACTIONS.slice(0, 3);
   const allActions = QUICK_ACTIONS.slice(0, 10);
   if (aiElements.sidebarQuickActions) {
     aiElements.sidebarQuickActions.innerHTML = renderQuickActionRollup(
-      tr("Vybrať akciu", "Choose action"),
+      tr("Najčastejšie akcie", "Common actions"),
       allActions,
       "stack"
     );
   }
   if (aiElements.quickActionBar) {
-    aiElements.quickActionBar.innerHTML = `
-      ${topActions.map((action) => renderQuickActionButton(action, "chip")).join("")}
-      ${renderQuickActionRollup(tr("Viac akcií", "More actions"), allActions.slice(3), "chip")}
-    `;
+    aiElements.quickActionBar.innerHTML = renderQuickActionRollup(
+      tr("Vybrať akciu", "Choose action"),
+      allActions,
+      "chip"
+    );
   }
   const disabled = !aiState.user?.membership_active;
   document.querySelectorAll(".js-ai-prompt").forEach((button) => {
@@ -504,8 +504,8 @@ function renderEmptyChat(message = "", isError = false) {
     <div class="ai-empty-state">
       <div class="ai-empty-state__hero">
         <span class="pill">${escapeHtml(tr("Pripravené na prácu", "Ready to work"))}</span>
-        <h3>${escapeHtml(tr("AI asistent pre slovenských finančných sprostredkovateľov", "AI assistant for Slovak financial intermediaries"))}</h3>
-        <p>${escapeHtml(tr("Pomôže ti s komunikáciou, zhrnutím, vysvetlením aj formuláciou odpovedí. Začni otázkou alebo klikni na jednu z pripravených akcií.", "It helps with communication, summaries, explanations and response drafting. Start with a question or use one of the prepared actions."))}</p>
+        <h3>${escapeHtml(tr("AI asistent pre prax", "AI assistant for daily work"))}</h3>
+        <p>${escapeHtml(tr("Vysvetlí tému, pripraví odpoveď a navrhne ďalší krok.", "It explains the topic, drafts a reply and suggests the next step."))}</p>
       </div>
       <div class="ai-empty-state__grid">
         <section class="ai-empty-panel">
@@ -518,10 +518,9 @@ function renderEmptyChat(message = "", isError = false) {
           </div>
         </section>
         <section class="ai-empty-panel">
-          <span class="ai-empty-panel__label">${escapeHtml(tr("Najpoužívanejšie akcie", "Most used actions"))}</span>
+          <span class="ai-empty-panel__label">${escapeHtml(tr("Rýchly výber", "Quick selection"))}</span>
           <div class="ai-empty-state__actions">
-            ${QUICK_ACTIONS.slice(0, 3).map((action) => renderQuickActionButton(action, "chip")).join("")}
-            ${renderQuickActionRollup(tr("Viac akcií", "More actions"), QUICK_ACTIONS.slice(3, 10), "chip")}
+            ${renderQuickActionRollup(tr("Vybrať akciu", "Choose action"), QUICK_ACTIONS.slice(0, 10), "chip", true)}
           </div>
         </section>
       </div>
@@ -678,7 +677,7 @@ async function handleNewThreadClick() {
     const response = await fetch("/api/assistant/thread", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Nový chat" }),
+      body: JSON.stringify({ title: tr("Nový chat", "New chat"), lang: getCurrentLang() }),
     });
     const payload = await response.json();
     if (!response.ok) {
@@ -797,6 +796,7 @@ async function sendAssistantMessage(message) {
     const formData = new FormData();
     formData.append("message", message);
     formData.append("thread_id", String(aiState.activeThreadId || 0));
+    formData.append("lang", getCurrentLang());
     formData.append("attachment", aiState.attachment.file);
     return fetch("/api/assistant/chat", {
       method: "POST",
@@ -806,7 +806,7 @@ async function sendAssistantMessage(message) {
   return fetch("/api/assistant/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, thread_id: aiState.activeThreadId }),
+    body: JSON.stringify({ message, thread_id: aiState.activeThreadId, lang: getCurrentLang() }),
   });
 }
 

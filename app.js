@@ -191,6 +191,7 @@ const elements = {
   stickyDealClose: document.getElementById("stickyDealClose"),
   chooserDealMini: document.getElementById("chooserDealMini"),
   chooserDealMiniClose: document.getElementById("chooserDealMiniClose"),
+  chooserDealMiniAction: document.getElementById("chooserDealMiniAction"),
 };
 
 const SIDEBAR_COLLAPSED_KEY = "unifyo_sidebar_collapsed";
@@ -279,6 +280,13 @@ async function bootstrap() {
     event.preventDefault();
     event.stopPropagation();
     dismissChooserDealMini();
+  });
+  elements.chooserDealMiniAction?.addEventListener("click", async () => {
+    if (!state.user) {
+      openAuthModal("register");
+      return;
+    }
+    await startProCheckout();
   });
   elements.promoModalBackdrop.addEventListener("click", closePromoModal);
   elements.promoModalClose.addEventListener("click", closePromoModal);

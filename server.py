@@ -668,13 +668,13 @@ def get_assistant_profile(connection, user_id):
     }
 
 
-def build_thread_title(message):
+def build_thread_title(message, language="sk"):
     text = " ".join(str(message or "").strip().split())
     if not text:
-        return "Nový chat"
+        return "New chat" if language == "en" else "Nový chat"
     text = re.sub(r"\[priložený obrázok:[^\]]+\]", "", text, flags=re.IGNORECASE).strip()
     if not text:
-        return "Nový chat"
+        return "New chat" if language == "en" else "Nový chat"
     first_sentence = re.split(r"[.!?\n]", text, maxsplit=1)[0].strip()
     first_sentence = re.sub(
         r"^(prosím|prosim|ahoj|dobrý deň|dobry den|čau|cau|hello|hi)\s*[,:-]*\s*",
@@ -691,7 +691,7 @@ def build_thread_title(message):
     first_sentence = first_sentence.rstrip(" .,;:-")
     generic_titles = {"", "ahoj", "dobrý deň", "dobry den", "čau", "cau", "hello", "hi"}
     if first_sentence.lower() in generic_titles or len(first_sentence) < 4:
-        return "Nový chat"
+        return "New chat" if language == "en" else "Nový chat"
     normalized = first_sentence[0].upper() + first_sentence[1:]
     return normalized[:72].rstrip(" .,;:-")
 
@@ -970,10 +970,29 @@ def parse_assistant_attachment(form):
     }
 
 
-def build_assistant_system_prompt(user_row, _profile):
+def build_assistant_system_prompt(user_row, _profile, language="sk"):
     now_value = datetime.now().astimezone()
     today_value = now_value.strftime("%d.%m.%Y")
     time_value = now_value.strftime("%H:%M")
+    if language == "en":
+        return (
+            "You are Unifyo AI, a professional internal assistant for financial intermediaries working in Slovakia. "
+            "Help with daily organisation, priorities, follow-ups, client communication, meeting prep, call scripts, emails, SMS, pipeline and operations. "
+            "Always communicate in natural, concise, professional English, while keeping Slovak market context in mind. "
+            "Internally evaluate: 1) user intent, 2) question type, 3) Slovak market context, 4) best response format. Never show this hidden process. "
+            "Default response structure: 1) direct answer, 2) short explanation, 3) recommended next step if useful. "
+            "Do not add sources automatically. Mention them only when genuinely useful, especially for regulatory or official topics. "
+            "Prefer official sources such as nbs.sk, slov-lex.sk, official financial institution sites and, when relevant, alanrampacek.sk or prosight.sk. "
+            f"The current reference date and time are {today_value} {time_value}. If the user asks for the current date or time, answer directly from this reference. "
+            "For time-sensitive topics, use the latest public information when technically available. "
+            "Do not invent facts. If uncertain, say so naturally and recommend verification. "
+            "Do not provide binding legal, tax or regulated investment advice; suggest checking with compliance or a qualified expert. "
+            "If the user attaches an image or screenshot, first evaluate it clearly and then suggest a next step. "
+            "Do not use markdown asterisks or noisy formatting. Write in short paragraphs or simple bullets without markdown artefacts. "
+            "If helpful, proactively offer a short email/SMS version or a concrete next step. "
+            f"The user's name is {user_row['name'] or user_row['email']}. "
+            f"Use internal prompt version {PROMPT_VERSION}, but do not mention it unless necessary."
+        )
     return (
         "Si Unifyo AI, profesionálny interný asistent pre finančných sprostredkovateľov na Slovensku. "
         "Pomáhaš s organizáciou dňa, prioritami, follow-upmi, klientskou komunikáciou, prípravou stretnutí, "
@@ -1051,7 +1070,7 @@ def should_use_openai_web_search(user_message):
     return any(marker in text for marker in time_sensitive_markers)
 
 
-def call_openai_assistant(user_row, profile, history_messages, user_message, attachment=None):
+def call_openai_assistant(user_row, profile, history_messages, user_message, attachment=None, language="sk"):
     global OPENAI_WEB_SEARCH_RUNTIME_DISABLED
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY nie je nastavený, takže AI asistent zatiaľ nemôže odpovedať.")
@@ -1068,7 +1087,7 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
         fallback_messages = [
             {
                 "role": "system",
-                "content": build_assistant_system_prompt(user_row, profile),
+                "content": build_assistant_system_prompt(user_row, profile, language=language),
             }
         ]
         for message in history_messages[-8:]:
@@ -1120,7 +1139,7 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
 
     payload_base = {
         "model": OPENAI_MODEL,
-        "instructions": build_assistant_system_prompt(user_row, profile),
+        "instructions": build_assistant_system_prompt(user_row, profile, language=language),
         "input": input_messages,
         "max_output_tokens": 500,
     }
@@ -1153,7 +1172,7 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
     fallback_messages = [
         {
             "role": "system",
-            "content": build_assistant_system_prompt(user_row, profile),
+            "content": build_assistant_system_prompt(user_row, profile, language=language),
         }
     ]
     for message in history_messages[-8:]:
@@ -2211,10 +2230,11 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             payload = require_json(self)
             action = str(payload.get("action") or "create").strip().lower()
+            language = "en" if str(payload.get("lang") or "").strip().lower() == "en" else "sk"
 
             if action == "rename":
                 thread_id = parse_positive_int(payload.get("thread_id"), 0)
-                title = build_thread_title(payload.get("title") or "Nový chat")
+                title = build_thread_title(payload.get("title") or ("New chat" if language == "en" else "Nový chat"), language=language)
                 active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
                 if not active_thread:
                     self.write_json({"error": "Chat sa nenašiel."}, status=HTTPStatus.NOT_FOUND)
@@ -2238,7 +2258,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 )
                 return
 
-            title = build_thread_title(payload.get("title") or "Nový chat")
+            title = build_thread_title(payload.get("title") or ("New chat" if language == "en" else "Nový chat"), language=language)
             thread_id = create_assistant_thread(connection, user["id"], title)
             active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
             log_activity(connection, "assistant_thread_created", "Používateľ založil nový AI chat.", user["id"], thread_id=thread_id)
@@ -2277,23 +2297,27 @@ class AppHandler(SimpleHTTPRequestHandler):
             if "multipart/form-data" in content_type.lower():
                 form = parse_multipart_form(self.headers, self.read_request_body())
                 message = ""
+                language = "sk"
                 if form.get("message"):
                     message = (form["message"][0].get("content") or b"").decode("utf-8", errors="ignore").strip()
                 thread_id = 0
                 if form.get("thread_id"):
                     thread_id = parse_positive_int((form["thread_id"][0].get("content") or b"").decode("utf-8", errors="ignore").strip(), 0)
+                if form.get("lang"):
+                    language = "en" if ((form["lang"][0].get("content") or b"").decode("utf-8", errors="ignore").strip().lower() == "en") else "sk"
                 attachment = parse_assistant_attachment(form)
             else:
                 payload = require_json(self)
                 message = str(payload.get("message") or "").strip()
                 thread_id = parse_positive_int(payload.get("thread_id"), 0)
+                language = "en" if str(payload.get("lang") or "").strip().lower() == "en" else "sk"
             if len(message) < 2 and not attachment:
                 self.write_json({"error": "Napíšte správu pre AI asistenta."}, status=HTTPStatus.BAD_REQUEST)
                 return
 
             active_thread = resolve_assistant_thread(connection, user["id"], thread_id)
             if not active_thread:
-                new_thread_id = create_assistant_thread(connection, user["id"], build_thread_title(message))
+                new_thread_id = create_assistant_thread(connection, user["id"], build_thread_title(message, language=language))
                 active_thread = resolve_assistant_thread(connection, user["id"], new_thread_id)
             profile = get_assistant_profile(connection, user["id"])
             history_messages = get_assistant_messages(connection, user["id"], active_thread["id"], limit=80)
@@ -2308,7 +2332,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "attachment_preview": attachment["data_url"],
                 }
             save_assistant_message(connection, user["id"], active_thread["id"], "user", user_message_content, meta=user_meta)
-            reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment)
+            reply, reply_meta = call_openai_assistant(user, profile, history_messages, message, attachment=attachment, language=language)
             save_assistant_message(connection, user["id"], active_thread["id"], "assistant", reply, meta=reply_meta)
             log_activity(
                 connection,
