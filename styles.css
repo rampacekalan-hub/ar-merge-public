@@ -7815,7 +7815,7 @@ h1 {
 
 .service-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.88fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -7823,7 +7823,8 @@ h1 {
 .service-split__copy {
   display: grid;
   align-content: center;
-  gap: 14px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .service-split__copy h2 {
@@ -7837,8 +7838,9 @@ h1 {
 .service-split__copy > p {
   margin: 0;
   color: #627391;
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: 0.98rem;
+  line-height: 1.68;
+  max-width: 58ch;
 }
 
 .service-bullets {
@@ -7870,6 +7872,7 @@ h1 {
 .service-split__visual {
   display: grid;
   align-items: center;
+  min-width: 0;
 }
 
 .service-preview {
@@ -7886,9 +7889,10 @@ h1 {
 .service-preview__row {
   padding: 15px 16px;
   border-radius: 16px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.5;
   color: #173059;
+  overflow-wrap: anywhere;
 }
 
 .service-preview__row--bad {
@@ -7937,34 +7941,47 @@ h1 {
 
 .ai-sales-block {
   display: grid;
-  grid-template-columns: minmax(0, 0.94fr) minmax(320px, 1.06fr);
+  grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
   gap: 18px;
   padding: 6px 0 0;
+  align-items: stretch;
 }
 
 .ai-sales-block__copy > p {
   margin: 0 0 14px;
   color: #627391;
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: 0.98rem;
+  line-height: 1.68;
+  max-width: 34ch;
+}
+
+.ai-sales-block__copy {
+  min-width: 0;
+}
+
+.ai-sales-block__example {
+  min-width: 0;
 }
 
 .chat-snippet {
   display: grid;
   gap: 12px;
-  padding: 24px;
+  padding: 22px;
   border-radius: 26px;
   border: 1px solid rgba(184, 198, 224, 0.22);
   background:
     linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(252, 253, 255, 0.92)),
     rgba(252, 253, 255, 0.92);
+  min-height: 100%;
+  align-content: center;
 }
 
 .chat-snippet__message {
-  max-width: 88%;
-  padding: 16px 18px;
+  max-width: 84%;
+  padding: 14px 16px;
   border-radius: 22px;
-  line-height: 1.65;
+  line-height: 1.58;
+  font-size: 0.92rem;
 }
 
 .chat-snippet__message--user {
@@ -8066,6 +8083,11 @@ h1 {
   .service-split,
   .ai-sales-block {
     grid-template-columns: 1fr;
+  }
+
+  .service-split__copy > p,
+  .ai-sales-block__copy > p {
+    max-width: 100%;
   }
 
   .chat-snippet__message {
