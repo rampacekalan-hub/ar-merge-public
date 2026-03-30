@@ -2297,12 +2297,17 @@ def call_openai_assistant(user_row, profile, history_messages, user_message, att
 def is_membership_active(membership):
     if not membership:
         return False
-    if membership.get("status") not in {"active", "trialing"}:
-        return False
     period_end = membership.get("current_period_end")
     if not period_end:
         return False
-    return period_end > utc_now()
+    if period_end <= utc_now():
+        return False
+    status = membership.get("status") or ""
+    if status in {"active", "trialing"}:
+        return True
+    if membership.get("cancel_at_period_end"):
+        return True
+    return False
 
 
 def user_has_service_access(user_row, membership=None):
@@ -2337,7 +2342,7 @@ def get_membership_display_state(membership):
         }
     return {
         "active": True,
-        "status": membership.get("status") or "active",
+        "status": "active",
         "valid_until": format_timestamp(membership.get("current_period_end")) if membership.get("current_period_end") else "",
         "started_at": format_timestamp(membership.get("created_at")) if membership.get("created_at") else "",
         "next_renewal_at": format_timestamp(membership.get("next_renewal_at")) if membership.get("next_renewal_at") else "",

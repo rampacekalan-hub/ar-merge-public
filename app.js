@@ -1767,6 +1767,20 @@ function renderAdminUserDetail(payload) {
   const checkoutConsent = payload.checkout_consent || {};
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   elements.adminUserDetail.className = "panel-card";
+  const membershipStatus = (() => {
+    const fallbackStatus = user.membership_status || "inactive";
+    if (user.membership_status === "active") {
+      return "active";
+    }
+    if (user.membership_valid_until) {
+      const untilTs = new Date(user.membership_valid_until).getTime();
+      if (!Number.isNaN(untilTs) && untilTs > Date.now()) {
+        return "active";
+      }
+    }
+    return subscription.status || fallbackStatus;
+  })();
+
   elements.adminUserDetail.innerHTML = `
     <div class="admin-user-detail__head">
       <div>
@@ -1777,7 +1791,7 @@ function renderAdminUserDetail(payload) {
     </div>
     <div class="account-card">
       <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
-      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(subscription.status || user.membership_status || "inactive")}</span></div>
+      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(membershipStatus)}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(subscription.valid_until || user.membership_valid_until))}</span></div>
       <div class="account-card__row"><strong>Naposledy prihlásený</strong><span>${escapeHtml(formatDateTime(user.last_login_at))}</span></div>
       <div class="account-card__row"><strong>Naposledy aktívny</strong><span>${escapeHtml(formatDateTime(user.last_seen_at))}</span></div>
