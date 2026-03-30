@@ -775,8 +775,9 @@ def record_subscription_event(connection, user_id, event_type, status, details=N
     now_value = format_timestamp(utc_now())
     connection.execute(
         """
-        INSERT INTO subscription_events (user_id, event_type, status, details_json, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO subscription_events (
+            user_id, event_type, subscription_status, event_meta, created_at
+        ) VALUES (?, ?, ?, ?, ?)
         """,
         (
             user_id,
@@ -1144,8 +1145,8 @@ def get_recent_subscription_events(connection, user_id=None, limit=12):
             "id": row["id"],
             "user_id": row["user_id"],
             "event_type": row["event_type"],
-            "status": row["status"],
-            "details": safe_json_loads(row["details_json"], {}),
+            "status": row["subscription_status"],
+            "details": safe_json_loads(row["event_meta"], {}),
             "created_at": row["created_at"],
         }
         for row in rows
