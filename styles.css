@@ -2335,6 +2335,34 @@ h3 {
     linear-gradient(90deg, rgba(29, 115, 234, 0.08), rgba(75, 187, 79, 0.07));
 }
 
+.modal__dialog--success {
+  width: min(640px, 100%);
+  background:
+    radial-gradient(circle at top right, rgba(74, 178, 244, 0.16), transparent 35%),
+    radial-gradient(circle at bottom left, rgba(75, 187, 79, 0.12), transparent 35%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.98));
+}
+
+.modal__success {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.modal__success-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: #1d4ed8;
+  background: rgba(29, 78, 216, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.16);
+}
+
 .modal__dialog--landing-promo {
   width: min(820px, 100%);
   border-radius: 34px;

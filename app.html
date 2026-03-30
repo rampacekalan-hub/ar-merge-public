@@ -657,6 +657,24 @@
     </div>
   </div>
 
+  <div id="checkoutSuccessModal" class="modal" hidden>
+    <div id="checkoutSuccessBackdrop" class="modal__backdrop"></div>
+    <div class="modal__dialog modal__dialog--success">
+      <button id="checkoutSuccessClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+      <div class="modal__success">
+        <div class="modal__success-icon">✓</div>
+        <div>
+          <p class="section-kicker">Ďakujeme</p>
+          <h2>Členstvo bolo aktivované</h2>
+          <p id="checkoutSuccessMessage" class="modal__lead">Ďakujeme za nákup. Tvoje členstvo je aktívne a Unifyo je pripravené.</p>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button class="button button--primary" type="button" onclick="document.getElementById('checkoutSuccessClose').click()">Pokračovať do aplikácie</button>
+      </div>
+    </div>
+  </div>
+
   <div id="accountPanel" class="modal" hidden>
     <div id="accountPanelBackdrop" class="modal__backdrop"></div>
     <div class="modal__dialog modal__dialog--wide">
@@ -879,6 +897,10 @@
       { selector: "#promoModal .modal__lead", text: { sk: "Kontakty, kompresia súborov aj AI asistent v jednom účte za zvýhodnenú cenu.", en: "Contacts, file compression and the AI assistant in one account at a discounted price." } },
       { selector: "#promoModalAuth", text: { sk: "Vytvoriť účet", en: "Create account" } },
       { selector: "#promoModalStart", text: { sk: "Aktivovať teraz za 1,99 €", en: "Activate now for €1.99" } },
+      { selector: "#checkoutSuccessModal .section-kicker", text: { sk: "Ďakujeme", en: "Thank you" } },
+      { selector: "#checkoutSuccessModal h2", text: { sk: "Členstvo bolo aktivované", en: "Membership activated" } },
+      { selector: "#checkoutSuccessMessage", text: { sk: "Ďakujeme za nákup. Tvoje členstvo je aktívne a Unifyo je pripravené.", en: "Thanks for your purchase. Your membership is active and Unifyo is ready." } },
+      { selector: "#checkoutSuccessModal .button--primary", text: { sk: "Pokračovať do aplikácie", en: "Continue to the app" } },
       { selector: "#stickyDealBar .sticky-deal__label", text: { sk: "Premium prístup", en: "Premium access" } },
       { selector: "#stickyDealBar .sticky-deal__old", text: { sk: "6,99 € / mesiac", en: "€6.99 / month" } },
       { selector: "#stickyDealBar .sticky-deal__current", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },

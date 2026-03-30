@@ -120,6 +120,10 @@ const elements = {
   promoModalClose: document.getElementById("promoModalClose"),
   promoModalAuth: document.getElementById("promoModalAuth"),
   promoModalStart: document.getElementById("promoModalStart"),
+  checkoutSuccessModal: document.getElementById("checkoutSuccessModal"),
+  checkoutSuccessBackdrop: document.getElementById("checkoutSuccessBackdrop"),
+  checkoutSuccessClose: document.getElementById("checkoutSuccessClose"),
+  checkoutSuccessMessage: document.getElementById("checkoutSuccessMessage"),
   authModal: document.getElementById("authModal"),
   authModalBackdrop: document.getElementById("authModalBackdrop"),
   authModalClose: document.getElementById("authModalClose"),
@@ -357,13 +361,16 @@ async function bootstrap() {
   state.mode = getModeFromUrl();
   renderMode();
   await refreshCurrentUser();
-  elements.fileInput.addEventListener("change", handleFileSelection);
-  elements.uploadBox.addEventListener("click", handleUploadBoxClick);
-  elements.uploadBox.addEventListener("dragover", handleUploadDragOver);
-  elements.uploadBox.addEventListener("dragleave", handleUploadDragLeave);
-  elements.uploadBox.addEventListener("drop", handleUploadDrop);
+  if (window.location.pathname.endsWith("/admin.html")) {
+    openAdminPanel();
+  }
+  elements.fileInput?.addEventListener("change", handleFileSelection);
+  elements.uploadBox?.addEventListener("click", handleUploadBoxClick);
+  elements.uploadBox?.addEventListener("dragover", handleUploadDragOver);
+  elements.uploadBox?.addEventListener("dragleave", handleUploadDragLeave);
+  elements.uploadBox?.addEventListener("drop", handleUploadDrop);
   elements.buyHeroBtn?.addEventListener("click", startCheckoutFlow);
-  elements.accountBtn.addEventListener("click", () => {
+  elements.accountBtn?.addEventListener("click", () => {
     if (state.user) {
       openAccountPanel();
       return;
@@ -386,8 +393,8 @@ async function bootstrap() {
     }
     window.location.href = "/admin.html";
   });
-  elements.logoutBtn.addEventListener("click", logout);
-  elements.unlockUploadBtn.addEventListener("click", handleUnlockUploadAction);
+  elements.logoutBtn?.addEventListener("click", logout);
+  elements.unlockUploadBtn?.addEventListener("click", handleUnlockUploadAction);
   elements.appMembershipPromoBtn?.addEventListener("click", startCheckoutFlow);
   elements.workspaceMembershipPromoBtn?.addEventListener("click", startCheckoutFlow);
   elements.buyToolbarBtn?.addEventListener("click", startCheckoutFlow);
@@ -406,8 +413,8 @@ async function bootstrap() {
   elements.assistantPromptChips?.querySelectorAll(".assistant-chip").forEach((button) => {
     button.addEventListener("click", handleAssistantPromptClick);
   });
-  elements.mergeBtn.addEventListener("click", processFiles);
-  elements.resetBtn.addEventListener("click", resetApp);
+  elements.mergeBtn?.addEventListener("click", processFiles);
+  elements.resetBtn?.addEventListener("click", resetApp);
   elements.compressUploadBox?.addEventListener("click", handleCompressionUploadClick);
   elements.compressUploadBox?.addEventListener("keydown", handleCompressionUploadKeydown);
   elements.compressUploadBox?.addEventListener("dragover", handleCompressionDragOver);
@@ -436,28 +443,30 @@ async function bootstrap() {
     }
     openCheckoutModal();
   });
-  elements.promoModalBackdrop.addEventListener("click", closePromoModal);
-  elements.promoModalClose.addEventListener("click", closePromoModal);
-  elements.promoModalAuth.addEventListener("click", () => {
+  elements.promoModalBackdrop?.addEventListener("click", closePromoModal);
+  elements.promoModalClose?.addEventListener("click", closePromoModal);
+  elements.promoModalAuth?.addEventListener("click", () => {
     closePromoModal();
     openAuthModal("login");
   });
-  elements.promoModalStart.addEventListener("click", async () => {
+  elements.promoModalStart?.addEventListener("click", async () => {
     closePromoModal();
     await startCheckoutFlow();
   });
-  elements.authModalBackdrop.addEventListener("click", closeAuthModal);
-  elements.authModalClose.addEventListener("click", closeAuthModal);
-  elements.authRegisterTab.addEventListener("click", () => setAuthMode("register"));
-  elements.authLoginTab.addEventListener("click", () => setAuthMode("login"));
-  elements.authForm.addEventListener("submit", handleAuthSubmit);
-  elements.forgotPasswordBtn.addEventListener("click", openResetRequestModal);
-  elements.resetRequestBackdrop.addEventListener("click", closeResetRequestModal);
-  elements.resetRequestClose.addEventListener("click", closeResetRequestModal);
-  elements.resetRequestForm.addEventListener("submit", handleResetRequestSubmit);
-  elements.resetPasswordBackdrop.addEventListener("click", closeResetPasswordModal);
-  elements.resetPasswordClose.addEventListener("click", closeResetPasswordModal);
-  elements.resetPasswordForm.addEventListener("submit", handleResetPasswordSubmit);
+  elements.authModalBackdrop?.addEventListener("click", closeAuthModal);
+  elements.authModalClose?.addEventListener("click", closeAuthModal);
+  elements.authRegisterTab?.addEventListener("click", () => setAuthMode("register"));
+  elements.authLoginTab?.addEventListener("click", () => setAuthMode("login"));
+  elements.authForm?.addEventListener("submit", handleAuthSubmit);
+  elements.forgotPasswordBtn?.addEventListener("click", openResetRequestModal);
+  elements.resetRequestBackdrop?.addEventListener("click", closeResetRequestModal);
+  elements.resetRequestClose?.addEventListener("click", closeResetRequestModal);
+  elements.resetRequestForm?.addEventListener("submit", handleResetRequestSubmit);
+  elements.checkoutSuccessBackdrop?.addEventListener("click", closeCheckoutSuccessModal);
+  elements.checkoutSuccessClose?.addEventListener("click", closeCheckoutSuccessModal);
+  elements.resetPasswordBackdrop?.addEventListener("click", closeResetPasswordModal);
+  elements.resetPasswordClose?.addEventListener("click", closeResetPasswordModal);
+  elements.resetPasswordForm?.addEventListener("submit", handleResetPasswordSubmit);
   elements.checkoutModalBackdrop?.addEventListener("click", closeCheckoutModal);
   elements.checkoutModalClose?.addEventListener("click", closeCheckoutModal);
   elements.checkoutCancelBtn?.addEventListener("click", closeCheckoutModal);
@@ -481,12 +490,12 @@ async function bootstrap() {
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
   document.addEventListener("keydown", handleModalEscape);
   window.addEventListener("unifyo-language-change", handleLanguageChange);
-  elements.downloadCsvBtn.addEventListener("click", () => {
+  elements.downloadCsvBtn?.addEventListener("click", () => {
     if (state.mergedContacts.length) {
       downloadCsv("kontakty_final.csv", state.mergedContacts);
     }
   });
-  elements.downloadXlsxBtn.addEventListener("click", async () => {
+  elements.downloadXlsxBtn?.addEventListener("click", async () => {
     if (!state.mergedContacts.length) {
       return;
     }
@@ -987,6 +996,23 @@ function closeAdminPanel() {
   syncModalState();
 }
 
+function openCheckoutSuccessModal(message) {
+  if (!elements.checkoutSuccessModal || !elements.checkoutSuccessMessage) {
+    return;
+  }
+  elements.checkoutSuccessMessage.textContent = message;
+  elements.checkoutSuccessModal.hidden = false;
+  syncModalState();
+}
+
+function closeCheckoutSuccessModal() {
+  if (!elements.checkoutSuccessModal) {
+    return;
+  }
+  elements.checkoutSuccessModal.hidden = true;
+  syncModalState();
+}
+
 function openAdminUserDetailModal() {
   if (!elements.adminUserDetailModal) {
     return;
@@ -1044,6 +1070,9 @@ function handleLanguageChange() {
 
 function setAuthMode(mode) {
   state.authMode = mode;
+  if (!elements.authRegisterTab || !elements.authLoginTab || !elements.authSubmitBtn || !elements.authPassword) {
+    return;
+  }
   const isRegister = mode === "register";
   elements.authRegisterTab.classList.toggle("auth-switch__button--active", isRegister);
   elements.authLoginTab.classList.toggle("auth-switch__button--active", !isRegister);
@@ -1051,16 +1080,22 @@ function setAuthMode(mode) {
   elements.authPassword.autocomplete = isRegister ? "new-password" : "current-password";
   elements.authNameField.classList.toggle("is-hidden", !isRegister);
   elements.authConsentFields?.classList.toggle("is-hidden", !isRegister);
-  elements.forgotPasswordBtn.classList.toggle("is-hidden", isRegister);
+  elements.forgotPasswordBtn?.classList.toggle("is-hidden", isRegister);
 }
 
 function setAuthMessage(message, isError = false) {
+  if (!elements.authMessage) {
+    return;
+  }
   elements.authMessage.hidden = false;
   elements.authMessage.textContent = message;
   elements.authMessage.classList.toggle("auth-message--error", isError);
 }
 
 function clearAuthMessage() {
+  if (!elements.authMessage) {
+    return;
+  }
   elements.authMessage.hidden = true;
   elements.authMessage.textContent = "";
   elements.authMessage.classList.remove("auth-message--error");
@@ -1094,11 +1129,26 @@ async function refreshCurrentUser() {
     }
 
     if (hasUnlockedAccess()) {
-      window.alert("Členstvo bolo úspešne aktivované.");
+      openCheckoutSuccessModal(
+        tr(
+          "Ďakujeme za nákup! Členstvo je aktívne a môžeš naplno využívať Unifyo.",
+          "Thanks for your purchase! Your membership is active and Unifyo is unlocked."
+        )
+      );
     } else if (!state.user) {
-      window.alert("Platba prebehla. Prihlás sa znova a členstvo sa následne zosynchronizuje.");
+      openCheckoutSuccessModal(
+        tr(
+          "Platba prebehla. Prihlás sa znova a členstvo sa následne zosynchronizuje.",
+          "Your payment went through. Please sign in again and the membership will sync."
+        )
+      );
     } else {
-      window.alert("Platba prebehla. Členstvo sa ešte synchronizuje, skús stránku obnoviť o pár sekúnd.");
+      openCheckoutSuccessModal(
+        tr(
+          "Platba prebehla. Členstvo sa ešte synchronizuje, skús stránku obnoviť o pár sekúnd.",
+          "Payment completed. Membership is syncing, please refresh in a few seconds."
+        )
+      );
     }
   }
   if (checkoutState === "cancel") {
@@ -1237,6 +1287,10 @@ async function fetchAdminPanel() {
     renderAdminPanel();
   } catch (error) {
     const message = normalizeUiErrorMessage(error.message, tr("Admin dáta sa nepodarilo načítať.", "Failed to load admin data."));
+    if (elements.adminStats) {
+      elements.adminStats.className = "summary-grid summary-grid--admin empty-state";
+      elements.adminStats.textContent = message;
+    }
     elements.adminUsersTable.className = "table-wrap empty-state";
     elements.adminUsersTable.textContent = message;
     elements.adminActivityList.className = "empty-state";
