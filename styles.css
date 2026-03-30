@@ -2415,6 +2415,11 @@ h3 {
   gap: 20px;
 }
 
+.admin-layout--page {
+  margin-top: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
 .admin-section {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2461,6 +2466,9 @@ h3 {
   .admin-layout {
     grid-template-columns: minmax(0, 1fr);
   }
+  .admin-layout--page {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .admin-section--detail {
     grid-column: 1 / -1;
     grid-row: auto;
@@ -2472,6 +2480,10 @@ h3 {
   .admin-header {
     flex-direction: column;
   }
+}
+
+.modal__dialog--admin-detail {
+  max-width: 1080px;
 }
 
 .modal__close {

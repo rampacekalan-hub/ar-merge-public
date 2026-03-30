@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="sk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unifyo | Administrácia</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside id="sidebar" class="sidebar">
+        <div class="sidebar__header">
+          <span class="brand-dot">U</span>
+          <div>
+            <strong>Unifyo</strong>
+            <small>Administrácia</small>
+          </div>
+        </div>
+        <nav class="sidebar__nav">
+          <button id="adminMenuBtn" class="sidebar__link sidebar__link--active" type="button">
+            <span>Administrácia</span>
+          </button>
+          <a class="sidebar__link" href="/app.html">
+            <span>Aplikácia</span>
+          </a>
+          <a class="sidebar__link" href="/index.html">
+            <span>Domov</span>
+          </a>
+        </nav>
+      </aside>
+      <div class="content-shell">
+        <header class="workspace-header workspace-header--minimal card">
+          <div class="hero__topbar">
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Otvoriť menu">☰</button>
+            <div class="hero__topbar-actions" data-lang-switch-host>
+              <div class="toolbar toolbar--compact">
+                <button id="accountBtn" class="button button--ghost" type="button">Prihlásiť sa</button>
+                <button id="logoutBtn" class="button button--ghost is-hidden" type="button">Odhlásiť sa</button>
+              </div>
+            </div>
+          </div>
+          <div class="workspace-header__summary">
+            <p class="section-kicker">Administrácia</p>
+            <p id="accountStatus" class="workspace-header__status">Spravuj používateľov, členstvá, Stripe udalosti a AI aktivitu na jednom mieste.</p>
+          </div>
+        </header>
+
+        <div class="admin-layout admin-layout--page">
+          <section class="admin-section admin-section--stats">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">Dashboard</p>
+                <h3>Základné KPI</h3>
+              </div>
+            </div>
+            <div id="adminStats" class="summary-grid summary-grid--admin empty-state">Načítavam štatistiky...</div>
+          </section>
+
+          <section class="admin-section admin-section--list">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">Používatelia</p>
+                <h3>Správa členstva a účtov</h3>
+              </div>
+            </div>
+            <div class="admin-toolbar">
+              <label class="auth-field auth-field--inline">
+                <span>Hľadať</span>
+                <input id="adminSearchInput" type="search" placeholder="Meno alebo e-mail">
+              </label>
+              <label class="auth-field auth-field--inline">
+                <span>Filter členstva</span>
+                <select id="adminMembershipFilter">
+                  <option value="all">Všetci používatelia</option>
+                  <option value="active">Len aktívne členstvá</option>
+                  <option value="inactive">Len neaktívne členstvá</option>
+                  <option value="admin">Len admini</option>
+                </select>
+              </label>
+              <button id="adminExportBtn" class="button button--ghost" type="button">Export používateľov</button>
+            </div>
+            <div id="adminUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
+          </section>
+
+          <section class="admin-section admin-section--timeline">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">Aktivity systému</p>
+                <h3>Posledné udalosti</h3>
+              </div>
+            </div>
+            <div id="adminActivityList" class="activity-list empty-state">Zatiaľ bez aktivít.</div>
+          </section>
+
+          <section class="admin-section admin-section--removed">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">Odstránené a deaktivované</p>
+                <h3>Účty mimo aktívneho stavu</h3>
+              </div>
+            </div>
+            <div id="adminRemovedList" class="activity-list empty-state">Zatiaľ bez odstránených alebo deaktivovaných účtov.</div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="adminUserDetailModal" class="modal" hidden>
+      <div id="adminUserDetailBackdrop" class="modal__backdrop"></div>
+      <div class="modal__dialog modal__dialog--admin modal__dialog--admin-detail">
+        <button id="adminUserDetailClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+        <div id="adminUserDetail" class="panel-card empty-state">Vyber používateľa z tabuľky a zobrazí sa detail účtu, história aj rýchle zásahy.</div>
+      </div>
+    </div>
+
+    <script src="/billing-config.js"></script>
+    <script src="/consent.js"></script>
+    <script src="/lang-switch.js"></script>
+    <script src="/site-nav.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

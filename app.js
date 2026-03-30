@@ -175,6 +175,9 @@ const elements = {
   adminPanel: document.getElementById("adminPanel"),
   adminPanelBackdrop: document.getElementById("adminPanelBackdrop"),
   adminPanelClose: document.getElementById("adminPanelClose"),
+  adminUserDetailModal: document.getElementById("adminUserDetailModal"),
+  adminUserDetailBackdrop: document.getElementById("adminUserDetailBackdrop"),
+  adminUserDetailClose: document.getElementById("adminUserDetailClose"),
   adminStats: document.getElementById("adminStats"),
   adminSearchInput: document.getElementById("adminSearchInput"),
   adminMembershipFilter: document.getElementById("adminMembershipFilter"),
@@ -377,7 +380,11 @@ async function bootstrap() {
   });
   elements.adminMenuBtn?.addEventListener("click", () => {
     closeSidebar();
-    openAdminPanel();
+    if (window.location.pathname.endsWith("/admin.html")) {
+      openAdminPanel();
+      return;
+    }
+    window.location.href = "/admin.html";
   });
   elements.logoutBtn.addEventListener("click", logout);
   elements.unlockUploadBtn.addEventListener("click", handleUnlockUploadAction);
@@ -461,6 +468,8 @@ async function bootstrap() {
   elements.accountPasswordForm?.addEventListener("submit", handleAccountPasswordSubmit);
   elements.adminPanelBackdrop?.addEventListener("click", closeAdminPanel);
   elements.adminPanelClose?.addEventListener("click", closeAdminPanel);
+  elements.adminUserDetailBackdrop?.addEventListener("click", closeAdminUserDetailModal);
+  elements.adminUserDetailClose?.addEventListener("click", closeAdminUserDetailModal);
   elements.adminSearchInput?.addEventListener("input", renderAdminUsers);
   elements.adminMembershipFilter?.addEventListener("change", renderAdminUsers);
   elements.adminExportBtn?.addEventListener("click", exportAdminUsers);
@@ -954,6 +963,10 @@ function startCheckoutFromAccountPanel() {
 }
 
 async function openAdminPanel() {
+  if (!elements.adminPanel) {
+    await fetchAdminPanel();
+    return;
+  }
   if (!state.user) {
     openAuthModal("login");
     return;
@@ -968,7 +981,25 @@ async function openAdminPanel() {
 }
 
 function closeAdminPanel() {
-  elements.adminPanel.hidden = true;
+  if (elements.adminPanel) {
+    elements.adminPanel.hidden = true;
+  }
+  syncModalState();
+}
+
+function openAdminUserDetailModal() {
+  if (!elements.adminUserDetailModal) {
+    return;
+  }
+  elements.adminUserDetailModal.hidden = false;
+  syncModalState();
+}
+
+function closeAdminUserDetailModal() {
+  if (!elements.adminUserDetailModal) {
+    return;
+  }
+  elements.adminUserDetailModal.hidden = true;
   syncModalState();
 }
 
@@ -1886,6 +1917,10 @@ function renderAdminUserDetail(payload) {
     </div>
     <div id="adminUserActivity" class="activity-list"></div>
   `;
+
+  if (elements.adminUserDetailModal) {
+    openAdminUserDetailModal();
+  }
 
   const deactivateBtn = document.getElementById("adminDeactivateBtn");
   const deleteBtn = document.getElementById("adminDeleteBtn");
