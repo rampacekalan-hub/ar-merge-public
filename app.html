@@ -741,53 +741,83 @@
     <div id="adminPanelBackdrop" class="modal__backdrop"></div>
     <div class="modal__dialog modal__dialog--admin">
       <button id="adminPanelClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
-      <p class="section-kicker">Administrácia</p>
-      <h2>Prehľad používateľov a členstiev</h2>
-      <div id="adminStats" class="summary-grid summary-grid--admin empty-state">Načítavam štatistiky...</div>
-      <div class="admin-toolbar">
-        <label class="auth-field auth-field--inline">
-          <span>Hľadať</span>
-          <input id="adminSearchInput" type="search" placeholder="Meno alebo e-mail">
-        </label>
-        <label class="auth-field auth-field--inline">
-          <span>Filter členstva</span>
-          <select id="adminMembershipFilter">
-            <option value="all">Všetci používatelia</option>
-            <option value="active">Len aktívne členstvá</option>
-            <option value="inactive">Len neaktívne členstvá</option>
-            <option value="admin">Len admini</option>
-          </select>
-        </label>
-        <button id="adminExportBtn" class="button button--ghost" type="button">Export používateľov</button>
-      </div>
-      <div class="section-head">
+      <header class="admin-header">
         <div>
-          <p class="section-kicker">Používatelia</p>
-          <h3>Správa členstva</h3>
+          <p class="section-kicker">Administrácia</p>
+          <h2>Prehľad používateľov a členstiev</h2>
+          <p class="section-copy">Rýchly prehľad nad registráciami, členstvami, AI aktivitou a zásahmi v systéme.</p>
         </div>
-      </div>
-      <div id="adminUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
-      <div class="section-head section-head--audit">
-        <div>
-          <p class="section-kicker">Detail používateľa</p>
-          <h3>História a zásahy</h3>
+        <div class="admin-header__actions">
+          <button id="adminExportBtn" class="button button--ghost" type="button">Export používateľov</button>
         </div>
+      </header>
+
+      <div class="admin-layout">
+        <section class="admin-section admin-section--stats">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Dashboard</p>
+              <h3>Základné KPI</h3>
+            </div>
+          </div>
+          <div id="adminStats" class="summary-grid summary-grid--admin empty-state">Načítavam štatistiky...</div>
+        </section>
+
+        <section class="admin-section admin-section--list">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Používatelia</p>
+              <h3>Správa členstva a účtov</h3>
+            </div>
+          </div>
+          <div class="admin-toolbar">
+            <label class="auth-field auth-field--inline">
+              <span>Hľadať</span>
+              <input id="adminSearchInput" type="search" placeholder="Meno alebo e-mail">
+            </label>
+            <label class="auth-field auth-field--inline">
+              <span>Filter členstva</span>
+              <select id="adminMembershipFilter">
+                <option value="all">Všetci používatelia</option>
+                <option value="active">Len aktívne členstvá</option>
+                <option value="inactive">Len neaktívne členstvá</option>
+                <option value="admin">Len admini</option>
+              </select>
+            </label>
+          </div>
+          <div id="adminUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
+        </section>
+
+        <aside class="admin-section admin-section--detail">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Detail používateľa</p>
+              <h3>Účet, členstvo a zásahy</h3>
+            </div>
+          </div>
+          <div id="adminUserDetail" class="panel-card empty-state">Vyber používateľa z tabuľky a zobrazí sa detail účtu, história aj rýchle zásahy.</div>
+        </aside>
+
+        <section class="admin-section admin-section--timeline">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Aktivity systému</p>
+              <h3>Posledné udalosti</h3>
+            </div>
+          </div>
+          <div id="adminActivityList" class="activity-list empty-state">Zatiaľ bez aktivít.</div>
+        </section>
+
+        <section class="admin-section admin-section--removed">
+          <div class="section-head section-head--tight">
+            <div>
+              <p class="section-kicker">Odstránené a deaktivované</p>
+              <h3>Účty mimo aktívneho stavu</h3>
+            </div>
+          </div>
+          <div id="adminRemovedList" class="activity-list empty-state">Zatiaľ bez odstránených alebo deaktivovaných účtov.</div>
+        </section>
       </div>
-      <div id="adminUserDetail" class="panel-card empty-state">Vyber používateľa z tabuľky a zobrazí sa detail účtu, história aj rýchle zásahy.</div>
-      <div class="section-head section-head--audit">
-        <div>
-          <p class="section-kicker">Aktivity systému</p>
-          <h3>Posledné udalosti</h3>
-        </div>
-      </div>
-      <div id="adminActivityList" class="activity-list empty-state">Zatiaľ bez aktivít.</div>
-      <div class="section-head section-head--audit">
-        <div>
-          <p class="section-kicker">Odstránené a deaktivované</p>
-          <h3>Účty mimo aktívneho stavu</h3>
-        </div>
-      </div>
-      <div id="adminRemovedList" class="activity-list empty-state">Zatiaľ bez odstránených alebo deaktivovaných účtov.</div>
     </div>
   </div>
 
