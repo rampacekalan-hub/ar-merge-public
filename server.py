@@ -3008,6 +3008,9 @@ class AppHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.maybe_redirect_to_canonical_host():
             return
+        if self.path in {"/crm", "/crm/", "/crm.html", "/admin.html"}:
+            self.handle_crm_page()
+            return
         if self.path == "/ads.txt":
             self.handle_ads_txt()
             return
@@ -3034,6 +3037,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path.startswith("/api/admin/overview"):
             self.handle_admin_overview()
+            return
+        if self.path.startswith("/api/crm/meta"):
+            self.handle_crm_meta()
             return
         if self.path.startswith("/api/refresh-membership"):
             self.handle_refresh_membership()
@@ -3187,6 +3193,38 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def serve_static_file(self, file_name, content_type="text/html; charset=utf-8"):
+        file_path = os.path.join(BASE_DIR, file_name)
+        if not os.path.exists(file_path):
+            self.send_error(HTTPStatus.NOT_FOUND, "Stránka neexistuje.")
+            return
+        with open(file_path, "rb") as handle:
+            body = handle.read()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def handle_crm_page(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.send_response(HTTPStatus.FOUND)
+                self.send_header("Location", "/app.html")
+                self.end_headers()
+                return
+            user = ensure_admin_role(connection, user)
+            if user["role"] != "admin":
+                self.send_response(HTTPStatus.FOUND)
+                self.send_header("Location", "/app.html")
+                self.end_headers()
+                return
+        finally:
+            connection.close()
+        self.serve_static_file("crm.html")
 
     def is_secure_request(self):
         if APP_BASE_URL.startswith("https://"):
@@ -3571,6 +3609,58 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "activity": activity,
                     "removed_accounts": removed_accounts,
                     "stats": stats,
+                }
+            )
+        finally:
+            connection.close()
+
+    def handle_crm_meta(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            user = ensure_admin_role(connection, user)
+            if user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do CRM."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            price_id = resolve_stripe_price_id()
+            price_error = ""
+            try:
+                validate_stripe_price_id(price_id)
+            except RuntimeError as exc:
+                price_error = str(exc)
+
+            self.write_json(
+                {
+                    "crm": {
+                        "title": "Unifyo CRM",
+                        "version": "2026.03-central",
+                        "support_email": SUPPORT_EMAIL,
+                        "app_base_url": APP_BASE_URL,
+                    },
+                    "ai": {
+                        "model": OPENAI_MODEL,
+                        "prompt_version": PROMPT_VERSION,
+                        "web_search_enabled": bool(OPENAI_WEB_SEARCH_ENABLED and not OPENAI_WEB_SEARCH_RUNTIME_DISABLED),
+                        "web_search_runtime_disabled": bool(OPENAI_WEB_SEARCH_RUNTIME_DISABLED),
+                        "trusted_domains": sorted(TRUSTED_SOURCE_DOMAINS),
+                    },
+                    "billing": {
+                        "stripe_enabled": bool(STRIPE_SECRET_KEY),
+                        "price_id": price_id,
+                        "price_validation_error": price_error,
+                        "checkout_consent_version": CHECKOUT_CONSENT_VERSION,
+                        "legal_version": LEGAL_VERSION,
+                    },
+                    "limits": {
+                        "max_request_body_mb": MAX_REQUEST_BODY_MB,
+                        "max_contact_file_mb": MAX_CONTACT_FILE_MB,
+                        "max_compress_file_mb": MAX_COMPRESS_FILE_MB,
+                        "max_ai_image_mb": MAX_AI_IMAGE_MB,
+                    },
                 }
             )
         finally:

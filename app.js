@@ -391,7 +391,7 @@ async function bootstrap() {
       openAdminPanel();
       return;
     }
-    window.location.href = "/admin.html";
+    window.location.href = "/crm";
   });
   elements.logoutBtn?.addEventListener("click", logout);
   elements.unlockUploadBtn?.addEventListener("click", handleUnlockUploadAction);
@@ -822,25 +822,25 @@ function handleModalEscape(event) {
   if (event.key !== "Escape") {
     return;
   }
-  if (!elements.promoModal.hidden) {
+  if (elements.promoModal && !elements.promoModal.hidden) {
     closePromoModal();
   }
-  if (!elements.authModal.hidden) {
+  if (elements.authModal && !elements.authModal.hidden) {
     closeAuthModal();
   }
-  if (!elements.resetRequestModal.hidden) {
+  if (elements.resetRequestModal && !elements.resetRequestModal.hidden) {
     closeResetRequestModal();
   }
-  if (!elements.resetPasswordModal.hidden) {
+  if (elements.resetPasswordModal && !elements.resetPasswordModal.hidden) {
     closeResetPasswordModal();
   }
-  if (!elements.checkoutModal.hidden) {
+  if (elements.checkoutModal && !elements.checkoutModal.hidden) {
     closeCheckoutModal();
   }
-  if (!elements.accountPanel.hidden) {
+  if (elements.accountPanel && !elements.accountPanel.hidden) {
     closeAccountPanel();
   }
-  if (!elements.adminPanel.hidden) {
+  if (elements.adminPanel && !elements.adminPanel.hidden) {
     closeAdminPanel();
   }
   closeSidebar();
@@ -853,12 +853,18 @@ function maybeOpenPromoModal() {
   if (sessionStorage.getItem("promo_seen") === "1") {
     return;
   }
+  if (!elements.promoModal) {
+    return;
+  }
   elements.promoModal.hidden = false;
   sessionStorage.setItem("promo_seen", "1");
   syncModalState();
 }
 
 function closePromoModal() {
+  if (!elements.promoModal) {
+    return;
+  }
   elements.promoModal.hidden = true;
   syncModalState();
 }
@@ -899,13 +905,15 @@ function handleSidebarGroupToggle(event) {
 
 function syncModalState() {
   const hasOpenModal =
-    !elements.promoModal.hidden ||
-    !elements.authModal.hidden ||
-    !elements.resetRequestModal.hidden ||
-    !elements.resetPasswordModal.hidden ||
-    !elements.checkoutModal.hidden ||
-    !elements.accountPanel.hidden ||
-    !elements.adminPanel.hidden;
+    Boolean(elements.promoModal && !elements.promoModal.hidden) ||
+    Boolean(elements.authModal && !elements.authModal.hidden) ||
+    Boolean(elements.resetRequestModal && !elements.resetRequestModal.hidden) ||
+    Boolean(elements.resetPasswordModal && !elements.resetPasswordModal.hidden) ||
+    Boolean(elements.checkoutModal && !elements.checkoutModal.hidden) ||
+    Boolean(elements.accountPanel && !elements.accountPanel.hidden) ||
+    Boolean(elements.adminPanel && !elements.adminPanel.hidden) ||
+    Boolean(elements.adminUserDetailModal && !elements.adminUserDetailModal.hidden) ||
+    Boolean(elements.checkoutSuccessModal && !elements.checkoutSuccessModal.hidden);
   document.body.classList.toggle("modal-open", hasOpenModal);
 }
 

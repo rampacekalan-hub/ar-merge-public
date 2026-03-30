@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="sk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unifyo CRM</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+  </head>
+  <body class="crm-body">
+    <div class="crm-shell">
+      <aside class="crm-sidebar">
+        <div class="crm-brand">
+          <span class="crm-brand__mark">U</span>
+          <div>
+            <strong>Unifyo CRM</strong>
+            <small>Central Remote Management</small>
+          </div>
+        </div>
+
+        <nav class="crm-nav">
+          <button class="crm-nav__link is-active" type="button" data-crm-target="dashboard">Dashboard</button>
+          <button class="crm-nav__link" type="button" data-crm-target="users">Používatelia</button>
+          <button class="crm-nav__link" type="button" data-crm-target="billing">Billing a Stripe</button>
+          <button class="crm-nav__link" type="button" data-crm-target="ai">AI a používanie</button>
+          <button class="crm-nav__link" type="button" data-crm-target="prompts">Prompty</button>
+          <button class="crm-nav__link" type="button" data-crm-target="monitoring">Monitoring</button>
+          <button class="crm-nav__link" type="button" data-crm-target="audit">Audit a história</button>
+          <button class="crm-nav__link" type="button" data-crm-target="settings">Nastavenia systému</button>
+        </nav>
+
+        <div class="crm-sidebar__footer">
+          <a class="button button--ghost" href="/app.html">Späť do aplikácie</a>
+        </div>
+      </aside>
+
+      <main class="crm-main">
+        <header class="crm-header card">
+          <div>
+            <p class="section-kicker">Mozog systému</p>
+            <h1 class="crm-header__title">Centrálne CRM riadenie</h1>
+            <p class="crm-header__copy">Používatelia, členstvá, AI, Stripe, prompty, monitoring aj audit na jednom mieste.</p>
+          </div>
+          <div class="crm-header__meta">
+            <span id="crmCurrentTime" class="status-pill status-pill--neutral">—</span>
+            <span id="crmUserBadge" class="status-pill status-pill--admin">Admin</span>
+          </div>
+        </header>
+
+        <div id="crmErrorBanner" class="auth-message auth-message--error crm-banner" hidden></div>
+
+        <section id="crmSection-dashboard" class="crm-section is-active">
+          <div class="crm-panel card">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">Dashboard</p>
+                <h2>Stav celej platformy</h2>
+              </div>
+            </div>
+            <div id="crmDashboardStats" class="summary-grid summary-grid--admin empty-state">Načítavam KPI...</div>
+          </div>
+
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Health overview</p>
+                  <h3>Prevádzkové zdravie</h3>
+                </div>
+              </div>
+              <div id="crmHealthCards" class="summary-grid summary-grid--admin empty-state">Načítavam stav systému...</div>
+            </div>
+
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Upozornenia</p>
+                  <h3>Čo treba riešiť</h3>
+                </div>
+              </div>
+              <div id="crmAlertList" class="activity-list empty-state">Načítavam upozornenia...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-users" class="crm-section">
+          <div class="crm-grid crm-grid--main">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Používatelia</p>
+                  <h2>Správa účtov a členstiev</h2>
+                </div>
+              </div>
+              <div class="admin-toolbar crm-toolbar">
+                <label class="auth-field auth-field--inline">
+                  <span>Hľadať</span>
+                  <input id="crmUserSearch" type="search" placeholder="Meno alebo e-mail">
+                </label>
+                <label class="auth-field auth-field--inline">
+                  <span>Filter</span>
+                  <select id="crmUserFilter">
+                    <option value="all">Všetci používatelia</option>
+                    <option value="active">Aktívne členstvo</option>
+                    <option value="inactive">Neaktívne členstvo</option>
+                    <option value="admin">Admin účty</option>
+                    <option value="online">Online teraz</option>
+                  </select>
+                </label>
+                <button id="crmExportUsers" class="button button--ghost" type="button">Export používateľov</button>
+              </div>
+              <div id="crmUsersTable" class="table-wrap empty-state">Načítavam používateľov...</div>
+            </div>
+
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Rýchly prehľad</p>
+                  <h3>Segmenty a statusy</h3>
+                </div>
+              </div>
+              <div id="crmUserSegments" class="summary-grid summary-grid--admin empty-state">Načítavam segmenty...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-billing" class="crm-section">
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Billing</p>
+                  <h2>Členstvá a Stripe lifecycle</h2>
+                </div>
+              </div>
+              <div id="crmBillingCards" class="summary-grid summary-grid--admin empty-state">Načítavam billing dáta...</div>
+            </div>
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Stripe udalosti</p>
+                  <h3>Posledné zmeny a synchronizácie</h3>
+                </div>
+              </div>
+              <div id="crmBillingTimeline" class="activity-list empty-state">Načítavam billing históriu...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-ai" class="crm-section">
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">AI vrstva</p>
+                  <h2>Používanie a prevádzka AI</h2>
+                </div>
+              </div>
+              <div id="crmAiCards" class="summary-grid summary-grid--admin empty-state">Načítavam AI dáta...</div>
+            </div>
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">AI aktivita</p>
+                  <h3>Najnovšie udalosti</h3>
+                </div>
+              </div>
+              <div id="crmAiTimeline" class="activity-list empty-state">Načítavam AI históriu...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-prompts" class="crm-section">
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Prompt management</p>
+                  <h2>Centrálna správa promptov</h2>
+                </div>
+              </div>
+              <div id="crmPromptCards" class="summary-grid summary-grid--admin empty-state">Načítavam prompt konfiguráciu...</div>
+            </div>
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Dôveryhodné zdroje</p>
+                  <h3>Domény a overovanie</h3>
+                </div>
+              </div>
+              <div id="crmPromptDomains" class="crm-chip-list empty-state">Načítavam zdroje...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-monitoring" class="crm-section">
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Monitoring</p>
+                  <h2>Stavy, limity a riziká</h2>
+                </div>
+              </div>
+              <div id="crmMonitoringCards" class="summary-grid summary-grid--admin empty-state">Načítavam monitoring...</div>
+            </div>
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Incidenty a výnimky</p>
+                  <h3>Prevádzkové zásahy</h3>
+                </div>
+              </div>
+              <div id="crmMonitoringTimeline" class="activity-list empty-state">Načítavam incidenty...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-audit" class="crm-section">
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Audit log</p>
+                  <h2>História admin zásahov a zmien</h2>
+                </div>
+              </div>
+              <div id="crmAuditTimeline" class="activity-list empty-state">Načítavam audit...</div>
+            </div>
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Odstránené a deaktivované</p>
+                  <h3>Citlivé zmeny účtov</h3>
+                </div>
+              </div>
+              <div id="crmRemovedTimeline" class="activity-list empty-state">Načítavam zásahy do účtov...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="crmSection-settings" class="crm-section">
+          <div class="crm-panel card">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">Nastavenia systému</p>
+                <h2>Konfigurácia a pravidlá</h2>
+              </div>
+            </div>
+            <div id="crmSettingsGrid" class="summary-grid summary-grid--admin empty-state">Načítavam systémové nastavenia...</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="crmUserModal" class="modal" hidden>
+      <div id="crmUserModalBackdrop" class="modal__backdrop"></div>
+      <div class="modal__dialog modal__dialog--admin modal__dialog--admin-detail crm-user-modal">
+        <button id="crmUserModalClose" class="modal__close" type="button" aria-label="Zavrieť">×</button>
+        <div id="crmUserModalBody" class="panel-card empty-state">Načítavam detail používateľa...</div>
+      </div>
+    </div>
+
+    <script src="/crm.js"></script>
+  </body>
+</html>
