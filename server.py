@@ -64,6 +64,7 @@ PROMPT_VERSION = "unifyo-sk-fin-v4"
 LEGAL_VERSION = "2026-03-27"
 CHECKOUT_CONSENT_VERSION = "2026-03-29"
 MEMBERSHIP_SYNC_COOLDOWN_SECONDS = max(5, int(os.environ.get("MEMBERSHIP_SYNC_COOLDOWN_SECONDS", "45")))
+ADMIN_SYNC_COOLDOWN_SECONDS = max(30, int(os.environ.get("ADMIN_SYNC_COOLDOWN_SECONDS", "300")))
 REGISTRATION_CONFIRMATION_TEXT = (
     "Výberom možnosti Vytvoriť účet potvrdzujete, že máte minimálne 18 rokov, "
     "súhlasíte s Obchodnými podmienkami a zároveň potvrdzujete, že ste si prečítali "
@@ -92,6 +93,7 @@ MAX_AI_IMAGE_BYTES = max(1, int(MAX_AI_IMAGE_MB * 1024 * 1024))
 
 stripe.api_key = STRIPE_SECRET_KEY
 LAST_MEMBERSHIP_SYNC_BY_USER = {}
+LAST_ADMIN_SYNC_AT = None
 
 
 def utc_now():
@@ -2564,6 +2566,10 @@ def sync_user_membership_safe(connection, user_id):
 def sync_admin_membership_snapshot(connection, max_users=80):
     if not STRIPE_SECRET_KEY:
         return
+    global LAST_ADMIN_SYNC_AT
+    if LAST_ADMIN_SYNC_AT and utc_now() - LAST_ADMIN_SYNC_AT < timedelta(seconds=ADMIN_SYNC_COOLDOWN_SECONDS):
+        return
+    LAST_ADMIN_SYNC_AT = utc_now()
     candidate_rows = connection.execute(
         """
         SELECT DISTINCT users.id
