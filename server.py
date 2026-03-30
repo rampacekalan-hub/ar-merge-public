@@ -43,6 +43,7 @@ PASSWORD_ITERATIONS = 200_000
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
+DEFAULT_STRIPE_PRICE_ID = os.environ.get("DEFAULT_STRIPE_PRICE_ID", "price_1TG0m1JJsHlQYfgdgMnHLJ8r").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://unifyo.online").strip()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini"
@@ -94,6 +95,19 @@ MAX_AI_IMAGE_BYTES = max(1, int(MAX_AI_IMAGE_MB * 1024 * 1024))
 stripe.api_key = STRIPE_SECRET_KEY
 LAST_MEMBERSHIP_SYNC_BY_USER = {}
 LAST_ADMIN_SYNC_AT = None
+
+
+def resolve_stripe_price_id():
+    raw = (STRIPE_PRICE_ID or "").strip()
+    if re.fullmatch(r"price_[A-Za-z0-9]+", raw):
+        return raw
+    if raw:
+        match = re.search(r"(price_[A-Za-z0-9]+)", raw)
+        if match:
+            return match.group(1)
+    if re.fullmatch(r"price_[A-Za-z0-9]+", DEFAULT_STRIPE_PRICE_ID or ""):
+        return DEFAULT_STRIPE_PRICE_ID
+    return ""
 
 
 def utc_now():
@@ -4128,13 +4142,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             connection.close()
 
     def handle_create_checkout_session(self):
-        if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID:
+        price_id = resolve_stripe_price_id()
+        if not STRIPE_SECRET_KEY or not price_id:
             self.write_json(
                 {"error": "Stripe nie je nakonfigurovaný. Nastav STRIPE_SECRET_KEY a STRIPE_PRICE_ID."},
                 status=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
             return
-        if not re.fullmatch(r"price_[A-Za-z0-9]+", STRIPE_PRICE_ID.strip()):
+        if not re.fullmatch(r"price_[A-Za-z0-9]+", price_id):
             self.write_json(
                 {
                     "error": (
@@ -4174,7 +4189,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             session = stripe.checkout.Session.create(
                 mode="subscription",
                 customer=customer_id,
-                line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
+                line_items=[{"price": price_id, "quantity": 1}],
                 success_url=f"{base_url}/app.html?checkout=success",
                 cancel_url=f"{base_url}/app.html?checkout=cancel",
                 allow_promotion_codes=True,
