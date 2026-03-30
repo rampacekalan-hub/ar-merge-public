@@ -1812,13 +1812,23 @@ function renderAdminUserDetail(payload) {
     return subscription.status || fallbackStatus;
   })();
 
+  const statusLabel = membershipStatus === "active"
+    ? '<span class="status-pill status-pill--active">Aktívne</span>'
+    : '<span class="status-pill status-pill--inactive">Neaktívne</span>';
+  const roleLabel = user.role === "admin"
+    ? '<span class="status-pill status-pill--admin">Admin</span>'
+    : '<span class="status-pill status-pill--neutral">Používateľ</span>';
+
   elements.adminUserDetail.innerHTML = `
     <div class="admin-user-detail__head">
       <div>
         <strong>${escapeHtml(user.name || "Používateľ")}</strong>
         <p class="panel-copy">${escapeHtml(user.email || "")}</p>
       </div>
-      <span class="pill">${escapeHtml(user.role === "admin" ? "Admin" : "Používateľ")}</span>
+      <div class="status-pill-group">
+        ${roleLabel}
+        ${statusLabel}
+      </div>
     </div>
     <div class="account-card">
       <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>

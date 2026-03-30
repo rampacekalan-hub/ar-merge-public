@@ -40,6 +40,7 @@ PDF_RENDER_PRESETS = [
     (0.68, 48),
 ]
 MAX_PDF_RASTER_PAGES = 8
+FAST_PDF_BYTES_THRESHOLD = 5 * 1024 * 1024
 
 
 @dataclass
@@ -100,11 +101,12 @@ def compress_pdf(file_name, file_bytes, target_bytes):
         )
 
     errors = []
+    fast_candidate = None
 
     if fitz is not None:
         try:
             fast_candidate = compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes)
-            if fast_candidate is not None:
+            if fast_candidate is not None and original_bytes >= FAST_PDF_BYTES_THRESHOLD:
                 return fast_candidate
         except Exception as exc:
             errors.append(str(exc))
@@ -114,6 +116,8 @@ def compress_pdf(file_name, file_bytes, target_bytes):
             return compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_bytes)
         except Exception as exc:
             errors.append(str(exc))
+            if fast_candidate is not None:
+                return fast_candidate
 
     if PDF_SWIFT_SCRIPT.exists() and SWIFT_BINARY:
         try:
@@ -150,7 +154,14 @@ def compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes):
             )
 
         # If we still need to try a deeper rasterization, fall through to the slow path
-        return None
+        return build_result(
+            download_name,
+            PDF_MIME_TYPE,
+            optimized_bytes,
+            original_bytes,
+            target_bytes,
+            "best-effort",
+        )
     finally:
         document.close()
 

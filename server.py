@@ -398,6 +398,14 @@ def init_db():
             connection.execute("ALTER TABLE memberships ADD COLUMN last_payment_intent_id TEXT NOT NULL DEFAULT ''")
         if "last_invoice_id" not in membership_columns:
             connection.execute("ALTER TABLE memberships ADD COLUMN last_invoice_id TEXT NOT NULL DEFAULT ''")
+        if "last_activation_email_at" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_activation_email_at TEXT NOT NULL DEFAULT ''")
+        if "last_cancel_email_at" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_cancel_email_at TEXT NOT NULL DEFAULT ''")
+        if "last_activation_email_at" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_activation_email_at TEXT NOT NULL DEFAULT ''")
+        if "last_cancel_email_at" not in membership_columns:
+            connection.execute("ALTER TABLE memberships ADD COLUMN last_cancel_email_at TEXT NOT NULL DEFAULT ''")
         checkout_columns = {row["name"] for row in connection.execute("PRAGMA table_info(checkout_sessions)").fetchall()}
         if "internal_order_number" not in checkout_columns:
             connection.execute("ALTER TABLE checkout_sessions ADD COLUMN internal_order_number TEXT NOT NULL DEFAULT ''")
@@ -4449,15 +4457,20 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "cancel_at_period_end": bool(updated_membership.get("cancel_at_period_end")),
                 },
             )
-            send_subscription_cancelled_email(
-                user,
-                {
-                    "access_until": format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
-                    "internal_order_number": updated_membership.get("last_order_number") or "",
-                    "internal_subscription_number": updated_membership.get("internal_subscription_number") or "",
-                    "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or "",
-                },
-            )
+            if not updated_membership.get("last_cancel_email_at"):
+                send_subscription_cancelled_email(
+                    user,
+                    {
+                        "access_until": format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
+                        "internal_order_number": updated_membership.get("last_order_number") or "",
+                        "internal_subscription_number": updated_membership.get("internal_subscription_number") or "",
+                        "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or "",
+                    },
+                )
+                connection.execute(
+                    "UPDATE memberships SET last_cancel_email_at = ?, updated_at = ? WHERE user_id = ?",
+                    (format_timestamp(utc_now()), format_timestamp(utc_now()), user["id"]),
+                )
             log_activity(
                 connection,
                 "subscription_cancelled",
@@ -4897,6 +4910,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     sync_membership_from_subscription(connection, subscription, fallback_user_id=user_id or None)
                     user_row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
                     if user_row:
+                        membership_row = get_membership(connection, user_id) or {}
                         connection.execute(
                             """
                             UPDATE memberships
@@ -4933,18 +4947,25 @@ class AppHandler(SimpleHTTPRequestHandler):
                             },
                         )
                         updated_membership = get_membership(connection, user_id) or {}
-                        send_subscription_activated_email(
-                            user_row,
-                            {
-                                "price_label": "1,99 € / mesiac",
-                                "purchased_at": format_timestamp(utc_now()),
-                                "next_renewal_at": format_timestamp(updated_membership.get("next_renewal_at")) if updated_membership.get("next_renewal_at") else "",
-                                "internal_order_number": internal_order_number,
-                                "internal_subscription_number": updated_membership.get("internal_subscription_number") or internal_subscription_number,
-                                "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or subscription_id,
-                                "stripe_payment_intent_id": payment_intent_id,
-                            },
-                        )
+                        last_activation_email_at = membership_row.get("last_activation_email_at") or ""
+                        already_notified = bool(last_activation_email_at) and membership_row.get("last_checkout_session_id") == session_id
+                        if not already_notified:
+                            send_subscription_activated_email(
+                                user_row,
+                                {
+                                    "price_label": "1,99 € / mesiac",
+                                    "purchased_at": format_timestamp(utc_now()),
+                                    "next_renewal_at": format_timestamp(updated_membership.get("next_renewal_at")) if updated_membership.get("next_renewal_at") else "",
+                                    "internal_order_number": internal_order_number,
+                                    "internal_subscription_number": updated_membership.get("internal_subscription_number") or internal_subscription_number,
+                                    "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or subscription_id,
+                                    "stripe_payment_intent_id": payment_intent_id,
+                                },
+                            )
+                            connection.execute(
+                                "UPDATE memberships SET last_activation_email_at = ?, updated_at = ? WHERE user_id = ?",
+                                (format_timestamp(utc_now()), format_timestamp(utc_now()), user_id),
+                            )
                 if checkout_row:
                     connection.execute(
                         """
