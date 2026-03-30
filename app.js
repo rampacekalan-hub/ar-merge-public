@@ -41,6 +41,7 @@ const state = {
   },
   chooserDealDismissed: false,
   sessionTimer: null,
+  heartbeatTimer: null,
 };
 
 const elements = {
@@ -1014,6 +1015,7 @@ async function refreshCurrentUser() {
     state.user = null;
   }
   scheduleSessionAutoLogout();
+  startHeartbeat();
 
   const params = getCurrentSearchParams();
   const checkoutState = params.get("checkout");
@@ -1068,6 +1070,29 @@ function scheduleSessionAutoLogout() {
   state.sessionTimer = window.setTimeout(() => {
     logout();
   }, waitMs);
+}
+
+function startHeartbeat() {
+  if (state.heartbeatTimer) {
+    window.clearInterval(state.heartbeatTimer);
+    state.heartbeatTimer = null;
+  }
+  if (!state.user) {
+    return;
+  }
+  const pingOnce = async () => {
+    try {
+      const response = await appFetch("/api/ping", { method: "POST" });
+      const payload = await response.json();
+      if (response.ok && payload.user) {
+        state.user = payload.user;
+      }
+    } catch (_error) {
+      // ignore heartbeat failures
+    }
+  };
+  pingOnce();
+  state.heartbeatTimer = window.setInterval(pingOnce, 60000);
 }
 
 async function fetchAccountPanel() {
@@ -1263,6 +1288,8 @@ function renderAccountSummary() {
       <div class="account-card__row"><strong>${escapeHtml(tr("Stav členstva", "Membership status"))}</strong><span>${escapeHtml(state.user.is_admin && !state.user.membership_active ? tr("Admin prístup", "Admin access") : hasAccess ? tr("Aktívne", "Active") : tr("Neaktívne", "Inactive"))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(state.user.membership_started_at) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(state.user.membership_valid_until) : "—")}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Naposledy prihlásený", "Last login"))}</strong><span>${escapeHtml(formatDateTime(state.user.last_login_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Naposledy aktívny", "Last seen"))}</strong><span>${escapeHtml(formatDateTime(state.user.last_seen_at))}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Cena", "Price"))}</strong><span>${escapeHtml(tr("1,99 € / mesiac", "€1.99 / month"))}</span></div>
       ${hasAccess ? "" : `
         <div class="account-card__cta">
@@ -1298,14 +1325,20 @@ function renderAccountPanel() {
       <div class="account-card__row"><strong>${escapeHtml(tr("Členstvo od", "Membership from"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(user.membership_started_at) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Platné do", "Valid until"))}</strong><span>${escapeHtml(showMembershipDates ? formatDate(user.membership_valid_until) : "—")}</span></div>
       <div class="account-card__row"><strong>${escapeHtml(tr("Rola", "Role"))}</strong><span>${escapeHtml(user.is_admin ? "Admin" : tr("Používateľ", "User"))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Naposledy prihlásený", "Last login"))}</strong><span>${escapeHtml(formatDateTime(user.last_login_at))}</span></div>
+      <div class="account-card__row"><strong>${escapeHtml(tr("Naposledy aktívny", "Last seen"))}</strong><span>${escapeHtml(formatDateTime(user.last_seen_at))}</span></div>
       ${hasAccess ? "" : `
         <div class="account-card__cta">
           <button id="accountPanelCheckoutBtn" class="button button--primary" type="button">${escapeHtml(tr("Aktivovať členstvo za 1,99 €", "Activate membership for €1.99"))}</button>
         </div>
       `}
+      <div class="account-card__cta">
+        <button id="accountDeleteBtn" class="button button--ghost admin-action--danger" type="button">${escapeHtml(tr("Zrušiť účet", "Delete account"))}</button>
+      </div>
     </article>
   `;
   document.getElementById("accountPanelCheckoutBtn")?.addEventListener("click", startCheckoutFromAccountPanel);
+  document.getElementById("accountDeleteBtn")?.addEventListener("click", handleAccountDelete);
   if (elements.accountNameInput) {
     elements.accountNameInput.value = user.name || "";
   }
@@ -1509,6 +1542,10 @@ function renderAdminStats() {
       <strong>${escapeHtml(String(stats.admin_users || 0))}</strong>
     </article>
     <article class="summary-card">
+      <span>Online teraz</span>
+      <strong>${escapeHtml(String(stats.online_users || 0))}</strong>
+    </article>
+    <article class="summary-card">
       <span>Registrácie za 30 dní</span>
       <strong>${escapeHtml(String(stats.recent_registrations || 0))}</strong>
     </article>
@@ -1569,6 +1606,8 @@ function renderAdminUsers() {
           <th>Rola</th>
           <th>Členstvo</th>
           <th>Platné do</th>
+          <th>Online</th>
+          <th>Naposledy</th>
           <th>Akcie</th>
         </tr>
       </thead>
@@ -1580,6 +1619,8 @@ function renderAdminUsers() {
             <td>${escapeHtml(user.role || "user")}</td>
             <td>${escapeHtml(user.membership_status || "inactive")}</td>
             <td>${escapeHtml(formatDate(user.membership_valid_until))}</td>
+            <td>${user.is_online ? "● online" : "—"}</td>
+            <td>${escapeHtml(formatDateTime(user.last_seen_at || user.last_login_at))}</td>
             <td>
               <div class="admin-actions">
                 <button class="button button--ghost admin-action" data-user-id="${user.id}" data-action="detail" type="button">Detail</button>
@@ -1706,6 +1747,11 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
       <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_status || "inactive")}</span></div>
       <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>Naposledy prihlásený</strong><span>${escapeHtml(formatDateTime(user.last_login_at))}</span></div>
+      <div class="account-card__row"><strong>Naposledy aktívny</strong><span>${escapeHtml(formatDateTime(user.last_seen_at))}</span></div>
+      <div class="account-card__row"><strong>Online</strong><span>${user.is_online ? "● online" : "—"}</span></div>
+      <div class="account-card__row"><strong>Posledná IP</strong><span class="mono">${escapeHtml(user.last_seen_ip || "—")}</span></div>
+      <div class="account-card__row"><strong>Posledný agent</strong><span>${escapeHtml(truncateText(user.last_seen_agent || "—", 80))}</span></div>
     </div>
     <div class="account-card">
       <div class="account-card__row"><strong>Číslo objednávky</strong><span>${escapeHtml(subscription.last_order_number || user.last_order_number || "—")}</span></div>
@@ -2076,6 +2122,10 @@ async function logout() {
   state.account = null;
   state.admin = null;
   state.assistant = { profile: null, messages: [] };
+  if (state.heartbeatTimer) {
+    window.clearInterval(state.heartbeatTimer);
+    state.heartbeatTimer = null;
+  }
   resetApp();
   renderAccessState();
 }
@@ -2293,6 +2343,27 @@ async function cancelSubscriptionFlow() {
     await refreshCurrentUser();
     await fetchAccountPanel();
     renderAccessState();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function handleAccountDelete() {
+  const confirmed = window.confirm(tr(
+    "Naozaj chceš natrvalo zrušiť účet? Účet aj dáta sa odstránia a prípadné predplatné sa ukončí ku koncu obdobia.",
+    "Do you really want to permanently delete your account? Your data will be removed and any subscription will be cancelled at period end."
+  ));
+  if (!confirmed) {
+    return;
+  }
+  try {
+    const response = await appFetch("/api/account/delete", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || tr("Účet sa nepodarilo zrušiť.", "Account deletion failed."));
+    }
+    window.alert(payload.message || tr("Účet bol zrušený.", "Account deleted."));
+    await logout();
   } catch (error) {
     window.alert(error.message);
   }

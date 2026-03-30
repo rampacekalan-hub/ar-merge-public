@@ -371,6 +371,14 @@ def init_db():
             connection.execute("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''")
         if "role" not in columns:
             connection.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+        if "last_login_at" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT NOT NULL DEFAULT ''")
+        if "last_seen_at" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN last_seen_at TEXT NOT NULL DEFAULT ''")
+        if "last_seen_ip" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN last_seen_ip TEXT NOT NULL DEFAULT ''")
+        if "last_seen_agent" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN last_seen_agent TEXT NOT NULL DEFAULT ''")
         membership_columns = {row["name"] for row in connection.execute("PRAGMA table_info(memberships)").fetchall()}
         if "stripe_status" not in membership_columns:
             connection.execute("ALTER TABLE memberships ADD COLUMN stripe_status TEXT NOT NULL DEFAULT ''")
@@ -616,6 +624,26 @@ Ak ide o nedorozumenie, odpovedzte priamo na tento e-mail.
         smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(message)
+
+
+def send_account_self_deleted_email(user_row, details):
+    body = f"""potvrdzujeme zrušenie účtu UNIFYO.
+
+Prístup zostáva aktívny do: {details.get('access_until') or '—'}
+Ďalšia platba už nebude účtovaná.
+Interné číslo objednávky: {details.get('internal_order_number') or '—'}
+Interné číslo predplatného: {details.get('internal_subscription_number') or '—'}
+Stripe subscription ID: {details.get('stripe_subscription_id') or '—'}
+
+Ak potrebuješ pomoc, kontaktuj nás na {SUPPORT_EMAIL}.
+"""
+    send_subscription_email(
+        user_row["email"],
+        user_row["name"],
+        "UNIFYO - potvrdenie zrušenia účtu",
+        body,
+        bcc_support=True,
+    )
 
 
 def send_subscription_email(to_email, name, subject, body_text, bcc_support=True):
@@ -1020,6 +1048,32 @@ def clear_session(connection, token):
     if not token:
         return
     connection.execute("DELETE FROM sessions WHERE token_hash = ?", (hash_session_token(token),))
+    connection.commit()
+
+
+def update_last_seen(connection, user_id, ip_address="", user_agent=""):
+    now_value = format_timestamp(utc_now())
+    connection.execute(
+        """
+        UPDATE users
+        SET last_seen_at = ?, last_seen_ip = ?, last_seen_agent = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (now_value, ip_address, user_agent, now_value, user_id),
+    )
+    connection.commit()
+
+
+def update_last_login(connection, user_id, ip_address="", user_agent=""):
+    now_value = format_timestamp(utc_now())
+    connection.execute(
+        """
+        UPDATE users
+        SET last_login_at = ?, last_seen_at = ?, last_seen_ip = ?, last_seen_agent = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (now_value, now_value, ip_address, user_agent, now_value, user_id),
+    )
     connection.commit()
 
 
@@ -2297,6 +2351,11 @@ def user_payload(connection, user_row, headers=None):
     display_membership = get_membership_display_state(membership)
     registration_consent = get_latest_registration_consent(connection, user_row["id"])
     checkout_consent = get_latest_checkout_consent(connection, user_row["id"])
+    last_seen_at = user_row.get("last_seen_at") if isinstance(user_row, dict) else user_row["last_seen_at"]
+    is_online = False
+    last_seen_dt = parse_timestamp(last_seen_at) if last_seen_at else None
+    if last_seen_dt and utc_now() - last_seen_dt <= timedelta(minutes=5):
+        is_online = True
     return {
         "authenticated": True,
         "user": {
@@ -2325,6 +2384,11 @@ def user_payload(connection, user_row, headers=None):
             "registration_marketing_consent": bool(registration_consent.get("marketing_consent")) if registration_consent else False,
             "checkout_consent_at": checkout_consent.get("created_at") if checkout_consent else "",
             "session_expires_at": get_session_expiry(connection, headers) if headers else "",
+            "last_login_at": user_row["last_login_at"],
+            "last_seen_at": last_seen_at,
+            "last_seen_ip": user_row["last_seen_ip"],
+            "last_seen_agent": user_row["last_seen_agent"],
+            "is_online": is_online,
         },
     }
 
@@ -2988,6 +3052,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/account/cancel-subscription":
             self.handle_cancel_subscription()
             return
+        if self.path == "/api/account/delete":
+            self.handle_account_delete()
+            return
         if self.path == "/api/contact":
             self.handle_contact()
             return
@@ -3026,6 +3093,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/admin/force-sync":
             self.handle_admin_force_sync()
+            return
+        if self.path == "/api/ping":
+            self.handle_ping()
             return
         if self.path == "/api/stripe-webhook":
             self.handle_stripe_webhook()
@@ -3185,6 +3255,19 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "subscription": get_subscription_snapshot(connection, user["id"]),
                 }
             )
+        finally:
+            connection.close()
+
+    def handle_ping(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"ok": False, "error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            update_last_seen(connection, user["id"], get_request_ip(self), get_request_agent(self))
+            refreshed = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+            self.write_json(user_payload(connection, refreshed, self.headers))
         finally:
             connection.close()
 
@@ -3392,6 +3475,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                 for row in rows:
                     membership_row = get_membership(connection, row["id"])
                     membership_state = get_membership_display_state(membership_row)
+                    last_seen = row["last_seen_at"] or ""
+                    last_seen_dt = parse_timestamp(last_seen) if last_seen else None
+                    is_online = bool(last_seen_dt and utc_now() - last_seen_dt <= timedelta(minutes=5))
                     users.append(
                         {
                             "id": row["id"],
@@ -3401,6 +3487,11 @@ class AppHandler(SimpleHTTPRequestHandler):
                             "created_at": row["created_at"],
                             "membership_status": membership_state["status"],
                             "membership_valid_until": membership_state["valid_until"],
+                            "last_login_at": row["last_login_at"] or "",
+                            "last_seen_at": last_seen,
+                            "last_seen_ip": row["last_seen_ip"] or "",
+                            "last_seen_agent": row["last_seen_agent"] or "",
+                            "is_online": is_online,
                         }
                     )
             except Exception:
@@ -3445,6 +3536,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "total_users": len(users),
                     "active_memberships": sum(1 for item in users if item["membership_status"] == "active"),
                     "admin_users": sum(1 for item in users if item["role"] == "admin"),
+                    "online_users": sum(1 for item in users if item.get("is_online")),
                     "recent_registrations": connection.execute(
                         "SELECT COUNT(*) AS total FROM users WHERE created_at >= ?",
                         (threshold,),
@@ -3512,6 +3604,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "created_at": row["created_at"],
                         "membership_status": membership_state["status"],
                         "membership_valid_until": membership_state["valid_until"],
+                        "last_login_at": row["last_login_at"] or "",
+                        "last_seen_at": row["last_seen_at"] or "",
+                        "last_seen_ip": row["last_seen_ip"] or "",
+                        "last_seen_agent": row["last_seen_agent"] or "",
                     },
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
                     "assistant_stats": get_assistant_usage_stats(connection, row["id"]),
@@ -3611,6 +3707,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 marketing_consent,
             )
             token, expires_at = create_session(connection, user_id)
+            update_last_login(connection, user_id, get_request_ip(self), get_request_agent(self))
             log_activity(
                 connection,
                 "register",
@@ -3657,6 +3754,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             old_token = get_cookie_token(self.headers)
             clear_session(connection, old_token)
             token, expires_at = create_session(connection, user["id"])
+            update_last_login(connection, user["id"], get_request_ip(self), get_request_agent(self))
             log_activity(connection, "login", "Používateľ sa prihlásil.", user["id"], email=email, ip=get_request_ip(self), agent=get_request_agent(self))
             self.write_json(
                 user_payload(connection, user, self.headers),
@@ -4375,6 +4473,82 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
         except stripe.error.StripeError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+        finally:
+            connection.close()
+
+    def handle_account_delete(self):
+        connection = get_db()
+        try:
+            user = get_session_user(connection, self.headers)
+            if not user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+
+            membership = get_membership(connection, user["id"]) or {}
+            access_until = ""
+            stripe_subscription_id = membership.get("stripe_subscription_id") or ""
+
+            if stripe_subscription_id and STRIPE_SECRET_KEY:
+                try:
+                    subscription = stripe.Subscription.modify(
+                        stripe_subscription_id,
+                        cancel_at_period_end=True,
+                    )
+                    sync_membership_from_subscription(connection, subscription, fallback_user_id=user["id"])
+                    refreshed = get_membership(connection, user["id"]) or {}
+                    access_until = format_timestamp(refreshed.get("current_period_end")) if refreshed.get("current_period_end") else ""
+                except stripe.error.StripeError as exc:
+                    self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+                    return
+
+            record_subscription_event(
+                connection,
+                user["id"],
+                "user_account_deleted",
+                membership.get("status") or "inactive",
+                {
+                    "stripe_subscription_id": stripe_subscription_id,
+                    "access_until": access_until,
+                },
+            )
+            log_activity(
+                connection,
+                "user_account_deleted",
+                "Používateľ zrušil svoj účet.",
+                user["id"],
+                stripe_subscription_id=stripe_subscription_id,
+                access_until=access_until,
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
+            )
+
+            details = {
+                "access_until": access_until,
+                "internal_order_number": membership.get("last_order_number") or "",
+                "internal_subscription_number": membership.get("internal_subscription_number") or "",
+                "stripe_subscription_id": stripe_subscription_id,
+            }
+            try:
+                send_account_self_deleted_email(user, details)
+            except Exception:
+                pass
+
+            connection.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM memberships WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM assistant_tasks WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM assistant_messages WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM assistant_threads WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM assistant_profiles WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM assistant_upload_sessions WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM generated_assets WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM registration_consents WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM checkout_consents WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM checkout_sessions WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM subscription_events WHERE user_id = ?", (user["id"],))
+            connection.execute("DELETE FROM users WHERE id = ?", (user["id"],))
+
+            connection.commit()
+            self.write_json({"ok": True, "message": "Účet bol zrušený. Prístup ostáva aktívny do konca zaplateného obdobia."})
         finally:
             connection.close()
 
