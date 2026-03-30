@@ -95,6 +95,12 @@ MAX_AI_IMAGE_BYTES = max(1, int(MAX_AI_IMAGE_MB * 1024 * 1024))
 stripe.api_key = STRIPE_SECRET_KEY
 LAST_MEMBERSHIP_SYNC_BY_USER = {}
 LAST_ADMIN_SYNC_AT = None
+PRICE_VALIDATION_CACHE = {
+    "price_id": "",
+    "checked_at": None,
+    "ok": False,
+    "error": "",
+}
 
 
 def resolve_stripe_price_id():
@@ -108,6 +114,25 @@ def resolve_stripe_price_id():
     if re.fullmatch(r"price_[A-Za-z0-9]+", DEFAULT_STRIPE_PRICE_ID or ""):
         return DEFAULT_STRIPE_PRICE_ID
     return ""
+
+
+def validate_stripe_price_id(price_id):
+    if not price_id:
+        raise RuntimeError("Stripe cena nie je nastavená.")
+    cache = PRICE_VALIDATION_CACHE
+    checked_at = cache.get("checked_at")
+    if cache.get("price_id") == price_id and checked_at:
+        if utc_now() - checked_at < timedelta(minutes=10):
+            if cache.get("ok"):
+                return
+            raise RuntimeError(cache.get("error") or "Stripe cena nie je dostupná.")
+    try:
+        stripe.Price.retrieve(price_id)
+        cache.update({"price_id": price_id, "checked_at": utc_now(), "ok": True, "error": ""})
+    except stripe.error.StripeError as exc:
+        message = str(exc) or "Stripe cena nie je dostupná."
+        cache.update({"price_id": price_id, "checked_at": utc_now(), "ok": False, "error": message})
+        raise RuntimeError(message)
 
 
 def utc_now():
@@ -4164,6 +4189,11 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         connection = get_db()
         try:
+            try:
+                validate_stripe_price_id(price_id)
+            except RuntimeError as exc:
+                self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_GATEWAY)
+                return
             payload = require_json(self)
             user = get_session_user(connection, self.headers)
             if not user:
