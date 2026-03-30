@@ -248,6 +248,9 @@ function bindAiEvents() {
   aiElements.sidebarBackdrop?.addEventListener("click", () => {
     document.body.classList.remove("ai-sidebar-open");
   });
+  aiElements.sidebar?.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
   aiElements.accountBtn?.addEventListener("click", handleAccountClick);
   aiElements.logoutBtn?.addEventListener("click", handleLogout);
   aiElements.checkoutBtn?.addEventListener("click", startCheckoutFlow);
@@ -284,6 +287,14 @@ function bindAiEvents() {
     }
   });
   document.addEventListener("click", handleOutsideAttachMenuClick);
+  window.addEventListener("resize", syncAiSidebarViewportState);
+  syncAiSidebarViewportState();
+}
+
+function syncAiSidebarViewportState() {
+  if (window.innerWidth > 1240) {
+    document.body.classList.remove("ai-sidebar-open");
+  }
 }
 
 function startNowTicker() {

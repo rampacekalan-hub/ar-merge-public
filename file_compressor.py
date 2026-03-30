@@ -39,8 +39,12 @@ PDF_RENDER_PRESETS = [
     (0.92, 62),
     (0.68, 48),
 ]
+LARGE_PDF_RENDER_PRESETS = [
+    (0.72, 46),
+]
 MAX_PDF_RASTER_PAGES = 8
 FAST_PDF_BYTES_THRESHOLD = 5 * 1024 * 1024
+LARGE_PDF_BYTES_THRESHOLD = 6 * 1024 * 1024
 
 
 @dataclass
@@ -113,7 +117,14 @@ def compress_pdf(file_name, file_bytes, target_bytes):
 
     if fitz is not None and Image is not None:
         try:
-            return compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_bytes)
+            render_presets = LARGE_PDF_RENDER_PRESETS if original_bytes >= LARGE_PDF_BYTES_THRESHOLD else PDF_RENDER_PRESETS
+            return compress_pdf_with_pymupdf(
+                download_name,
+                file_bytes,
+                original_bytes,
+                target_bytes,
+                render_presets=render_presets,
+            )
         except Exception as exc:
             errors.append(str(exc))
             if fast_candidate is not None:
@@ -166,16 +177,17 @@ def compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes):
         document.close()
 
 
-def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_bytes):
+def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_bytes, render_presets=None):
     best_under_target = None
     smallest_candidate = None
+    presets = render_presets or PDF_RENDER_PRESETS
 
     document = fitz.open(stream=file_bytes, filetype="pdf")
     try:
         if document.page_count == 0:
             raise ValueError("PDF je prázdne.")
 
-        for scale, quality in PDF_RENDER_PRESETS:
+        for scale, quality in presets:
             candidate_data = render_pdf_candidate(document, scale, quality)
             candidate = {
                 "data": candidate_data,

@@ -10,17 +10,28 @@
 
   function openSidebar() {
     document.body.classList.add("sidebar-open");
+    if (sidebarBackdrop) {
+      sidebarBackdrop.hidden = false;
+    }
   }
 
   function closeSidebar() {
     document.body.classList.remove("sidebar-open");
+    if (sidebarBackdrop) {
+      sidebarBackdrop.hidden = true;
+    }
   }
 
   function toggleSidebar() {
     if (!sidebar) {
       return;
     }
-    document.body.classList.toggle("sidebar-open");
+    const nextOpen = !document.body.classList.contains("sidebar-open");
+    if (nextOpen) {
+      openSidebar();
+    } else {
+      closeSidebar();
+    }
   }
 
   function syncSidebarCollapse() {
@@ -59,7 +70,14 @@
     }
   });
 
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 1180) {
+      closeSidebar();
+    }
+  });
+
   syncSidebarCollapse();
+  closeSidebar();
 
   const currentPath = window.location.pathname === "/" ? "/index.html" : window.location.pathname;
   sidebarLinks.forEach((link) => {

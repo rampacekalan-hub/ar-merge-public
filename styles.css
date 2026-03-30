@@ -7362,13 +7362,14 @@ h1 {
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease;
-  z-index: 20;
+  z-index: 80;
 }
 
 .ai-shell--workspace {
   height: 100vh;
   max-width: none;
   grid-template-columns: 300px minmax(0, 1fr);
+  isolation: isolate;
 }
 
 .ai-sidebar,
@@ -7538,9 +7539,10 @@ h1 {
     left: 14px;
     bottom: 14px;
     width: min(340px, calc(100vw - 28px));
-    z-index: 30;
+    z-index: 90;
     transform: translateX(calc(-100% - 24px));
     transition: transform 180ms ease;
+    pointer-events: auto;
   }
 
   .ai-sidebar-open .ai-sidebar {
@@ -9640,9 +9642,10 @@ h1 {
     max-width: 90vw;
     border-radius: 0 24px 24px 0;
     overflow: hidden;
-    z-index: 30;
+    z-index: 90;
     transform: translateX(calc(-100% - 20px));
     transition: transform 180ms ease;
+    pointer-events: auto;
   }
 
   .ai-sidebar-open .ai-sidebar {
@@ -9662,6 +9665,18 @@ h1 {
 
 body.ai-sidebar-open {
   overflow: hidden;
+}
+
+.ai-sidebar,
+.ai-sidebar * {
+  pointer-events: auto;
+}
+
+@media (max-width: 1240px) {
+  .ai-sidebar-backdrop {
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(2px);
+  }
 }
 
 @media (max-width: 920px) {
