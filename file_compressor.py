@@ -39,6 +39,7 @@ PDF_RENDER_PRESETS = [
     (0.92, 62),
     (0.68, 48),
 ]
+MAX_PDF_RASTER_PAGES = 8
 
 
 @dataclass
@@ -100,6 +101,14 @@ def compress_pdf(file_name, file_bytes, target_bytes):
 
     errors = []
 
+    if fitz is not None:
+        try:
+            fast_candidate = compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes)
+            if fast_candidate is not None:
+                return fast_candidate
+        except Exception as exc:
+            errors.append(str(exc))
+
     if fitz is not None and Image is not None:
         try:
             return compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_bytes)
@@ -115,6 +124,35 @@ def compress_pdf(file_name, file_bytes, target_bytes):
     if not errors:
         raise RuntimeError("PDF kompresia vyžaduje PyMuPDF alebo macOS Swift helper.")
     raise RuntimeError(errors[-1])
+
+
+def compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes):
+    document = fitz.open(stream=file_bytes, filetype="pdf")
+    try:
+        if document.page_count == 0:
+            raise ValueError("PDF je prázdne.")
+
+        optimized_bytes = document.tobytes(garbage=4, deflate=True, clean=True)
+        optimized_size = len(optimized_bytes)
+
+        if optimized_size >= original_bytes:
+            return None
+
+        status = "compressed" if optimized_size <= target_bytes else "best-effort"
+        if optimized_size <= target_bytes or document.page_count > MAX_PDF_RASTER_PAGES:
+            return build_result(
+                download_name,
+                PDF_MIME_TYPE,
+                optimized_bytes,
+                original_bytes,
+                target_bytes,
+                status,
+            )
+
+        # If we still need to try a deeper rasterization, fall through to the slow path
+        return None
+    finally:
+        document.close()
 
 
 def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_bytes):

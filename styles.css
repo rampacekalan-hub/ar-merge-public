@@ -36,6 +36,15 @@ body {
     linear-gradient(180deg, #f7fbff 0%, #eef5fb 52%, #edf3f9 100%);
 }
 
+[hidden] {
+  display: none !important;
+}
+
+body.is-pro-unlocked .app-membership-promo,
+body.is-pro-unlocked #workspaceMembershipPromo {
+  display: none !important;
+}
+
 .app-shell {
   max-width: 1440px;
   padding: 22px 22px 60px;
