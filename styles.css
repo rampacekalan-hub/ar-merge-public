@@ -756,6 +756,13 @@ h1 {
   font-size: 1.9rem;
 }
 
+.summary-card__hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #6f829b;
+}
+
 .table-wrap {
   border-radius: 24px;
   border: 1px solid rgba(16, 35, 63, 0.06);
@@ -4139,6 +4146,47 @@ body.mode-chooser .workspace-header__main {
 
 .app-membership-promo--workspace {
   margin-bottom: 16px;
+}
+
+.member-thankyou {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(46, 104, 255, 0.12);
+  background: linear-gradient(135deg, rgba(46, 104, 255, 0.08), rgba(66, 156, 255, 0.12));
+  box-shadow: 0 12px 28px rgba(24, 59, 128, 0.08);
+  margin-bottom: 16px;
+}
+
+.member-thankyou__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2e68ff, #4bc0ff);
+  box-shadow: 0 8px 16px rgba(30, 89, 255, 0.28);
+}
+
+.member-thankyou__content {
+  display: grid;
+  gap: 4px;
+}
+
+.member-thankyou__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #12306b;
+}
+
+.member-thankyou__note {
+  margin: 0;
+  font-size: 0.94rem;
+  color: #39527f;
 }
 
 .mode-card {
@@ -9419,11 +9467,13 @@ h1 {
 
   .ai-sidebar {
     position: fixed;
-    top: 12px;
-    left: 12px;
-    bottom: 12px;
-    width: min(340px, calc(100vw - 24px));
-    max-width: calc(100vw - 24px);
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(360px, 90vw);
+    max-width: 90vw;
+    border-radius: 0 24px 24px 0;
+    overflow: hidden;
     z-index: 30;
     transform: translateX(calc(-100% - 20px));
     transition: transform 180ms ease;
@@ -9442,6 +9492,10 @@ h1 {
     min-height: calc(100vh - 24px);
     width: 100%;
   }
+}
+
+body.ai-sidebar-open {
+  overflow: hidden;
 }
 
 @media (max-width: 920px) {

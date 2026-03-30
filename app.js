@@ -58,6 +58,7 @@ const elements = {
   premiumHeroCard: document.getElementById("premiumHeroCard"),
   premiumHeroLabel: document.getElementById("premiumHeroLabel"),
   premiumHeroNote: document.getElementById("premiumHeroNote"),
+  memberThankYouPanel: document.getElementById("memberThankYouPanel"),
   accountSummary: document.getElementById("accountSummary"),
   accountMenuBtn: document.getElementById("accountMenuBtn"),
   adminMenuBtn: document.getElementById("adminMenuBtn"),
@@ -325,7 +326,25 @@ async function readJsonResponse(response) {
 }
 
 function hasUnlockedAccess(user = state.user) {
-  return Boolean(user?.membership_active || user?.is_admin);
+  if (!user) {
+    return false;
+  }
+  if (user.is_admin) {
+    return true;
+  }
+  if (user.membership_active) {
+    return true;
+  }
+  if (user.membership_status === "active") {
+    return true;
+  }
+  if (user.membership_valid_until) {
+    const until = new Date(user.membership_valid_until).getTime();
+    if (!Number.isNaN(until) && until > Date.now()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bootstrap();
@@ -535,6 +554,18 @@ function renderAccessState() {
   }
   if (elements.workspaceMembershipPromo) {
     elements.workspaceMembershipPromo.hidden = hasMembership || !isLoggedIn;
+  }
+  if (elements.memberThankYouPanel) {
+    elements.memberThankYouPanel.hidden = !hasMembership;
+    if (hasMembership) {
+      const greetingName = state.user?.name?.trim() || state.user?.email || tr("ďakujeme", "thank you");
+      elements.memberThankYouPanel.querySelector(".member-thankyou__title").textContent = getCurrentLang() === "en"
+        ? `Thanks, ${greetingName}!`
+        : `Ďakujeme, ${greetingName}!`;
+      elements.memberThankYouPanel.querySelector(".member-thankyou__note").textContent = getCurrentLang() === "en"
+        ? "We appreciate your membership. We are a Slovak company and keep improving Unifyo — we will notify you about new features."
+        : "Vážime si tvoje členstvo. Sme slovenská firma a Unifyo neustále vylepšujeme — o novinkách ťa budeme informovať.";
+    }
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
@@ -1730,7 +1761,8 @@ function renderAdminUserDetail(payload) {
   const user = payload.user;
   const activity = payload.activity || [];
   const assistantStats = payload.assistant_stats || {};
-  const subscription = payload.subscription || {};
+  const subscriptionPayload = payload.subscription || {};
+  const subscription = subscriptionPayload.membership || subscriptionPayload || {};
   const registrationConsent = payload.registration_consent || {};
   const checkoutConsent = payload.checkout_consent || {};
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
@@ -1745,8 +1777,8 @@ function renderAdminUserDetail(payload) {
     </div>
     <div class="account-card">
       <div class="account-card__row"><strong>Registrovaný od</strong><span>${escapeHtml(formatDate(user.created_at))}</span></div>
-      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(user.membership_status || "inactive")}</span></div>
-      <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(user.membership_valid_until))}</span></div>
+      <div class="account-card__row"><strong>Stav členstva</strong><span>${escapeHtml(subscription.status || user.membership_status || "inactive")}</span></div>
+      <div class="account-card__row"><strong>Platné do</strong><span>${escapeHtml(formatDate(subscription.valid_until || user.membership_valid_until))}</span></div>
       <div class="account-card__row"><strong>Naposledy prihlásený</strong><span>${escapeHtml(formatDateTime(user.last_login_at))}</span></div>
       <div class="account-card__row"><strong>Naposledy aktívny</strong><span>${escapeHtml(formatDateTime(user.last_seen_at))}</span></div>
       <div class="account-card__row"><strong>Online</strong><span>${user.is_online ? "● online" : "—"}</span></div>
@@ -1763,6 +1795,7 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Registračný súhlas</strong><span>${escapeHtml(user.registration_consent_at ? formatDateTime(user.registration_consent_at) : "—")}</span></div>
       <div class="account-card__row"><strong>Checkout súhlas</strong><span>${escapeHtml(user.checkout_consent_at ? formatDateTime(user.checkout_consent_at) : "—")}</span></div>
     </div>
+    <p class="panel-copy">Číslo objednávky a predplatného sú interné identifikátory. Stripe ID slúži na dohľadanie platby v Stripe, stav ukazuje, či je predplatné aktívne alebo ukončené.</p>
     <div class="account-card">
       <div class="account-card__row"><strong>Reg. súhlas IP</strong><span class="mono">${escapeHtml(registrationConsent.ip_address || "—")}</span></div>
       <div class="account-card__row"><strong>Reg. legal verzia</strong><span>${escapeHtml(registrationConsent.legal_version || "—")}</span></div>
@@ -1787,14 +1820,46 @@ function renderAdminUserDetail(payload) {
       <button id="adminAssistantResetBtn" class="button button--ghost" type="button">Vymazať AI pamäť</button>
     </div>
     <div class="summary-grid summary-grid--admin-user">
-      <article class="summary-card summary-card--accent"><span>Fokus</span><strong>${escapeHtml(assistantStats.focus || "—")}</strong></article>
-      <article class="summary-card"><span>Chaty</span><strong>${escapeHtml(String(assistantStats.thread_count || 0))}</strong></article>
-      <article class="summary-card"><span>Správy</span><strong>${escapeHtml(String(assistantStats.message_count || 0))}</strong></article>
-      <article class="summary-card"><span>AI odpovede</span><strong>${escapeHtml(String(assistantStats.assistant_count || 0))}</strong></article>
-      <article class="summary-card"><span>Web overenia</span><strong>${escapeHtml(String(assistantStats.web_count || 0))}</strong></article>
-      <article class="summary-card"><span>Obrázky</span><strong>${escapeHtml(String(assistantStats.image_count || 0))}</strong></article>
-      <article class="summary-card"><span>Relevancia</span><strong>${escapeHtml(String(assistantStats.relevance_percent || 0))}%</strong></article>
-      <article class="summary-card"><span>Naposledy aktívny</span><strong>${escapeHtml(formatDateTime(assistantStats.last_message_at))}</strong></article>
+      <article class="summary-card summary-card--accent">
+        <span>Fokus</span>
+        <strong>${escapeHtml(assistantStats.focus || "—")}</strong>
+        <small class="summary-card__hint">Hlavná pracovná téma</small>
+      </article>
+      <article class="summary-card">
+        <span>Chaty (vlákna)</span>
+        <strong>${escapeHtml(String(assistantStats.thread_count || 0))}</strong>
+        <small class="summary-card__hint">Počet konverzácií</small>
+      </article>
+      <article class="summary-card">
+        <span>Správy</span>
+        <strong>${escapeHtml(String(assistantStats.message_count || 0))}</strong>
+        <small class="summary-card__hint">Všetky správy používateľa</small>
+      </article>
+      <article class="summary-card">
+        <span>AI odpovede</span>
+        <strong>${escapeHtml(String(assistantStats.assistant_count || 0))}</strong>
+        <small class="summary-card__hint">Odpovede vygenerované AI</small>
+      </article>
+      <article class="summary-card">
+        <span>Web overenia</span>
+        <strong>${escapeHtml(String(assistantStats.web_count || 0))}</strong>
+        <small class="summary-card__hint">Dopyty na externé zdroje</small>
+      </article>
+      <article class="summary-card">
+        <span>Obrázky</span>
+        <strong>${escapeHtml(String(assistantStats.image_count || 0))}</strong>
+        <small class="summary-card__hint">Počet priložených obrázkov</small>
+      </article>
+      <article class="summary-card">
+        <span>Relevancia</span>
+        <strong>${escapeHtml(String(assistantStats.relevance_percent || 0))}%</strong>
+        <small class="summary-card__hint">Kvalita kontextu z pamäte</small>
+      </article>
+      <article class="summary-card">
+        <span>Naposledy aktívny</span>
+        <strong>${escapeHtml(formatDateTime(assistantStats.last_message_at))}</strong>
+        <small class="summary-card__hint">Posledná odpoveď AI</small>
+      </article>
     </div>
     <div class="account-card">
       <div class="account-card__row"><strong>Aktívne témy</strong><span>${escapeHtml((assistantStats.topics || []).join(", ") || "Zatiaľ bez tém")}</span></div>
