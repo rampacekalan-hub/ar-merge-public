@@ -3024,6 +3024,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/admin/role":
             self.handle_admin_role_update()
             return
+        if self.path == "/api/admin/force-sync":
+            self.handle_admin_force_sync()
+            return
         if self.path == "/api/stripe-webhook":
             self.handle_stripe_webhook()
             return
@@ -4482,6 +4485,39 @@ class AppHandler(SimpleHTTPRequestHandler):
                     pass
             connection.commit()
             self.write_json({"ok": True})
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            connection.close()
+
+    def handle_admin_force_sync(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
+                return
+            if not can_manage_admin_tools(admin_user):
+                self.write_json({"error": "Len hlavný správca môže spustiť Stripe sync."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            user_id = parse_positive_int(payload.get("user_id"), 0)
+            if not user_id:
+                self.write_json({"error": "Chýba používateľ."}, status=HTTPStatus.BAD_REQUEST)
+                return
+            target_user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not target_user:
+                self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            sync_user_membership_safe(connection, user_id)
+            refreshed = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            self.write_json({"ok": True, "user": user_payload(connection, refreshed, self.headers)})
         except ValueError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:

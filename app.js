@@ -530,10 +530,10 @@ function renderAccessState() {
     elements.pricingCard.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.appMembershipPromo) {
-    elements.appMembershipPromo.hidden = true;
+    elements.appMembershipPromo.hidden = hasMembership || !isLoggedIn;
   }
   if (elements.workspaceMembershipPromo) {
-    elements.workspaceMembershipPromo.hidden = hasMembership;
+    elements.workspaceMembershipPromo.hidden = hasMembership || !isLoggedIn;
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
@@ -1729,6 +1729,7 @@ function renderAdminUserDetail(payload) {
       <button id="adminDeactivateBtn" class="button button--ghost" type="button">Deaktivovať účet</button>
       <button id="adminDeleteBtn" class="button button--ghost admin-action--danger" type="button">Vymazať účet</button>
       <button id="adminRoleBtn" class="button button--ghost" type="button">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
+      <button id="adminForceSyncBtn" class="button button--ghost" type="button">Vynútiť Stripe sync</button>
     </div>
     <p class="panel-copy">Vymazanie účtu je finálne. Používateľ dostane e-mail a informáciu, že prípadné vrátenie platby bude vybavené do 7 dní.</p>` : `<p class="panel-copy">Tento administrátorský účet má prístup k prehľadu, ale zmeny členstva a rolí môže robiť len hlavný správca.</p>`}
     <p id="adminUserMessage" class="auth-message" hidden></p>
@@ -1764,6 +1765,7 @@ function renderAdminUserDetail(payload) {
   const deactivateBtn = document.getElementById("adminDeactivateBtn");
   const deleteBtn = document.getElementById("adminDeleteBtn");
   const roleBtn = document.getElementById("adminRoleBtn");
+  const forceSyncBtn = document.getElementById("adminForceSyncBtn");
   const messageEl = document.getElementById("adminUserMessage");
   renderActivityList(document.getElementById("adminUserActivity"), activity);
 
@@ -1784,9 +1786,35 @@ function renderAdminUserDetail(payload) {
   roleBtn?.addEventListener("click", async () => {
     await submitAdminRoleUpdate(user.id, user.role === "admin" ? "user" : "admin", messageEl);
   });
+  forceSyncBtn?.addEventListener("click", async () => {
+    await submitAdminForceSync(user.id, messageEl);
+  });
   document.getElementById("adminAssistantResetBtn")?.addEventListener("click", async () => {
     await submitAdminAssistantMemoryReset(user.id, messageEl);
   });
+}
+
+async function submitAdminForceSync(userId, messageEl) {
+  try {
+    const response = await appFetch("/api/admin/force-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    const payload = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(payload.error || "Stripe sync sa nepodarilo spustiť.");
+    }
+    await openAdminUserDetail(userId);
+  } catch (error) {
+    if (messageEl) {
+      messageEl.hidden = false;
+      messageEl.textContent = normalizeUiErrorMessage(error.message, tr("Stripe sync sa nepodarilo spustiť.", "Stripe sync failed."));
+      messageEl.classList.add("auth-message--error");
+    } else {
+      window.alert(normalizeUiErrorMessage(error.message, tr("Stripe sync sa nepodarilo spustiť.", "Stripe sync failed.")));
+    }
+  }
 }
 
 async function submitAdminAssistantReview(userId, messageId, reviewStatus, threadId, messageEl) {
