@@ -2211,7 +2211,8 @@ async function startProCheckout() {
       if (response.status === 401) {
         openAuthModal("login");
       }
-      throw new Error(normalizeUiErrorMessage(payload.error || "Stripe checkout sa nepodarilo spustiť.", tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout failed to start.")));
+      const fallback = `${tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout failed to start.")} (HTTP ${response.status})`;
+      throw new Error(normalizeUiErrorMessage(payload.error || fallback, fallback));
     }
     if (payload?.url) {
       window.location.href = payload.url;

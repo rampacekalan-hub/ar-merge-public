@@ -4304,6 +4304,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.write_json({"error": error_text}, status=HTTPStatus.BAD_GATEWAY)
         except ValueError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        except Exception as exc:
+            self.write_json({"error": str(exc) or "Stripe checkout sa nepodarilo spustiť."}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
         finally:
             connection.close()
 
