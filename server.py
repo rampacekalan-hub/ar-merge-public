@@ -43,7 +43,7 @@ PASSWORD_ITERATIONS = 200_000
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
-APP_BASE_URL = os.environ.get("APP_BASE_URL", "").strip()
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://unifyo.online").strip()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini"
 SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
@@ -63,6 +63,7 @@ MAX_AI_IMAGE_MB = float(os.environ.get("MAX_AI_IMAGE_MB", "10"))
 PROMPT_VERSION = "unifyo-sk-fin-v4"
 LEGAL_VERSION = "2026-03-27"
 CHECKOUT_CONSENT_VERSION = "2026-03-29"
+MEMBERSHIP_SYNC_COOLDOWN_SECONDS = max(5, int(os.environ.get("MEMBERSHIP_SYNC_COOLDOWN_SECONDS", "45")))
 REGISTRATION_CONFIRMATION_TEXT = (
     "Výberom možnosti Vytvoriť účet potvrdzujete, že máte minimálne 18 rokov, "
     "súhlasíte s Obchodnými podmienkami a zároveň potvrdzujete, že ste si prečítali "
@@ -90,6 +91,7 @@ MAX_COMPRESS_FILE_BYTES = max(1, int(MAX_COMPRESS_FILE_MB * 1024 * 1024))
 MAX_AI_IMAGE_BYTES = max(1, int(MAX_AI_IMAGE_MB * 1024 * 1024))
 
 stripe.api_key = STRIPE_SECRET_KEY
+LAST_MEMBERSHIP_SYNC_BY_USER = {}
 
 
 def utc_now():
@@ -602,6 +604,28 @@ def send_subscription_email(to_email, name, subject, body_text, bcc_support=True
         smtp.send_message(message)
 
 
+def send_registration_welcome_email(user_row):
+    body = f"""účet UNIFYO bol úspešne vytvorený.
+
+Meno: {user_row.get('name') or '—'}
+E-mail: {user_row.get('email') or '—'}
+Dátum registrácie: {format_timestamp(utc_now())}
+
+V účte môžeš okamžite:
+- aktivovať mesačné členstvo
+- používať čistenie kontaktov, kompresiu súborov a AI asistenta
+
+Podpora: {SUPPORT_EMAIL}
+"""
+    send_subscription_email(
+        user_row["email"],
+        user_row["name"],
+        "UNIFYO - potvrdenie registrácie",
+        body,
+        bcc_support=True,
+    )
+
+
 def send_subscription_activated_email(user_row, details):
     body = f"""ďakujeme, predplatné UNIFYO bolo úspešne aktivované.
 
@@ -657,14 +681,14 @@ def generate_internal_subscription_number():
     return f"UNY-SUB-{now_value}-{secrets.token_hex(3).upper()}"
 
 
-def record_registration_consent(connection, user_id, email, ip_address, marketing_consent):
+def record_registration_consent(connection, user_id, email, ip_address, user_agent, marketing_consent):
     now_value = format_timestamp(utc_now())
     cursor = connection.execute(
         """
         INSERT INTO registration_consents (
             user_id, email, ip_address, accepted_terms, accepted_privacy, marketing_consent,
-            consent_text, legal_version, created_at
-        ) VALUES (?, ?, ?, 1, 1, ?, ?, ?, ?)
+            consent_text, legal_version, user_agent, created_at
+        ) VALUES (?, ?, ?, 1, 1, ?, ?, ?, ?, ?)
         """,
         (
             user_id,
@@ -673,20 +697,21 @@ def record_registration_consent(connection, user_id, email, ip_address, marketin
             1 if marketing_consent else 0,
             REGISTRATION_CONFIRMATION_TEXT,
             LEGAL_VERSION,
+            user_agent,
             now_value,
         ),
     )
     return cursor.lastrowid
 
 
-def record_checkout_consent(connection, user_row, ip_address):
+def record_checkout_consent(connection, user_row, ip_address, user_agent):
     now_value = format_timestamp(utc_now())
     cursor = connection.execute(
         """
         INSERT INTO checkout_consents (
             user_id, email, consent_text, consent_version, price_label, subscription_label,
-            renewal_label, no_refund_label, ip_address, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            renewal_label, no_refund_label, ip_address, user_agent, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             user_row["id"],
@@ -698,6 +723,7 @@ def record_checkout_consent(connection, user_row, ip_address):
             "Predplatné sa automaticky obnovuje, kým ho nezrušíte.",
             "Platba sa po aktivácii služby nevracia.",
             ip_address,
+            user_agent,
             now_value,
         ),
     )
@@ -2186,7 +2212,7 @@ def is_membership_active(membership):
 def user_has_service_access(user_row, membership=None):
     if not user_row:
         return False
-    if user_row["role"] == "admin" and is_admin_email(user_row["email"]):
+    if user_row["role"] == "admin":
         return True
     return is_membership_active(membership)
 
@@ -2262,8 +2288,12 @@ def user_payload(connection, user_row, headers=None):
 
 
 def get_request_base_url(handler):
-    if APP_BASE_URL:
-        return APP_BASE_URL.rstrip("/")
+    configured = str(APP_BASE_URL or "").strip()
+    if configured:
+        # Accept both full URLs and host-like values in env (e.g. unifyo.online).
+        parsed = urlparse(configured if "://" in configured else f"https://{configured}")
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
     forwarded_proto = handler.headers.get("X-Forwarded-Proto")
     proto = forwarded_proto or ("https" if PORT == 443 else "http")
     host = handler.headers.get("X-Forwarded-Host") or handler.headers.get("Host") or f"127.0.0.1:{PORT}"
@@ -2424,6 +2454,29 @@ def sync_membership_from_subscription(connection, subscription, fallback_user_id
     connection.commit()
 
 
+def should_sync_membership_now(user_id, force=False):
+    if force:
+        LAST_MEMBERSHIP_SYNC_BY_USER[user_id] = utc_now()
+        return True
+    last = LAST_MEMBERSHIP_SYNC_BY_USER.get(user_id)
+    if not last:
+        LAST_MEMBERSHIP_SYNC_BY_USER[user_id] = utc_now()
+        return True
+    if utc_now() - last >= timedelta(seconds=MEMBERSHIP_SYNC_COOLDOWN_SECONDS):
+        LAST_MEMBERSHIP_SYNC_BY_USER[user_id] = utc_now()
+        return True
+    return False
+
+
+def sync_membership_for_user_cached(connection, user_row, force=False):
+    if not user_row:
+        return
+    user_id = int(user_row["id"])
+    if not should_sync_membership_now(user_id, force=force):
+        return
+    sync_membership_for_user(connection, user_row)
+
+
 def sync_membership_for_user(connection, user_row):
     if not STRIPE_SECRET_KEY:
         return
@@ -2502,7 +2555,7 @@ def sync_user_membership_safe(connection, user_id):
         user_row = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user_row:
             return
-        sync_membership_for_user(connection, user_row)
+        sync_membership_for_user_cached(connection, user_row, force=True)
     except Exception:
         # Admin prehľad musí zostať dostupný aj keď Stripe dočasne zlyhá.
         return
@@ -2804,7 +2857,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         if not APP_BASE_URL:
             return False
         try:
-            canonical = urlparse(APP_BASE_URL)
+            configured = APP_BASE_URL if "://" in APP_BASE_URL else f"https://{APP_BASE_URL}"
+            canonical = urlparse(configured)
             canonical_host = normalize_host_name(canonical.netloc or "")
             if not canonical_host:
                 return False
@@ -2816,10 +2870,13 @@ class AppHandler(SimpleHTTPRequestHandler):
             normalized_request_host = normalize_host_name(request_host)
             if not normalized_request_host or normalized_request_host == canonical_host:
                 return False
-            # Redirect only from Render hostnames to canonical public hostname.
-            # Keep apex/www handling on DNS/CDN level to avoid redirect loops
-            # and session host switching after payment return.
-            if not normalized_request_host.endswith(".onrender.com"):
+            canonical_apex = canonical_host[4:] if canonical_host.startswith("www.") else canonical_host
+            request_apex = normalized_request_host[4:] if normalized_request_host.startswith("www.") else normalized_request_host
+            should_redirect = (
+                normalized_request_host.endswith(".onrender.com")
+                or request_apex == canonical_apex
+            )
+            if not should_redirect:
                 return False
             destination = f"{APP_BASE_URL.rstrip('/')}{self.path}"
             self.send_response(HTTPStatus.MOVED_PERMANENTLY)
@@ -3009,17 +3066,29 @@ class AppHandler(SimpleHTTPRequestHandler):
         forwarded_proto = self.headers.get("X-Forwarded-Proto", "")
         return forwarded_proto.lower() == "https"
 
+    def session_cookie_domain_attr(self):
+        request_host = normalize_host_name(
+            self.headers.get("X-Forwarded-Host")
+            or self.headers.get("Host")
+            or ""
+        )
+        if request_host.endswith("unifyo.online"):
+            return " Domain=.unifyo.online;"
+        return ""
+
     def session_cookie_header(self, token, expires_at):
         secure_flag = " Secure;" if self.is_secure_request() else ""
+        domain_attr = self.session_cookie_domain_attr()
         return (
-            f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax;{secure_flag} Max-Age={SESSION_TTL_SECONDS}; "
+            f"{SESSION_COOKIE_NAME}={token}; Path=/;{domain_attr} HttpOnly; SameSite=Lax;{secure_flag} Max-Age={SESSION_TTL_SECONDS}; "
             f"Expires={expires_at.astimezone(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT')}"
         )
 
     def expired_session_cookie_header(self):
         secure_flag = " Secure;" if self.is_secure_request() else ""
+        domain_attr = self.session_cookie_domain_attr()
         return (
-            f"{SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax;{secure_flag} Max-Age=0; "
+            f"{SESSION_COOKIE_NAME}=; Path=/;{domain_attr} HttpOnly; SameSite=Lax;{secure_flag} Max-Age=0; "
             "Expires=Thu, 01 Jan 1970 00:00:00 GMT"
         )
 
@@ -3032,7 +3101,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             user = ensure_admin_role(connection, user)
             try:
-                sync_membership_for_user(connection, user)
+                sync_membership_for_user_cached(connection, user, force=False)
                 user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
             except Exception:
                 pass
@@ -3060,7 +3129,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return
             user = ensure_admin_role(connection, user)
             try:
-                sync_membership_for_user(connection, user)
+                sync_membership_for_user_cached(connection, user, force=False)
                 user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
             except Exception:
                 pass
@@ -3242,87 +3311,118 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.write_json({"error": "Nemáte prístup do administrácie."}, status=HTTPStatus.FORBIDDEN)
                 return
 
-            # Keep admin view aligned with Stripe in near real-time.
-            sync_admin_membership_snapshot(connection, max_users=120)
+            try:
+                sync_admin_membership_snapshot(connection, max_users=80)
+            except Exception:
+                # Admin prehľad nesmie byť blokovaný pri dočasnej Stripe chybe.
+                pass
 
-            rows = connection.execute(
-                """
-                SELECT
-                    users.*,
-                    memberships.status AS membership_status,
-                    memberships.current_period_end AS membership_valid_until,
-                    memberships.created_at AS membership_started_at,
-                    memberships.next_renewal_at AS membership_next_renewal_at,
-                    memberships.cancelled_at AS membership_cancelled_at,
-                    memberships.cancel_at_period_end AS membership_cancel_at_period_end
-                FROM users
-                LEFT JOIN memberships ON memberships.user_id = users.id
-                ORDER BY users.created_at DESC
-                """
-            ).fetchall()
             users = []
-            for row in rows:
-                membership_row = None
-                if row["membership_status"] or row["membership_valid_until"] or row["membership_started_at"]:
-                    membership_row = {
-                        "status": row["membership_status"],
-                        "current_period_end": row["membership_valid_until"],
-                        "created_at": row["membership_started_at"],
-                        "next_renewal_at": row["membership_next_renewal_at"],
-                        "cancelled_at": row["membership_cancelled_at"],
-                        "cancel_at_period_end": row["membership_cancel_at_period_end"],
-                    }
-                membership_state = get_membership_display_state(membership_row)
-                users.append(
-                    {
-                        "id": row["id"],
-                        "name": row["name"],
-                        "email": row["email"],
-                        "role": row["role"],
-                        "created_at": row["created_at"],
-                        "membership_status": membership_state["status"],
-                        "membership_valid_until": membership_state["valid_until"],
-                    }
-                )
-            removed_rows = connection.execute(
-                """
-                SELECT event_type, event_label, event_meta, created_at
-                FROM activity_logs
-                WHERE event_type IN ('admin_account_deleted', 'admin_membership_deactivated')
-                ORDER BY created_at DESC
-                LIMIT 24
-                """
-            ).fetchall()
             removed_accounts = []
-            for row in removed_rows:
-                meta = safe_json_loads(row["event_meta"], {})
-                removed_accounts.append(
-                    {
-                        "event_type": row["event_type"],
-                        "label": row["event_label"],
-                        "email": str(meta.get("target_user_email") or "").strip(),
-                        "ip": str(meta.get("ip") or "").strip(),
-                        "created_at": row["created_at"],
-                    }
-                )
-            threshold = format_timestamp(utc_now() - timedelta(days=30))
+            activity = []
             stats = {
-                "total_users": len(users),
-                "active_memberships": sum(1 for item in users if item["membership_status"] == "active"),
-                "admin_users": sum(1 for item in users if item["role"] == "admin"),
-                "recent_registrations": connection.execute(
-                    "SELECT COUNT(*) AS total FROM users WHERE created_at >= ?",
-                    (threshold,),
-                ).fetchone()["total"],
-                "ai_threads": connection.execute("SELECT COUNT(*) AS total FROM assistant_threads").fetchone()["total"],
-                "ai_messages": connection.execute("SELECT COUNT(*) AS total FROM assistant_messages").fetchone()["total"],
-                "ai_active_users": connection.execute(
-                    "SELECT COUNT(DISTINCT user_id) AS total FROM assistant_messages WHERE created_at >= ?",
-                    (threshold,),
-                ).fetchone()["total"],
+                "total_users": 0,
+                "active_memberships": 0,
+                "admin_users": 0,
+                "recent_registrations": 0,
+                "ai_threads": 0,
+                "ai_messages": 0,
+                "ai_active_users": 0,
+                "total_logs": 0,
+                "recent_logs": 0,
+                "recent_unique_ips": 0,
+                "recent_admin_actions": 0,
+                "deleted_accounts": 0,
+                "deactivated_accounts": 0,
             }
-            stats.update(get_activity_system_stats(connection))
-            self.write_json({"users": users, "activity": get_recent_activity(connection, limit=50), "removed_accounts": removed_accounts, "stats": stats})
+
+            try:
+                rows = connection.execute(
+                    """
+                    SELECT users.*
+                    FROM users
+                    ORDER BY users.created_at DESC
+                    """
+                ).fetchall()
+                for row in rows:
+                    membership_row = get_membership(connection, row["id"])
+                    membership_state = get_membership_display_state(membership_row)
+                    users.append(
+                        {
+                            "id": row["id"],
+                            "name": row["name"],
+                            "email": row["email"],
+                            "role": row["role"],
+                            "created_at": row["created_at"],
+                            "membership_status": membership_state["status"],
+                            "membership_valid_until": membership_state["valid_until"],
+                        }
+                    )
+            except Exception:
+                users = []
+
+            try:
+                removed_rows = connection.execute(
+                    """
+                    SELECT event_type, event_label, event_meta, created_at
+                    FROM activity_logs
+                    WHERE event_type IN ('admin_account_deleted', 'admin_membership_deactivated')
+                    ORDER BY created_at DESC
+                    LIMIT 24
+                    """
+                ).fetchall()
+                for row in removed_rows:
+                    meta = safe_json_loads(row["event_meta"], {})
+                    removed_accounts.append(
+                        {
+                            "event_type": row["event_type"],
+                            "label": row["event_label"],
+                            "email": str(meta.get("target_user_email") or "").strip(),
+                            "ip": str(meta.get("ip") or "").strip(),
+                            "membership_status": str(meta.get("membership_status") or "").strip(),
+                            "membership_valid_until": str(meta.get("membership_valid_until") or "").strip(),
+                            "stripe_subscription_id": str(meta.get("stripe_subscription_id") or "").strip(),
+                            "last_order_number": str(meta.get("last_order_number") or "").strip(),
+                            "created_at": row["created_at"],
+                        }
+                    )
+            except Exception:
+                removed_accounts = []
+
+            try:
+                activity = get_recent_activity(connection, limit=50)
+            except Exception:
+                activity = []
+
+            try:
+                threshold = format_timestamp(utc_now() - timedelta(days=30))
+                stats = {
+                    "total_users": len(users),
+                    "active_memberships": sum(1 for item in users if item["membership_status"] == "active"),
+                    "admin_users": sum(1 for item in users if item["role"] == "admin"),
+                    "recent_registrations": connection.execute(
+                        "SELECT COUNT(*) AS total FROM users WHERE created_at >= ?",
+                        (threshold,),
+                    ).fetchone()["total"],
+                    "ai_threads": connection.execute("SELECT COUNT(*) AS total FROM assistant_threads").fetchone()["total"],
+                    "ai_messages": connection.execute("SELECT COUNT(*) AS total FROM assistant_messages").fetchone()["total"],
+                    "ai_active_users": connection.execute(
+                        "SELECT COUNT(DISTINCT user_id) AS total FROM assistant_messages WHERE created_at >= ?",
+                        (threshold,),
+                    ).fetchone()["total"],
+                }
+                stats.update(get_activity_system_stats(connection))
+            except Exception:
+                pass
+
+            self.write_json(
+                {
+                    "users": users,
+                    "activity": activity,
+                    "removed_accounts": removed_accounts,
+                    "stats": stats,
+                }
+            )
         finally:
             connection.close()
 
@@ -3347,37 +3447,15 @@ class AppHandler(SimpleHTTPRequestHandler):
             # Force per-user sync before detail render so admin sees current state.
             sync_user_membership_safe(connection, user_id)
 
-            row = connection.execute(
-                """
-                SELECT
-                    users.*,
-                    memberships.status AS membership_status,
-                    memberships.current_period_end AS membership_valid_until,
-                    memberships.created_at AS membership_started_at,
-                    memberships.next_renewal_at AS membership_next_renewal_at,
-                    memberships.cancelled_at AS membership_cancelled_at,
-                    memberships.cancel_at_period_end AS membership_cancel_at_period_end
-                FROM users
-                LEFT JOIN memberships ON memberships.user_id = users.id
-                WHERE users.id = ?
-                """,
-                (user_id,),
-            ).fetchone()
+            row = connection.execute("SELECT users.* FROM users WHERE users.id = ?", (user_id,)).fetchone()
             if not row:
                 self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
                 return
 
-            membership_row = None
-            if row["membership_status"] or row["membership_valid_until"] or row["membership_started_at"]:
-                membership_row = {
-                    "status": row["membership_status"],
-                    "current_period_end": row["membership_valid_until"],
-                    "created_at": row["membership_started_at"],
-                    "next_renewal_at": row["membership_next_renewal_at"],
-                    "cancelled_at": row["membership_cancelled_at"],
-                    "cancel_at_period_end": row["membership_cancel_at_period_end"],
-                }
+            membership_row = get_membership(connection, row["id"])
             membership_state = get_membership_display_state(membership_row)
+            registration_consent = get_latest_registration_consent(connection, row["id"]) or {}
+            checkout_consent = get_latest_checkout_consent(connection, row["id"]) or {}
             params = parse_qs(urlparse(self.path).query)
             self.write_json(
                 {
@@ -3393,6 +3471,25 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
                     "assistant_stats": get_assistant_usage_stats(connection, row["id"]),
                     "subscription": get_subscription_snapshot(connection, row["id"]),
+                    "registration_consent": {
+                        "created_at": registration_consent.get("created_at") or "",
+                        "ip_address": registration_consent.get("ip_address") or "",
+                        "user_agent": registration_consent.get("user_agent") or "",
+                        "marketing_consent": bool(registration_consent.get("marketing_consent")),
+                        "consent_text": registration_consent.get("consent_text") or "",
+                        "legal_version": registration_consent.get("legal_version") or "",
+                    },
+                    "checkout_consent": {
+                        "created_at": checkout_consent.get("created_at") or "",
+                        "ip_address": checkout_consent.get("ip_address") or "",
+                        "user_agent": checkout_consent.get("user_agent") or "",
+                        "consent_text": checkout_consent.get("consent_text") or "",
+                        "consent_version": checkout_consent.get("consent_version") or "",
+                        "price_label": checkout_consent.get("price_label") or "",
+                        "subscription_label": checkout_consent.get("subscription_label") or "",
+                        "renewal_label": checkout_consent.get("renewal_label") or "",
+                        "no_refund_label": checkout_consent.get("no_refund_label") or "",
+                    },
                 }
             )
         finally:
@@ -3405,7 +3502,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not user:
                 self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
                 return
-            sync_membership_for_user(connection, user)
+            sync_membership_for_user_cached(connection, user, force=True)
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
             self.write_json(user_payload(connection, user, self.headers))
         except stripe.error.StripeError as exc:
@@ -3460,7 +3557,14 @@ class AppHandler(SimpleHTTPRequestHandler):
                 (name, email, password_hash, salt, role, now, now),
             )
             user_id = cursor.lastrowid
-            record_registration_consent(connection, user_id, email, get_request_ip(self), marketing_consent)
+            record_registration_consent(
+                connection,
+                user_id,
+                email,
+                get_request_ip(self),
+                get_request_agent(self),
+                marketing_consent,
+            )
             token, expires_at = create_session(connection, user_id)
             log_activity(
                 connection,
@@ -3476,6 +3580,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             connection.commit()
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            try:
+                send_registration_welcome_email(user)
+            except Exception:
+                pass
             self.write_json(
                 user_payload(connection, user, self.headers),
                 status=HTTPStatus.CREATED,
@@ -4060,7 +4168,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             customer_id = get_or_create_customer(connection, user)
             internal_order_number = generate_internal_order_number()
             internal_subscription_number = (membership or {}).get("internal_subscription_number") or generate_internal_subscription_number()
-            consent_id = record_checkout_consent(connection, user, get_request_ip(self))
+            consent_id = record_checkout_consent(connection, user, get_request_ip(self), get_request_agent(self))
             session = stripe.checkout.Session.create(
                 mode="subscription",
                 customer=customer_id,
@@ -4243,6 +4351,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not target_user:
                 self.write_json({"error": "Používateľ neexistuje."}, status=HTTPStatus.NOT_FOUND)
                 return
+            membership_before = get_membership(connection, user_id) or {}
 
             target_email = target_user["email"] or ""
             target_name = target_user["name"] or ""
@@ -4281,6 +4390,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     admin_user["id"],
                     target_user_id=user_id,
                     target_user_email=target_email,
+                    membership_status=membership_before.get("status") or "",
+                    membership_valid_until=format_timestamp(membership_before.get("current_period_end")) if membership_before.get("current_period_end") else "",
+                    stripe_subscription_id=membership_before.get("stripe_subscription_id") or "",
+                    last_order_number=membership_before.get("last_order_number") or "",
                     ip=get_request_ip(self),
                     agent=get_request_agent(self),
                 )
@@ -4306,6 +4419,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                     target_user_id=user_id,
                     target_user_email=target_email,
                     warning=warning_text,
+                    membership_status=membership_before.get("status") or "",
+                    membership_valid_until=format_timestamp(membership_before.get("current_period_end")) if membership_before.get("current_period_end") else "",
+                    stripe_subscription_id=membership_before.get("stripe_subscription_id") or "",
+                    last_order_number=membership_before.get("last_order_number") or "",
                     ip=get_request_ip(self),
                     agent=get_request_agent(self),
                 )

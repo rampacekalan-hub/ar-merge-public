@@ -229,6 +229,100 @@ function tr(sk, en) {
   return getCurrentLang() === "en" ? en : sk;
 }
 
+function getCurrentSearchParams() {
+  try {
+    return new URLSearchParams(window.location.search || "");
+  } catch (_error) {
+    return new URLSearchParams("");
+  }
+}
+
+function buildRelativeLocationFromParams(params) {
+  const search = params.toString();
+  const pathname = window.location.pathname || "/";
+  const hash = window.location.hash || "";
+  return `${pathname}${search ? `?${search}` : ""}${hash}`;
+}
+
+function replaceCurrentSearchParams(params) {
+  const next = buildRelativeLocationFromParams(params);
+  try {
+    window.history.replaceState({}, "", next);
+  } catch (_error) {
+    window.location.hash = window.location.hash || "";
+  }
+}
+
+function normalizeUiErrorMessage(message, fallbackSk = "Nastala technická chyba. Skús to prosím znova.") {
+  const raw = String(message || "").trim();
+  if (!raw) {
+    return fallbackSk;
+  }
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("expected pattern") || normalized.includes("did not match")) {
+    return tr(
+      "Nastala technická chyba v konfigurácii platby. Skús to znovu o chvíľu alebo kontaktuj podporu na info@unifyo.online.",
+      "There is a technical issue in payment configuration. Please try again shortly or contact support at info@unifyo.online."
+    );
+  }
+  if (normalized.includes("failed to fetch") || normalized.includes("networkerror")) {
+    return tr(
+      "Nepodarilo sa spojiť so serverom. Skontroluj pripojenie a skús to znova.",
+      "Could not connect to the server. Check your connection and try again."
+    );
+  }
+  return raw;
+}
+
+function getApiFallbackBases() {
+  const candidates = [];
+  if (window.location?.protocol?.startsWith("http")) {
+    candidates.push(window.location.origin.replace(/\/+$/, ""));
+  }
+  candidates.push("https://unifyo.online", "https://www.unifyo.online");
+  const dedupe = new Set();
+  return candidates.filter((item) => {
+    const normalized = String(item || "").trim();
+    if (!normalized || dedupe.has(normalized)) {
+      return false;
+    }
+    dedupe.add(normalized);
+    return true;
+  });
+}
+
+async function appFetch(input, init) {
+  try {
+    return await window.fetch(input, init);
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const isPatternError = message.includes("expected pattern") || message.includes("did not match");
+    const isRelativePath = typeof input === "string" && input.startsWith("/");
+    if ((isPatternError || message.includes("failed to fetch") || message.includes("networkerror")) && isRelativePath) {
+      const bases = getApiFallbackBases();
+      let lastError = error;
+      for (const base of bases) {
+        const fallbackUrl = `${base}${input}`;
+        try {
+          return await window.fetch(fallbackUrl, init);
+        } catch (fallbackError) {
+          lastError = fallbackError;
+        }
+      }
+      throw lastError;
+    }
+    throw error;
+  }
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch (_error) {
+    return {};
+  }
+}
+
 function hasUnlockedAccess(user = state.user) {
   return Boolean(user?.membership_active || user?.is_admin);
 }
@@ -251,7 +345,7 @@ async function bootstrap() {
       openAccountPanel();
       return;
     }
-    openAuthModal("register");
+    openAuthModal("login");
   });
   elements.accountMenuBtn?.addEventListener("click", () => {
     closeSidebar();
@@ -259,7 +353,7 @@ async function bootstrap() {
       openAccountPanel();
       return;
     }
-    openAuthModal("register");
+    openAuthModal("login");
   });
   elements.adminMenuBtn?.addEventListener("click", () => {
     closeSidebar();
@@ -310,7 +404,7 @@ async function bootstrap() {
   });
   elements.chooserDealMiniAction?.addEventListener("click", async () => {
     if (!state.user) {
-      openAuthModal("register");
+      openAuthModal("login");
       return;
     }
     openCheckoutModal();
@@ -319,7 +413,7 @@ async function bootstrap() {
   elements.promoModalClose.addEventListener("click", closePromoModal);
   elements.promoModalAuth.addEventListener("click", () => {
     closePromoModal();
-    openAuthModal("register");
+    openAuthModal("login");
   });
   elements.promoModalStart.addEventListener("click", async () => {
     closePromoModal();
@@ -390,7 +484,7 @@ async function bootstrap() {
     clearPanelQueryParams();
   } else if (shouldAutoStartCheckout()) {
     if (!state.user) {
-      openAuthModal("register");
+      openAuthModal("login");
     } else if (!hasUnlockedAccess()) {
       openCheckoutModal();
     }
@@ -436,10 +530,10 @@ function renderAccessState() {
     elements.pricingCard.classList.toggle("is-hidden", hasMembership);
   }
   if (elements.appMembershipPromo) {
-    elements.appMembershipPromo.hidden = hasMembership || !isLoggedIn;
+    elements.appMembershipPromo.hidden = true;
   }
   if (elements.workspaceMembershipPromo) {
-    elements.workspaceMembershipPromo.hidden = hasMembership || !isLoggedIn;
+    elements.workspaceMembershipPromo.hidden = hasMembership;
   }
   if (elements.openCompressorBtn) {
     elements.openCompressorBtn.textContent = hasMembership
@@ -538,7 +632,7 @@ function renderAccessState() {
 }
 
 function getModeFromUrl() {
-  const view = new URL(window.location.href).searchParams.get("view");
+  const view = getCurrentSearchParams().get("view");
   if (view === "contacts" || view === "compress" || view === "assistant") {
     return view;
   }
@@ -555,13 +649,13 @@ function setMode(mode) {
 
 function navigateToMode(mode) {
   const nextMode = mode === "contacts" || mode === "compress" || mode === "assistant" ? mode : "chooser";
-  const url = new URL(window.location.href);
+  const params = getCurrentSearchParams();
   if (nextMode === "chooser") {
-    url.searchParams.delete("view");
+    params.delete("view");
   } else {
-    url.searchParams.set("view", nextMode);
+    params.set("view", nextMode);
   }
-  window.location.href = `${url.pathname}${url.search}${url.hash}`;
+  window.location.href = buildRelativeLocationFromParams(params);
 }
 
 function renderMode() {
@@ -785,7 +879,7 @@ function closeAuthModal() {
 
 function openCheckoutModal() {
   if (!state.user) {
-    openAuthModal("register");
+    openAuthModal("login");
     return;
   }
   elements.checkoutConsentCheckbox.checked = false;
@@ -803,7 +897,7 @@ function closeCheckoutModal() {
 
 async function openAccountPanel() {
   if (!state.user) {
-    openAuthModal("register");
+    openAuthModal("login");
     return;
   }
   elements.accountPanel.hidden = false;
@@ -818,10 +912,13 @@ function closeAccountPanel() {
 
 function startCheckoutFromAccountPanel() {
   closeAccountPanel();
+  closeAuthModal();
+  closePromoModal();
+  closeCheckoutModal();
   // Ensure panel/backdrop is fully removed before showing checkout.
   window.setTimeout(() => {
     startCheckoutFlow();
-  }, 120);
+  }, 260);
 }
 
 async function openAdminPanel() {
@@ -844,32 +941,32 @@ function closeAdminPanel() {
 }
 
 function shouldAutoOpenAdminPanel() {
-  const params = new URLSearchParams(window.location.search);
+  const params = getCurrentSearchParams();
   return params.get("openAdmin") === "1";
 }
 
 function shouldAutoOpenAccountPanel() {
-  const params = new URLSearchParams(window.location.search);
+  const params = getCurrentSearchParams();
   return params.get("openAccount") === "1";
 }
 
 function shouldAutoStartCheckout() {
-  const params = new URLSearchParams(window.location.search);
+  const params = getCurrentSearchParams();
   return params.get("startCheckout") === "1";
 }
 
 function clearPanelQueryParams() {
-  const url = new URL(window.location.href);
-  const hasAccount = url.searchParams.get("openAccount") === "1";
-  const hasAdmin = url.searchParams.get("openAdmin") === "1";
-  const hasCheckout = url.searchParams.get("startCheckout") === "1";
+  const params = getCurrentSearchParams();
+  const hasAccount = params.get("openAccount") === "1";
+  const hasAdmin = params.get("openAdmin") === "1";
+  const hasCheckout = params.get("startCheckout") === "1";
   if (!hasAccount && !hasAdmin && !hasCheckout) {
     return;
   }
-  url.searchParams.delete("openAccount");
-  url.searchParams.delete("openAdmin");
-  url.searchParams.delete("startCheckout");
-  window.history.replaceState({}, "", url.toString());
+  params.delete("openAccount");
+  params.delete("openAdmin");
+  params.delete("startCheckout");
+  replaceCurrentSearchParams(params);
 }
 
 function handleLanguageChange() {
@@ -910,7 +1007,7 @@ async function refreshCurrentUser() {
   let response;
   let payload;
   try {
-    response = await fetch("/api/me");
+    response = await appFetch("/api/me");
     payload = await response.json();
     state.user = payload.user;
   } catch (_error) {
@@ -918,12 +1015,12 @@ async function refreshCurrentUser() {
   }
   scheduleSessionAutoLogout();
 
-  const url = new URL(window.location.href);
-  const checkoutState = url.searchParams.get("checkout");
-  const resetToken = url.searchParams.get("reset_token");
+  const params = getCurrentSearchParams();
+  const checkoutState = params.get("checkout");
+  const resetToken = params.get("reset_token");
   if (checkoutState === "success") {
     try {
-      const refreshResponse = await fetch("/api/refresh-membership");
+      const refreshResponse = await appFetch("/api/refresh-membership");
       const refreshPayload = await refreshResponse.json();
       if (refreshResponse.ok) {
         state.user = refreshPayload.user;
@@ -944,13 +1041,13 @@ async function refreshCurrentUser() {
     window.alert("Platba bola zrušená.");
   }
   if (checkoutState) {
-    url.searchParams.delete("checkout");
-    window.history.replaceState({}, "", url.toString());
+    params.delete("checkout");
+    replaceCurrentSearchParams(params);
   }
   if (resetToken) {
     openResetPasswordModal(resetToken);
-    url.searchParams.delete("reset_token");
-    window.history.replaceState({}, "", url.toString());
+    params.delete("reset_token");
+    replaceCurrentSearchParams(params);
   }
 }
 
@@ -991,9 +1088,9 @@ async function fetchAccountPanel() {
   elements.accountActivityList.textContent = "Načítavam aktivitu...";
   try {
     const [accountResponse, profileResponse, assistantResponse] = await Promise.all([
-      fetch("/api/account"),
-      hasUnlockedAccess() ? fetch("/api/assistant/profile") : Promise.resolve(null),
-      hasUnlockedAccess() ? fetch("/api/assistant") : Promise.resolve(null),
+      appFetch("/api/account"),
+      hasUnlockedAccess() ? appFetch("/api/assistant/profile") : Promise.resolve(null),
+      hasUnlockedAccess() ? appFetch("/api/assistant") : Promise.resolve(null),
     ]);
     const payload = await accountResponse.json();
     if (!accountResponse.ok) {
@@ -1044,21 +1141,22 @@ async function fetchAdminPanel() {
     elements.adminRemovedList.textContent = "Načítavam odstránené a deaktivované účty...";
   }
   try {
-    const response = await fetch("/api/admin/overview");
-    const payload = await response.json();
+    const response = await appFetch("/api/admin/overview");
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "Admin dáta sa nepodarilo načítať.");
     }
     state.admin = payload;
     renderAdminPanel();
   } catch (error) {
+    const message = normalizeUiErrorMessage(error.message, tr("Admin dáta sa nepodarilo načítať.", "Failed to load admin data."));
     elements.adminUsersTable.className = "table-wrap empty-state";
-    elements.adminUsersTable.textContent = error.message;
+    elements.adminUsersTable.textContent = message;
     elements.adminActivityList.className = "empty-state";
-    elements.adminActivityList.textContent = error.message;
+    elements.adminActivityList.textContent = message;
     if (elements.adminRemovedList) {
       elements.adminRemovedList.className = "empty-state";
-      elements.adminRemovedList.textContent = error.message;
+      elements.adminRemovedList.textContent = message;
     }
   }
 }
@@ -1319,6 +1417,10 @@ function renderActivityList(target, items) {
         ${item.status ? `<span>${escapeHtml(item.status)}</span>` : ""}
         ${item.ip ? `<span>${escapeHtml(item.ip)}</span>` : ""}
         ${item.target ? `<span>${escapeHtml(item.target)}</span>` : ""}
+        ${item.subscriptionStatus ? `<span>${escapeHtml(tr("Stav", "Status"))}: ${escapeHtml(item.subscriptionStatus)}</span>` : ""}
+        ${item.membershipValidUntil ? `<span>${escapeHtml(tr("Platné do", "Valid until"))}: ${escapeHtml(formatDate(item.membershipValidUntil))}</span>` : ""}
+        ${item.orderNumber ? `<span>${escapeHtml(tr("Objednávka", "Order"))}: ${escapeHtml(item.orderNumber)}</span>` : ""}
+        ${item.subscriptionId ? `<span class="mono">${escapeHtml(tr("Stripe sub", "Stripe sub"))}: ${escapeHtml(item.subscriptionId)}</span>` : ""}
       </div>
     </article>
   `).join("");
@@ -1351,6 +1453,10 @@ function collapseActivityFeed(items, limit = 12) {
       status: item.meta?.status || "",
       ip: item.meta?.ip || "",
       target: item.meta?.target_user_email || item.meta?.contact_email || "",
+      subscriptionStatus: item.meta?.membership_status || "",
+      membershipValidUntil: item.meta?.membership_valid_until || "",
+      orderNumber: item.meta?.last_order_number || "",
+      subscriptionId: item.meta?.stripe_subscription_id || "",
       last_at: item.created_at || "",
     };
     buckets.push(bucket);
@@ -1373,6 +1479,10 @@ function renderAdminPanel() {
       ip: item.ip,
       target_user_email: item.email,
       status: item.event_type === "admin_account_deleted" ? "Vymazané" : "Deaktivované",
+      membership_status: item.membership_status || "",
+      membership_valid_until: item.membership_valid_until || "",
+      stripe_subscription_id: item.stripe_subscription_id || "",
+      last_order_number: item.last_order_number || "",
     },
   }));
   renderActivityList(elements.adminActivityList, state.admin?.activity || []);
@@ -1535,7 +1645,7 @@ async function handleAdminAction(event) {
   }
   button.disabled = true;
   try {
-    const response = await fetch("/api/admin/membership", {
+    const response = await appFetch("/api/admin/membership", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, action }),
@@ -1563,15 +1673,15 @@ async function openAdminUserDetail(userId, threadId = 0) {
     if (threadId) {
       query.set("thread_id", String(threadId));
     }
-    const response = await fetch(`/api/admin/user-detail?${query.toString()}`);
-    const payload = await response.json();
+    const response = await appFetch(`/api/admin/user-detail?${query.toString()}`);
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "Detail používateľa sa nepodarilo načítať.");
     }
     renderAdminUserDetail(payload);
   } catch (error) {
     elements.adminUserDetail.className = "panel-card empty-state";
-    elements.adminUserDetail.textContent = error.message;
+    elements.adminUserDetail.textContent = normalizeUiErrorMessage(error.message, tr("Detail používateľa sa nepodarilo načítať.", "Failed to load user detail."));
   }
 }
 
@@ -1580,6 +1690,8 @@ function renderAdminUserDetail(payload) {
   const activity = payload.activity || [];
   const assistantStats = payload.assistant_stats || {};
   const subscription = payload.subscription || {};
+  const registrationConsent = payload.registration_consent || {};
+  const checkoutConsent = payload.checkout_consent || {};
   const canManageAdminTools = Boolean(state.user?.can_manage_admin_tools);
   elements.adminUserDetail.className = "panel-card";
   elements.adminUserDetail.innerHTML = `
@@ -1604,6 +1716,14 @@ function renderAdminUserDetail(payload) {
       <div class="account-card__row"><strong>Zrušené</strong><span>${escapeHtml(subscription.cancelled_at ? formatDate(subscription.cancelled_at) : "—")}</span></div>
       <div class="account-card__row"><strong>Registračný súhlas</strong><span>${escapeHtml(user.registration_consent_at ? formatDateTime(user.registration_consent_at) : "—")}</span></div>
       <div class="account-card__row"><strong>Checkout súhlas</strong><span>${escapeHtml(user.checkout_consent_at ? formatDateTime(user.checkout_consent_at) : "—")}</span></div>
+    </div>
+    <div class="account-card">
+      <div class="account-card__row"><strong>Reg. súhlas IP</strong><span class="mono">${escapeHtml(registrationConsent.ip_address || "—")}</span></div>
+      <div class="account-card__row"><strong>Reg. legal verzia</strong><span>${escapeHtml(registrationConsent.legal_version || "—")}</span></div>
+      <div class="account-card__row"><strong>Marketing súhlas</strong><span>${escapeHtml(registrationConsent.marketing_consent ? "Áno" : "Nie")}</span></div>
+      <div class="account-card__row"><strong>Checkout IP</strong><span class="mono">${escapeHtml(checkoutConsent.ip_address || "—")}</span></div>
+      <div class="account-card__row"><strong>Checkout verzia</strong><span>${escapeHtml(checkoutConsent.consent_version || "—")}</span></div>
+      <div class="account-card__row"><strong>Checkout text</strong><span>${escapeHtml(checkoutConsent.consent_text ? truncateText(checkoutConsent.consent_text, 120) : "—")}</span></div>
     </div>
     ${canManageAdminTools ? `<div class="admin-actions">
       <button id="adminDeactivateBtn" class="button button--ghost" type="button">Deaktivovať účet</button>
@@ -1671,12 +1791,12 @@ function renderAdminUserDetail(payload) {
 
 async function submitAdminAssistantReview(userId, messageId, reviewStatus, threadId, messageEl) {
   try {
-    const response = await fetch("/api/admin/assistant-review", {
+    const response = await appFetch("/api/admin/assistant-review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, message_id: messageId, review_status: reviewStatus }),
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "AI review sa nepodarilo uložiť.");
     }
@@ -1689,7 +1809,7 @@ async function submitAdminAssistantReview(userId, messageId, reviewStatus, threa
   } catch (error) {
     if (messageEl) {
       messageEl.hidden = false;
-      messageEl.textContent = error.message;
+      messageEl.textContent = normalizeUiErrorMessage(error.message, tr("AI review sa nepodarilo uložiť.", "Could not save AI review."));
       messageEl.classList.add("auth-message--error");
     }
   }
@@ -1700,12 +1820,12 @@ async function submitAdminAssistantMemoryReset(userId, messageEl) {
     return;
   }
   try {
-    const response = await fetch("/api/admin/assistant-memory-reset", {
+    const response = await appFetch("/api/admin/assistant-memory-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId }),
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "AI pamäť sa nepodarilo vymazať.");
     }
@@ -1718,7 +1838,7 @@ async function submitAdminAssistantMemoryReset(userId, messageEl) {
   } catch (error) {
     if (messageEl) {
       messageEl.hidden = false;
-      messageEl.textContent = error.message;
+      messageEl.textContent = normalizeUiErrorMessage(error.message, tr("AI pamäť sa nepodarilo vymazať.", "Could not clear AI memory."));
       messageEl.classList.add("auth-message--error");
     }
   }
@@ -1726,12 +1846,12 @@ async function submitAdminAssistantMemoryReset(userId, messageEl) {
 
 async function submitAdminMembershipAction(userId, action, { days = 0, messageEl } = {}) {
   try {
-    const response = await fetch("/api/admin/membership", {
+    const response = await appFetch("/api/admin/membership", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, action, days }),
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "Admin akcia zlyhala.");
     }
@@ -1754,22 +1874,22 @@ async function submitAdminMembershipAction(userId, action, { days = 0, messageEl
   } catch (error) {
     if (messageEl) {
       messageEl.hidden = false;
-      messageEl.textContent = error.message;
+      messageEl.textContent = normalizeUiErrorMessage(error.message, tr("Admin akcia zlyhala.", "Admin action failed."));
       messageEl.classList.add("auth-message--error");
     } else {
-      window.alert(error.message);
+      window.alert(normalizeUiErrorMessage(error.message, tr("Admin akcia zlyhala.", "Admin action failed.")));
     }
   }
 }
 
 async function submitAdminRoleUpdate(userId, role, messageEl) {
   try {
-    const response = await fetch("/api/admin/role", {
+    const response = await appFetch("/api/admin/role", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, role }),
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "Rolu sa nepodarilo zmeniť.");
     }
@@ -1787,10 +1907,10 @@ async function submitAdminRoleUpdate(userId, role, messageEl) {
   } catch (error) {
     if (messageEl) {
       messageEl.hidden = false;
-      messageEl.textContent = error.message;
+      messageEl.textContent = normalizeUiErrorMessage(error.message, tr("Rolu sa nepodarilo zmeniť.", "Could not update role."));
       messageEl.classList.add("auth-message--error");
     } else {
-      window.alert(error.message);
+      window.alert(normalizeUiErrorMessage(error.message, tr("Rolu sa nepodarilo zmeniť.", "Could not update role.")));
     }
   }
 }
@@ -1821,7 +1941,7 @@ async function handleAccountUpdateSubmit(event) {
     return;
   }
   try {
-    const response = await fetch("/api/account/update", {
+    const response = await appFetch("/api/account/update", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1853,7 +1973,7 @@ async function handleAccountPasswordSubmit(event) {
     return;
   }
   try {
-    const response = await fetch("/api/account/change-password", {
+    const response = await appFetch("/api/account/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1887,12 +2007,14 @@ async function handleAuthSubmit(event) {
   const endpoint = state.authMode === "register" ? "/api/register" : "/api/login";
 
   if (state.authMode === "register" && (!elements.authAcceptTerms.checked || !elements.authAcceptPrivacy.checked)) {
-    setAuthMessage(tr("Pre vytvorenie účtu musíš potvrdiť Obchodné podmienky aj GDPR.", "To create your account, you must confirm the terms and privacy."), true);
+    const consentError = tr("Pre vytvorenie účtu musíš potvrdiť Obchodné podmienky aj GDPR.", "To create your account, you must confirm the terms and privacy.");
+    setAuthMessage(consentError, true);
+    window.alert(consentError);
     return;
   }
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await appFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1904,7 +2026,7 @@ async function handleAuthSubmit(event) {
         marketing_consent: state.authMode === "register" ? elements.authMarketingConsent.checked : false,
       }),
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(payload.error || "Autentifikácia zlyhala.");
     }
@@ -1916,12 +2038,12 @@ async function handleAuthSubmit(event) {
       window.alert("Účet bol vytvorený. Teraz môžeš potvrdiť objednávku a aktivovať členstvo cez Stripe.");
     }
   } catch (error) {
-    setAuthMessage(error.message, true);
+    setAuthMessage(normalizeUiErrorMessage(error.message, tr("Autentifikácia zlyhala.", "Authentication failed.")), true);
   }
 }
 
 async function logout() {
-  await fetch("/api/logout", { method: "POST" });
+  await appFetch("/api/logout", { method: "POST" });
   state.user = null;
   state.account = null;
   state.admin = null;
@@ -1972,7 +2094,7 @@ async function handleResetRequestSubmit(event) {
   }
 
   try {
-    const response = await fetch("/api/request-password-reset", {
+    const response = await appFetch("/api/request-password-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: elements.resetRequestEmail.value.trim() }),
@@ -2003,7 +2125,7 @@ async function handleResetPasswordSubmit(event) {
   elements.resetPasswordMessage.classList.remove("auth-message--error");
 
   try {
-    const response = await fetch("/api/reset-password", {
+    const response = await appFetch("/api/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2028,7 +2150,7 @@ async function handleResetPasswordSubmit(event) {
 async function startCheckoutFlow() {
   if (!state.user) {
     await playDiscountEffect();
-    openAuthModal("register");
+    openAuthModal("login");
     return;
   }
   if (hasUnlockedAccess()) {
@@ -2045,6 +2167,10 @@ async function startCheckoutFlow() {
     }
     return;
   }
+  closeAccountPanel();
+  closeAdminPanel();
+  closeAuthModal();
+  closePromoModal();
   await playDiscountEffect();
   openCheckoutModal();
 }
@@ -2067,71 +2193,43 @@ function handleOpenAssistantAction() {
     return;
   }
   if (!state.user) {
-    openAuthModal("register");
+    openAuthModal("login");
     return;
   }
   startCheckoutFlow();
 }
 
 async function startProCheckout() {
-  const configuredPaymentLink = (
-    window.AR_MERGE_BILLING?.stripePaymentLink ||
-    ""
-  ).trim();
-  const hasValidPaymentLink = /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+/.test(configuredPaymentLink);
-  const paymentLinkWithEmail = hasValidPaymentLink && state.user?.email
-    ? `${configuredPaymentLink}${configuredPaymentLink.includes("?") ? "&" : "?"}prefilled_email=${encodeURIComponent(state.user.email)}`
-    : configuredPaymentLink;
-  const isPricePatternError = (text) => {
-    const normalized = String(text || "").toLowerCase();
-    return (
-      normalized.includes("expected pattern") ||
-      normalized.includes("identifikátor ceny") ||
-      normalized.includes("stripe_price_id") ||
-      normalized.includes("price_")
-    );
-  };
-
   try {
-    const response = await fetch("/api/create-checkout-session", {
+    const response = await appFetch("/api/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ checkout_consent_accepted: true }),
     });
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       if (response.status === 401) {
         openAuthModal("login");
       }
-      if (hasValidPaymentLink && isPricePatternError(payload?.error)) {
-        window.location.href = paymentLinkWithEmail;
-        return;
-      }
-      throw new Error(payload.error || "Stripe checkout sa nepodarilo spustiť.");
+      throw new Error(normalizeUiErrorMessage(payload.error || "Stripe checkout sa nepodarilo spustiť.", tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout failed to start.")));
     }
     if (payload?.url) {
       window.location.href = payload.url;
       return;
     }
-    if (hasValidPaymentLink) {
-      window.location.href = paymentLinkWithEmail;
-      return;
-    }
-    throw new Error("Stripe checkout URL nie je dostupná.");
+    throw new Error(tr("Stripe checkout URL nie je dostupná.", "Stripe checkout URL is not available."));
   } catch (error) {
-    if (hasValidPaymentLink && isPricePatternError(error?.message)) {
-      window.location.href = paymentLinkWithEmail;
-      return;
-    }
-    window.alert(error.message);
+    window.alert(normalizeUiErrorMessage(error.message, tr("Stripe checkout sa nepodarilo spustiť.", "Stripe checkout failed to start.")));
   }
 }
 
 async function confirmCheckoutFlow() {
   if (!elements.checkoutConsentCheckbox.checked) {
+    const consentError = tr("Bez potvrdenia súhlasu nemôžeš pokračovať na platbu.", "You must confirm the consent before continuing to payment.");
     elements.checkoutMessage.hidden = false;
-    elements.checkoutMessage.textContent = tr("Bez potvrdenia súhlasu nemôžeš pokračovať na platbu.", "You must confirm the consent before continuing to payment.");
+    elements.checkoutMessage.textContent = consentError;
     elements.checkoutMessage.classList.add("auth-message--error");
+    window.alert(consentError);
     return;
   }
   elements.checkoutProceedBtn.disabled = true;
@@ -2157,7 +2255,7 @@ async function cancelSubscriptionFlow() {
     return;
   }
   try {
-    const response = await fetch("/api/account/cancel-subscription", { method: "POST" });
+    const response = await appFetch("/api/account/cancel-subscription", { method: "POST" });
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || "Predplatné sa nepodarilo zrušiť.");
@@ -2206,9 +2304,7 @@ function renderChooserDealMini() {
   if (!elements.chooserDealMini) {
     return;
   }
-  const dismissed = state.chooserDealDismissed || window.localStorage.getItem(CHOOSER_DEAL_DISMISSED_KEY) === "1";
-  const hasMembership = hasUnlockedAccess();
-  const shouldShow = state.mode === "chooser" && !hasMembership && !dismissed;
+  const shouldShow = false;
   elements.chooserDealMini.hidden = !shouldShow;
 }
 
@@ -2216,13 +2312,7 @@ function renderStickyDealBar() {
   if (!elements.stickyDealBar) {
     return;
   }
-  const dismissed = state.stickyDealDismissed || window.localStorage.getItem(STICKY_DEAL_DISMISSED_KEY) === "1";
-  const hasMembership = hasUnlockedAccess();
-  const shouldShow =
-    !dismissed &&
-    !hasMembership &&
-    window.scrollY > 280 &&
-    (state.mode === "contacts" || state.mode === "chooser");
+  const shouldShow = false;
   elements.stickyDealBar.hidden = !shouldShow;
 }
 
@@ -2361,7 +2451,7 @@ async function fetchAssistantDashboard() {
     return;
   }
   try {
-    const response = await fetch("/api/assistant");
+    const response = await appFetch("/api/assistant");
     const payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.error || "AI asistent sa nepodarilo načítať.");
@@ -2563,7 +2653,7 @@ function requestCompressionAccess() {
   setMode("compress");
   document.getElementById("kompresia-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (!state.user) {
-    openAuthModal("register");
+    openAuthModal("login");
     return false;
   }
   window.alert("Na kompresiu súborov potrebuješ aktívne členstvo. Otváram aktiváciu.");
@@ -2682,7 +2772,7 @@ async function handleCompressionSubmit(event) {
   renderCompressionResult();
 
   try {
-    const response = await fetch("/api/compress-file", {
+    const response = await appFetch("/api/compress-file", {
       method: "POST",
       body: formData,
     });
@@ -2817,7 +2907,7 @@ async function handleAssistantChatSubmit(event) {
       elements.assistantChatSubmit.disabled = true;
       elements.assistantChatSubmit.textContent = tr("AI premýšľa...", "AI is thinking...");
     }
-    const response = await fetch("/api/assistant/chat", {
+    const response = await appFetch("/api/assistant/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2957,7 +3047,7 @@ async function processFiles() {
   state.files.forEach((file) => formData.append("files", file, file.name));
 
   try {
-    const response = await fetch("/api/process", {
+    const response = await appFetch("/api/process", {
       method: "POST",
       body: formData,
     });
@@ -3155,7 +3245,7 @@ function renderAuditLines(contact) {
 }
 
 async function downloadXlsx(filename, rows) {
-  const response = await fetch("/api/export-xlsx", {
+  const response = await appFetch("/api/export-xlsx", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -571,17 +571,17 @@
         <div id="authConsentFields" class="auth-consents">
           <label class="auth-consent">
             <input id="authAcceptTerms" type="checkbox" name="accept_terms">
-            <span>Súhlasím s Obchodnými podmienkami.</span>
+            <span id="authTermsLabel">Súhlasím s <a href="/terms.html" target="_blank" rel="noopener noreferrer">Obchodnými podmienkami</a>.</span>
           </label>
           <label class="auth-consent">
             <input id="authAcceptPrivacy" type="checkbox" name="accept_privacy">
-            <span>Potvrdzujem, že som si prečítal(a) Zásady ochrany súkromia - GDPR.</span>
+            <span id="authPrivacyLabel">Potvrdzujem, že som si prečítal(a) <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Zásady ochrany súkromia - GDPR</a>.</span>
           </label>
           <label class="auth-consent auth-consent--optional">
             <input id="authMarketingConsent" type="checkbox" name="marketing_consent">
-            <span>Súhlasím so zasielaním marketingových informácií a noviniek e-mailom. Tento súhlas je dobrovoľný.</span>
+            <span id="authMarketingLabel">Súhlasím so zasielaním marketingových informácií a noviniek e-mailom. Tento súhlas je dobrovoľný.</span>
           </label>
-          <p class="auth-consent-note">Výberom možnosti Vytvoriť účet potvrdzujete, že máte minimálne 18 rokov, súhlasíte s Obchodnými podmienkami a zároveň potvrdzujete, že ste si prečítali naše Zásady ochrany súkromia - GDPR.</p>
+          <p id="authConsentNote" class="auth-consent-note">Výberom možnosti Vytvoriť účet potvrdzujete, že máte minimálne 18 rokov, súhlasíte s Obchodnými podmienkami a zároveň potvrdzujete, že ste si prečítali naše Zásady ochrany súkromia - GDPR.</p>
         </div>
         <button id="authSubmitBtn" class="button button--primary" type="submit">Vytvoriť účet</button>
       </form>
@@ -849,6 +849,10 @@
       { selector: "#authOfferNote .auth-offer-note__price strong", text: { sk: "1,99 € / mesiac", en: "€1.99 / month" } },
       { selector: "#authOfferNote .auth-offer-note__price span", text: { sk: "6,99 € / mesiac", en: "€6.99 / month" } },
       { selector: "#authOfferNote p", text: { sk: "Kontakty, kompresia aj AI v jednom účte. Aktivácia trvá len chvíľu.", en: "Contacts, compression and AI in one account. Activation only takes a moment." } },
+      { selector: "#authTermsLabel", html: { sk: "Súhlasím s <a href=\"/terms.html\" target=\"_blank\" rel=\"noopener noreferrer\">Obchodnými podmienkami</a>.", en: "I agree with the <a href=\"/terms.html\" target=\"_blank\" rel=\"noopener noreferrer\">Terms and conditions</a>." } },
+      { selector: "#authPrivacyLabel", html: { sk: "Potvrdzujem, že som si prečítal(a) <a href=\"/privacy.html\" target=\"_blank\" rel=\"noopener noreferrer\">Zásady ochrany súkromia - GDPR</a>.", en: "I confirm I have read the <a href=\"/privacy.html\" target=\"_blank\" rel=\"noopener noreferrer\">Privacy policy - GDPR</a>." } },
+      { selector: "#authMarketingLabel", text: { sk: "Súhlasím so zasielaním marketingových informácií a noviniek e-mailom. Tento súhlas je dobrovoľný.", en: "I agree to receive marketing updates and product news by email. This consent is optional." } },
+      { selector: "#authConsentNote", text: { sk: "Výberom možnosti Vytvoriť účet potvrdzujete, že máte minimálne 18 rokov, súhlasíte s Obchodnými podmienkami a zároveň potvrdzujete, že ste si prečítali naše Zásady ochrany súkromia - GDPR.", en: "By selecting Create account, you confirm you are at least 18 years old, agree with the Terms and conditions and confirm you have read our Privacy policy - GDPR." } },
       { selector: ".site-footer a[href=\"/index.html\"]", text: { sk: "Domov", en: "Home" } },
       { selector: ".site-footer a[href=\"/pricing.html\"]", text: { sk: "Cenník", en: "Pricing" } },
       { selector: ".site-footer a[href=\"/privacy.html\"]", text: { sk: "Ochrana súkromia", en: "Privacy" } },
