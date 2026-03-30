@@ -2870,13 +2870,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             normalized_request_host = normalize_host_name(request_host)
             if not normalized_request_host or normalized_request_host == canonical_host:
                 return False
-            canonical_apex = canonical_host[4:] if canonical_host.startswith("www.") else canonical_host
-            request_apex = normalized_request_host[4:] if normalized_request_host.startswith("www.") else normalized_request_host
-            should_redirect = (
-                normalized_request_host.endswith(".onrender.com")
-                or request_apex == canonical_apex
-            )
-            if not should_redirect:
+            # Prevent redirect loops between apex and www variants.
+            # Canonical redirect is applied only for Render subdomains.
+            if not normalized_request_host.endswith(".onrender.com"):
                 return False
             destination = f"{APP_BASE_URL.rstrip('/')}{self.path}"
             self.send_response(HTTPStatus.MOVED_PERMANENTLY)
