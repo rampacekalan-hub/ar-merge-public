@@ -50,9 +50,10 @@ LARGE_PDF_RENDER_PRESETS = [
     (0.48, 32, True),
     (0.40, 26, True),
 ]
-MAX_PDF_RASTER_PAGES = 8
+MAX_PDF_RASTER_PAGES = 30
 FAST_PDF_BYTES_THRESHOLD = 5 * 1024 * 1024
 LARGE_PDF_BYTES_THRESHOLD = 6 * 1024 * 1024
+MAX_PDF_RENDER_PIXELS = 1_600_000
 
 
 @dataclass
@@ -164,7 +165,7 @@ def compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes):
             return None
 
         status = "compressed" if optimized_size <= target_bytes else "best-effort"
-        if optimized_size <= target_bytes or document.page_count > MAX_PDF_RASTER_PAGES:
+        if optimized_size <= target_bytes:
             return build_result(
                 download_name,
                 PDF_MIME_TYPE,
@@ -196,6 +197,13 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
     try:
         if document.page_count == 0:
             raise ValueError("PDF je prázdne.")
+
+        if document.page_count > 80:
+            presets = presets[-1:]
+        elif document.page_count > 50:
+            presets = presets[-2:]
+        elif document.page_count > 30:
+            presets = presets[-3:]
 
         for scale, quality, grayscale in presets:
             candidate_data = render_pdf_candidate(document, scale, quality, grayscale=grayscale)
@@ -244,10 +252,17 @@ def render_pdf_candidate(document, scale, quality, grayscale=False):
         for page_index in range(document.page_count):
             page = document.load_page(page_index)
             page_rect = page.rect
-            pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            effective_scale = scale
+            page_area = max(1.0, page_rect.width * page_rect.height)
+            max_scale = (MAX_PDF_RENDER_PIXELS / page_area) ** 0.5
+            if effective_scale > max_scale:
+                effective_scale = max_scale
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(effective_scale, effective_scale), alpha=False)
             image_bytes = save_pixmap_as_jpeg(pixmap, quality, grayscale=grayscale)
-            new_page = output.new_page(width=page_rect.width, height=page_rect.height)
-            new_page.insert_image(page_rect, stream=image_bytes, keep_proportion=False)
+            target_width = max(1, page_rect.width * effective_scale)
+            target_height = max(1, page_rect.height * effective_scale)
+            new_page = output.new_page(width=target_width, height=target_height)
+            new_page.insert_image(fitz.Rect(0, 0, target_width, target_height), stream=image_bytes, keep_proportion=False)
         return output.tobytes(garbage=4, deflate=True, clean=True)
     finally:
         output.close()

@@ -364,12 +364,20 @@ async function handleCompressSubmit(event) {
     });
 
     if (!response.ok) {
+      const cloned = response.clone();
       let message = "Kompresia zlyhala.";
       try {
         const payload = await response.json();
         message = payload.error || message;
       } catch (_error) {
-        // ignore invalid error payload
+        try {
+          const rawText = await cloned.text();
+          if (rawText && !rawText.includes("<") && !rawText.includes("@font-face")) {
+            message = rawText.slice(0, 200);
+          }
+        } catch (_innerError) {
+          // ignore invalid error payload
+        }
       }
       throw new Error(message);
     }
@@ -534,7 +542,11 @@ function formatTargetInputValue() {
 
 function formatMegabytes(value) {
   const safeValue = Number(value) || 0;
-  return `${(safeValue / (1024 * 1024)).toFixed(2)} MB`;
+  const mbValue = safeValue / (1024 * 1024);
+  if (mbValue < 0.1) {
+    return `${Math.max(1, Math.round(safeValue / 1024))} KB`;
+  }
+  return `${mbValue.toFixed(2)} MB`;
 }
 
 function formatDate(value) {
