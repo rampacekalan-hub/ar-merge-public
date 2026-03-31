@@ -36,11 +36,19 @@ RESAMPLE_FILTER = (
     else (Image.BILINEAR if Image is not None else None)
 )
 PDF_RENDER_PRESETS = [
-    (0.92, 62),
-    (0.68, 48),
+    (0.92, 68, False),
+    (0.82, 60, False),
+    (0.72, 52, False),
+    (0.62, 44, False),
+    (0.54, 36, False),
+    (0.46, 30, True),
 ]
 LARGE_PDF_RENDER_PRESETS = [
-    (0.72, 46),
+    (0.78, 56, False),
+    (0.66, 46, False),
+    (0.56, 38, False),
+    (0.48, 32, True),
+    (0.40, 26, True),
 ]
 MAX_PDF_RASTER_PAGES = 8
 FAST_PDF_BYTES_THRESHOLD = 5 * 1024 * 1024
@@ -110,7 +118,7 @@ def compress_pdf(file_name, file_bytes, target_bytes):
     if fitz is not None:
         try:
             fast_candidate = compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes)
-            if fast_candidate is not None and original_bytes >= FAST_PDF_BYTES_THRESHOLD:
+            if fast_candidate is not None and fast_candidate.reached_target:
                 return fast_candidate
         except Exception as exc:
             errors.append(str(exc))
@@ -135,6 +143,8 @@ def compress_pdf(file_name, file_bytes, target_bytes):
             return compress_pdf_with_swift(download_name, file_bytes, original_bytes, target_bytes)
         except Exception as exc:
             errors.append(str(exc))
+            if fast_candidate is not None:
+                return fast_candidate
 
     if not errors:
         raise RuntimeError("PDF kompresia vyžaduje PyMuPDF alebo macOS Swift helper.")
@@ -187,11 +197,14 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
         if document.page_count == 0:
             raise ValueError("PDF je prázdne.")
 
-        for scale, quality in presets:
-            candidate_data = render_pdf_candidate(document, scale, quality)
+        for scale, quality, grayscale in presets:
+            candidate_data = render_pdf_candidate(document, scale, quality, grayscale=grayscale)
             candidate = {
                 "data": candidate_data,
                 "size": len(candidate_data),
+                "grayscale": grayscale,
+                "scale": scale,
+                "quality": quality,
             }
             if smallest_candidate is None or candidate["size"] < smallest_candidate["size"]:
                 smallest_candidate = candidate
@@ -225,14 +238,14 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
     )
 
 
-def render_pdf_candidate(document, scale, quality):
+def render_pdf_candidate(document, scale, quality, grayscale=False):
     output = fitz.open()
     try:
         for page_index in range(document.page_count):
             page = document.load_page(page_index)
             page_rect = page.rect
             pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-            image_bytes = save_pixmap_as_jpeg(pixmap, quality)
+            image_bytes = save_pixmap_as_jpeg(pixmap, quality, grayscale=grayscale)
             new_page = output.new_page(width=page_rect.width, height=page_rect.height)
             new_page.insert_image(page_rect, stream=image_bytes, keep_proportion=False)
         return output.tobytes(garbage=4, deflate=True, clean=True)
@@ -240,11 +253,18 @@ def render_pdf_candidate(document, scale, quality):
         output.close()
 
 
-def save_pixmap_as_jpeg(pixmap, quality):
+def save_pixmap_as_jpeg(pixmap, quality, grayscale=False):
     with Image.open(io.BytesIO(pixmap.tobytes("png"))) as image:
         image.load()
         buffer = io.BytesIO()
-        image.convert("RGB").save(buffer, format="JPEG", quality=quality, optimize=False, progressive=False)
+        working = image.convert("L" if grayscale else "RGB")
+        working.save(
+            buffer,
+            format="JPEG",
+            quality=quality,
+            optimize=True,
+            progressive=True,
+        )
         return buffer.getvalue()
 
 
@@ -474,7 +494,8 @@ def image_has_alpha(image):
 
 def build_result(file_name, content_type, data, original_bytes, target_bytes, status):
     compressed_bytes = len(data)
-    if status not in {"already-small-enough", "already-optimized"} and compressed_bytes >= original_bytes:
+    negligible_gain_threshold = int(original_bytes * 0.995)
+    if status not in {"already-small-enough", "already-optimized"} and compressed_bytes >= negligible_gain_threshold:
         status = "already-optimized"
         compressed_bytes = len(data)
     reached_target = compressed_bytes <= target_bytes
