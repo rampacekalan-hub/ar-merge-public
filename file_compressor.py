@@ -474,6 +474,9 @@ def image_has_alpha(image):
 
 def build_result(file_name, content_type, data, original_bytes, target_bytes, status):
     compressed_bytes = len(data)
+    if status not in {"already-small-enough", "already-optimized"} and compressed_bytes >= original_bytes:
+        status = "already-optimized"
+        compressed_bytes = len(data)
     reached_target = compressed_bytes <= target_bytes
 
     if status == "already-small-enough":

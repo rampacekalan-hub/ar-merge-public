@@ -358,11 +358,11 @@ function renderCrmAi() {
   crmEls.crmAiCards.className = "summary-grid summary-grid--admin crm-ai-grid";
   crmEls.crmAiCards.innerHTML = [
     statCard("AI správy", stats.ai_messages || 0, "Všetky správy v AI", "metric"),
-    statCard("Vlákna", stats.ai_threads || 0, "Konverzačné vlákna", "metric"),
-    statCard("Používatelia", stats.ai_active_users || 0, "Používatelia aktívni v AI", "metric"),
-    statCard("Model", crmState.meta?.ai?.model || "—", "Aktuálne používaný model", "metric"),
+    statCard("Vlákna", stats.ai_threads || 0, "Samostatné AI konverzácie", "metric"),
+    statCard("Aktívni používatelia", stats.ai_active_users || 0, "Používatelia, ktorí AI reálne používajú", "metric"),
+    statCard("Web overenie", `${webUsageShare} %`, "Podiel AI odpovedí s verejným overením", "metric"),
     statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Nasadená prompt logika", "metric"),
-    statCard("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).length, "Domény pre overovanie", "metric"),
+    statCard("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).length, "Domény pre overovanie AI odpovedí", "metric"),
   ].join("");
 
   if (crmEls.crmAiLegend) {
@@ -378,12 +378,16 @@ function renderCrmAi() {
   if (crmEls.crmAiInsights) {
     crmEls.crmAiInsights.className = "crm-panel-stack";
     crmEls.crmAiInsights.innerHTML = `
-      <div class="crm-insight-grid">
-        <section class="crm-insight-card crm-insight-card--primary">
-          <div class="crm-insight-card__head">
-            <h4>AI výkon v číslach</h4>
+      <div class="crm-insight-grid crm-insight-grid--ai-main">
+        <section class="crm-ai-window crm-ai-window--primary">
+          <div class="crm-ai-window__head">
+            <div>
+              <p class="crm-insight-card__subhead">AI jadro</p>
+              <h4>AI výkon a používanie</h4>
+            </div>
             ${statusPill("Live insight", "admin")}
           </div>
+          <p class="crm-ai-window__copy">Tu vidíš, ako reálne AI pracuje: koľko správ spracovala, ako často sa používa, ako silno sa opiera o webové overenie a aký má dnes pracovný kontext.</p>
           <div class="crm-user-ai-metrics">
             ${miniMetricCard("Správy / vlákno", avgMessagesPerThread, "Priemerná dĺžka jednej konverzácie", Number(avgMessagesPerThread) >= 4 ? "active" : "neutral")}
             ${miniMetricCard("Vlákna / používateľ", avgThreadsPerUser, "Ako často sa AI vracia do práce s klientom", Number(avgThreadsPerUser) >= 1.5 ? "active" : "neutral")}
@@ -391,11 +395,15 @@ function renderCrmAi() {
             ${miniMetricCard("Zdroje", String(sourcesCount), "Počet domén, z ktorých môže AI čerpať", sourcesCount >= 5 ? "active" : "warning")}
           </div>
         </section>
-        <section class="crm-insight-card">
-          <div class="crm-insight-card__head">
-            <h4>Čo AI aktuálne používa</h4>
+        <section class="crm-ai-window">
+          <div class="crm-ai-window__head">
+            <div>
+              <p class="crm-insight-card__subhead">AI konfigurácia</p>
+              <h4>Konfigurácia a zdroje</h4>
+            </div>
             ${statusPill(crmState.meta?.ai?.web_search_enabled ? "Overovanie zapnuté" : "Bez webu", crmState.meta?.ai?.web_search_enabled ? "active" : "warning")}
           </div>
+          <p class="crm-ai-window__copy">Toto je technická a prevádzková vrstva AI. Odtiaľ vieš rýchlo skontrolovať model, prompt smerovanie a to, z akých zdrojov môže AI bezpečne čerpať.</p>
           <div class="crm-detail-list">
             ${detailRow("Model", crmState.meta?.ai?.model || "—")}
             ${detailRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—")}
@@ -404,69 +412,49 @@ function renderCrmAi() {
           </div>
         </section>
       </div>
-      <div class="crm-insight-grid crm-insight-grid--triple">
-        ${insightNoteCard(
-          "Z čoho AI čerpá",
-          sourcesCount ? `${sourcesCount} overovacích domén` : "Zdroje treba doplniť",
-          sourcesCount
-            ? `AI má k dispozícii ${sourcesCount} dôveryhodných zdrojov pre live overenie a odpovede.`
-            : "Bez dostatočného počtu trusted domains bude AI slabšia pri aktuálnych dátových témach.",
-          sourcesCount >= 5 ? "active" : "warning"
-        )}
-        ${insightNoteCard(
-          "Ako sa učí",
-          Number(aiThreads || 0) > 0 ? "Buduje kontext z reálnych chatov" : "Zatiaľ málo reálneho tréningu",
-          Number(aiThreads || 0) > 0
-            ? `Priemerné zaťaženie je ${avgMessagesPerThread} správ na vlákno a ${avgThreadsPerUser} vlákna na používateľa.`
-            : "Treba zvýšiť reálne používanie AI medzi používateľmi, aby mala stabilnejší pracovný kontext.",
-          Number(aiThreads || 0) > 0 ? "active" : "neutral"
-        )}
-        ${insightNoteCard(
-          "Čo má admin riešiť",
-          webUsageShare >= 35 ? "AI je v zdravom režime" : "Treba posilniť kvalitu odpovedí",
-          webUsageShare >= 35
-            ? "Stačí sledovať trusted domains, prompt verziu a prípadné odchýlky v témach."
-            : "Skontroluj prompt smerovanie, onboarding používateľov a frekvenciu webového overenia.",
-          webUsageShare >= 35 ? "active" : "warning"
-        )}
-      </div>
-      <section class="crm-insight-card crm-insight-card--primary">
-        <div class="crm-insight-card__head">
-          <h4>Čo sa AI učí a kam smeruje</h4>
-          ${statusPill(Number(stats.ai_active_users || 0) > 0 ? "Reálny prevádzkový vstup" : "Málo dát", Number(stats.ai_active_users || 0) > 0 ? "active" : "warning")}
+      <div class="crm-insight-grid crm-insight-grid--ai-main">
+        <section class="crm-ai-window crm-ai-window--tracking">
+          <div class="crm-ai-window__head">
+            <div>
+              <p class="crm-insight-card__subhead">AI tracking</p>
+              <h4>Čo sa AI učí a kam smeruje</h4>
+            </div>
+            ${statusPill(Number(stats.ai_active_users || 0) > 0 ? "Reálny prevádzkový vstup" : "Málo dát", Number(stats.ai_active_users || 0) > 0 ? "active" : "warning")}
+          </div>
+          <p class="crm-ai-window__copy">Tento blok je čisto o AI správaní. Vidíš dominantné témy, typ práce, odporúčaný zásah a to, či AI rastie na reálnych dátach alebo stagnuje.</p>
+          <div class="crm-detail-list">
+            ${detailRow("Dominantné témy", aiEvents.length ? (crmState.overview?.users || []).flatMap((user) => ((user.ai_topics || []) || [])).slice(0, 6).join(", ") || "Financie, hypotéky, klientské odpovede" : "Zatiaľ bez stabilných tém")}
+            ${detailRow("Štýl práce", avgMessagesPerThread >= 4 ? "Dlhšie konzultácie a vysvetľovanie klientom" : "Krátke operatívne odpovede a follow-upy")}
+            ${detailRow("Odporúčaný zásah", webUsageShare >= 35 ? "Držať prompt verziu a kontrolovať trusted domains." : "Posilniť webové overovanie a AI onboarding v appke.")}
+            ${detailRow("Operátorský výstup", Number(stats.ai_messages || 0) > 0 ? "AI je pripravená na každodennú prácu používateľov." : "Treba zvýšiť využitie AI medzi používateľmi.")}
+          </div>
+        </section>
+        <div class="crm-ai-side-notes">
+          ${insightNoteCard(
+            "Z čoho AI čerpá",
+            sourcesCount ? `${sourcesCount} overovacích domén` : "Zdroje treba doplniť",
+            sourcesCount
+              ? `AI má k dispozícii ${sourcesCount} dôveryhodných zdrojov pre live overenie a odpovede.`
+              : "Bez dostatočného počtu trusted domains bude AI slabšia pri aktuálnych dátových témach.",
+            sourcesCount >= 5 ? "active" : "warning"
+          )}
+          ${insightNoteCard(
+            "Ako sa učí",
+            Number(aiThreads || 0) > 0 ? "Buduje kontext z reálnych chatov" : "Zatiaľ málo reálneho tréningu",
+            Number(aiThreads || 0) > 0
+              ? `Priemerné zaťaženie je ${avgMessagesPerThread} správ na vlákno a ${avgThreadsPerUser} vlákna na používateľa.`
+              : "Treba zvýšiť reálne používanie AI medzi používateľmi, aby mala stabilnejší pracovný kontext.",
+            Number(aiThreads || 0) > 0 ? "active" : "neutral"
+          )}
+          ${insightNoteCard(
+            "Čo má admin riešiť",
+            webUsageShare >= 35 ? "AI je v zdravom režime" : "Treba posilniť kvalitu odpovedí",
+            webUsageShare >= 35
+              ? "Stačí sledovať trusted domains, prompt verziu a prípadné odchýlky v témach."
+              : "Skontroluj prompt smerovanie, onboarding používateľov a frekvenciu webového overenia.",
+            webUsageShare >= 35 ? "active" : "warning"
+          )}
         </div>
-        <div class="crm-detail-list">
-          ${detailRow("Dominantné témy", aiEvents.length ? (crmState.overview?.users || []).flatMap((user) => ((user.ai_topics || []) || [])).slice(0, 6).join(", ") || "Financie, hypotéky, klientské odpovede" : "Zatiaľ bez stabilných tém")}
-          ${detailRow("Štýl práce", avgMessagesPerThread >= 4 ? "Dlhšie konzultácie a vysvetľovanie klientom" : "Krátke operatívne odpovede a follow-upy")}
-          ${detailRow("Odporúčaný zásah", webUsageShare >= 35 ? "Držať prompt verziu a kontrolovať trusted domains." : "Posilniť webové overovanie a AI onboarding v appke.")}
-          ${detailRow("Operátorský výstup", Number(stats.ai_messages || 0) > 0 ? "AI je pripravená na každodennú prácu používateľov." : "Treba zvýšiť využitie AI medzi používateľmi.")}
-        </div>
-      </section>
-      <div class="crm-insight-grid crm-insight-grid--triple">
-        ${insightNoteCard(
-          "Najsilnejší signál",
-          aiMessages > 0 ? "AI sa reálne používa v produkcii." : "AI zatiaľ nemá výrazné využitie.",
-          aiMessages > 0
-            ? "Odporúčanie: sleduj kvalitu odpovedí, top témy a či sa AI používa pri reálnych klientskych workflow."
-            : "Odporúčanie: skontroluj onboarding, CTA v appke a či používatelia vôbec vedia, že AI majú k dispozícii.",
-          aiMessages > 0 ? "active" : "warning"
-        )}
-        ${insightNoteCard(
-          "Pamäť a učenie",
-          Number(stats.ai_active_users || 0) > 0 ? "Máme dosť vstupov na učenie." : "Pamäť AI je zatiaľ slabá.",
-          Number(stats.ai_active_users || 0) > 0
-            ? "Sleduj relevanciu pamäte, dominantné témy a odchýlky medzi používateľmi."
-            : "Bez aktívnych používateľov nebude AI vedieť stavať užitočný pracovný kontext.",
-          Number(stats.ai_active_users || 0) > 0 ? "active" : "neutral"
-        )}
-        ${insightNoteCard(
-          "Admin odporúčanie",
-          webUsageShare >= 35 ? "Webové overenie sa používa zdravo." : "Webové overenie je nízke alebo nulové.",
-          webUsageShare >= 35
-            ? "Stačí dohliadať na trusted domains, prompt verziu a chybovosť odpovedí."
-            : "Skontroluj prompt smerovanie, trusted domains a či AI vie pri aktuálnych témach prepnúť na verejné overenie.",
-          webUsageShare >= 35 ? "active" : "warning"
-        )}
       </div>
     `;
   }

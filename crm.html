@@ -112,6 +112,7 @@
                   <span>Filter</span>
                   <select id="crmUserFilter">
                     <option value="all">Všetci používatelia</option>
+                    <option value="recent">Nové registrácie</option>
                     <option value="active">Aktívne členstvo</option>
                     <option value="inactive">Neaktívne členstvo</option>
                     <option value="admin">Admin účty</option>
@@ -160,28 +161,26 @@
         </section>
 
         <section id="crmSection-ai" class="crm-section">
-          <div class="crm-grid crm-grid--two">
-            <div class="crm-panel card">
-              <div class="section-head section-head--tight">
-                <div>
-                  <p class="section-kicker">AI vrstva</p>
-                  <h2>Používanie a prevádzka AI</h2>
-                </div>
+          <div class="crm-panel card">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">AI vrstva</p>
+                <h2>Používanie, učenie a monitoring AI</h2>
               </div>
-              <div id="crmAiCards" class="summary-grid summary-grid--admin empty-state">Načítavam AI dáta...</div>
-              <div id="crmAiLegend" class="crm-legend-row empty-state">Načítavam vysvetlivky AI metrík...</div>
-              <div id="crmAiInsights" class="crm-panel-stack empty-state">Načítavam AI insighty...</div>
             </div>
-            <div class="crm-panel card">
-              <div class="section-head section-head--tight">
-                <div>
-                  <p class="section-kicker">AI aktivita</p>
-                  <h3>Najnovšie udalosti</h3>
-                </div>
+            <div id="crmAiCards" class="summary-grid summary-grid--admin empty-state">Načítavam AI dáta...</div>
+            <div id="crmAiLegend" class="crm-legend-row empty-state">Načítavam vysvetlivky AI metrík...</div>
+            <div id="crmAiInsights" class="crm-panel-stack empty-state">Načítavam AI insighty...</div>
+          </div>
+          <div class="crm-panel card">
+            <div class="section-head section-head--tight">
+              <div>
+                <p class="section-kicker">AI tracking</p>
+                <h3>Udalosti, workflow a zásahy</h3>
               </div>
-              <div id="crmAiWorkflows" class="crm-action-grid empty-state">Načítavam AI workflow karty...</div>
-              <div id="crmAiTimeline" class="activity-list empty-state">Načítavam AI históriu...</div>
             </div>
+            <div id="crmAiWorkflows" class="crm-action-grid empty-state">Načítavam AI workflow karty...</div>
+            <div id="crmAiTimeline" class="activity-list empty-state">Načítavam AI históriu...</div>
           </div>
         </section>
 
