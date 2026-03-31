@@ -2424,10 +2424,11 @@ h3 {
 
 .crm-header__title {
   margin: 0;
-  font-size: clamp(1.85rem, 2.6vw, 2.45rem);
-  line-height: 1.05;
+  font-size: clamp(1.72rem, 2.2vw, 2.2rem);
+  line-height: 1.08;
   letter-spacing: -0.05em;
   text-wrap: balance;
+  max-width: 14ch;
 }
 
 .crm-header__copy {
@@ -2464,7 +2465,7 @@ h3 {
 }
 
 .crm-grid--two {
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.92fr);
+  grid-template-columns: minmax(0, 1.14fr) minmax(360px, 0.96fr);
 }
 
 .crm-grid--main {
@@ -2504,7 +2505,7 @@ h3 {
 }
 
 .crm-main .summary-grid--admin {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
   margin: 0;
 }
@@ -2513,7 +2514,7 @@ h3 {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 146px;
+  min-height: 154px;
   padding: 18px 18px 16px;
   border-radius: 24px;
   background:
@@ -2543,8 +2544,8 @@ h3 {
   display: block;
   margin-top: 14px;
   color: var(--surface-dark);
-  font-size: clamp(1.2rem, 1.75vw, 1.95rem);
-  line-height: 1.08;
+  font-size: clamp(1.08rem, 1.45vw, 1.5rem);
+  line-height: 1.14;
   letter-spacing: -0.05em;
   overflow-wrap: anywhere;
   text-wrap: pretty;
@@ -2553,7 +2554,7 @@ h3 {
 .crm-main .summary-card__hint {
   display: block;
   margin-top: 12px;
-  max-width: 28ch;
+  max-width: 34ch;
   color: #7d90aa;
   font-size: 0.78rem;
   line-height: 1.45;
@@ -2565,11 +2566,11 @@ h3 {
 .crm-ai-grid,
 .crm-prompt-grid,
 .crm-monitoring-grid {
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
 .crm-health-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
 .crm-health-grid .summary-card,
@@ -2586,6 +2587,35 @@ h3 {
 
 .crm-segment-grid .summary-card {
   min-height: 130px;
+}
+
+.crm-kpi-grid .summary-card {
+  grid-column: span 3;
+}
+
+.crm-segment-grid .summary-card,
+.crm-billing-grid .summary-card,
+.crm-ai-grid .summary-card,
+.crm-prompt-grid .summary-card,
+.crm-monitoring-grid .summary-card {
+  grid-column: span 4;
+}
+
+.crm-health-grid .summary-card {
+  grid-column: span 4;
+}
+
+.crm-main .summary-card--kpi strong {
+  font-size: clamp(1.45rem, 1.8vw, 2rem);
+}
+
+.crm-main .summary-card--segment strong {
+  font-size: clamp(1.14rem, 1.4vw, 1.55rem);
+}
+
+.crm-main .summary-card--metric strong,
+.crm-main .summary-card--health strong {
+  font-size: clamp(1rem, 1.28vw, 1.35rem);
 }
 
 .crm-inline-actions {
@@ -2756,12 +2786,12 @@ h3 {
 
 .crm-action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
 .crm-action-grid--compact {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .crm-action-card {
@@ -2802,7 +2832,7 @@ h3 {
 
 .crm-settings-columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -2882,14 +2912,33 @@ h3 {
 
 .crm-template-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }
 
 .crm-template-list {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.crm-template-list__meta {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+  padding: 6px 2px 2px;
+}
+
+.crm-template-list__meta strong {
+  color: var(--surface-dark);
+  font-size: 0.95rem;
+}
+
+.crm-template-list__meta span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .crm-template-item {
@@ -3053,12 +3102,44 @@ h3 {
   }
 
   .crm-settings-columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crm-kpi-grid .summary-card,
+  .crm-segment-grid .summary-card,
+  .crm-billing-grid .summary-card,
+  .crm-ai-grid .summary-card,
+  .crm-prompt-grid .summary-card,
+  .crm-monitoring-grid .summary-card,
+  .crm-health-grid .summary-card {
+    grid-column: span 6;
+  }
+
+  .crm-action-grid,
+  .crm-action-grid--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1360px) {
   .crm-grid--two {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-kpi-grid .summary-card {
+    grid-column: span 4;
+  }
+
+  .crm-segment-grid .summary-card,
+  .crm-billing-grid .summary-card,
+  .crm-ai-grid .summary-card,
+  .crm-prompt-grid .summary-card,
+  .crm-monitoring-grid .summary-card,
+  .crm-health-grid .summary-card {
+    grid-column: span 6;
+  }
+
+  .crm-settings-columns {
     grid-template-columns: 1fr;
   }
 }
@@ -3102,6 +3183,20 @@ h3 {
   .crm-prompt-grid,
   .crm-monitoring-grid,
   .crm-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-kpi-grid .summary-card,
+  .crm-segment-grid .summary-card,
+  .crm-billing-grid .summary-card,
+  .crm-ai-grid .summary-card,
+  .crm-prompt-grid .summary-card,
+  .crm-monitoring-grid .summary-card,
+  .crm-health-grid .summary-card {
+    grid-column: auto;
+  }
+
+  .crm-template-list {
     grid-template-columns: 1fr;
   }
 

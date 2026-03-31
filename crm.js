@@ -9,6 +9,7 @@ const crmState = {
   selectedTemplateKey: "",
   activeSection: "dashboard",
   refreshTimer: 0,
+  lastLoadedAt: 0,
 };
 
 const crmEls = {};
@@ -99,6 +100,7 @@ async function initializeCrm() {
   crmState.meta = meta || {};
   crmState.templates = templatesPayload?.templates || [];
   crmState.selectedTemplateKey = crmState.templates[0]?.template_key || "";
+  crmState.lastLoadedAt = Date.now();
   if (!crmState.me?.is_admin) {
     window.location.replace("/app.html");
     return;
@@ -128,20 +130,23 @@ function activateCrmSection(target) {
   crmEls.sections.forEach((section) => {
     section.classList.toggle("is-active", section.id === `crmSection-${target}`);
   });
+  if (Date.now() - (crmState.lastLoadedAt || 0) > 30000) {
+    refreshCrmData({ reopenUserId: crmState.selectedUserId || 0, silent: true }).catch(() => {});
+  }
 }
 
 function renderCrmDashboard() {
   const stats = crmState.overview?.stats || {};
   crmEls.crmDashboardStats.className = "summary-grid summary-grid--admin crm-kpi-grid";
   crmEls.crmDashboardStats.innerHTML = [
-    statCard("Používatelia", stats.total_users || 0, "Celkovo účtov v systéme"),
-    statCard("Aktívne členstvá", stats.active_memberships || 0, "Prístup s plateným členstvom"),
-    statCard("Online teraz", stats.online_users || 0, "Používatelia aktívni za 5 min."),
-    statCard("Registrácie za 30 dní", stats.recent_registrations || 0, "Nové účty za posledný mesiac"),
-    statCard("AI správy", stats.ai_messages || 0, "Všetky AI odpovede a vstupy"),
-    statCard("AI aktívni používatelia", stats.ai_active_users || 0, "Používatelia s AI aktivitou"),
-    statCard("Unikátne IP", stats.recent_unique_ips || 0, "Rôzne IP v posledných logoch"),
-    statCard("Admin zásahy", stats.recent_admin_actions || 0, "Citlivé zásahy admina"),
+    statCard("Používatelia", stats.total_users || 0, "Celkovo účtov v systéme", "kpi"),
+    statCard("Aktívne členstvá", stats.active_memberships || 0, "Prístup s plateným členstvom", "kpi"),
+    statCard("Online teraz", stats.online_users || 0, "Používatelia aktívni za 5 min.", "kpi"),
+    statCard("Registrácie za 30 dní", stats.recent_registrations || 0, "Nové účty za posledný mesiac", "kpi"),
+    statCard("AI správy", stats.ai_messages || 0, "Všetky AI odpovede a vstupy", "kpi"),
+    statCard("AI aktívni používatelia", stats.ai_active_users || 0, "Používatelia s AI aktivitou", "kpi"),
+    statCard("Unikátne IP", stats.recent_unique_ips || 0, "Rôzne IP v posledných logoch", "kpi"),
+    statCard("Admin zásahy", stats.recent_admin_actions || 0, "Citlivé zásahy admina", "kpi"),
   ].join("");
 
   renderCrmDashboardActions();
@@ -191,12 +196,12 @@ function renderCrmUsers() {
   const segments = getCrmUserSegments(crmState.overview?.users || []);
   crmEls.crmUserSegments.className = "summary-grid summary-grid--admin crm-segment-grid";
   crmEls.crmUserSegments.innerHTML = [
-    statCard("Admin účty", segments.admins, "Používatelia s admin rolou"),
-    statCard("Bežní používatelia", segments.standard, "Koncové účty"),
-    statCard("Online teraz", segments.online, "Aktívni v reálnom čase"),
-    statCard("Bez členstva", segments.noMembership, "Bez plateného prístupu"),
-    statCard("Zrušené predplatné", segments.cancelAtPeriodEnd, "Stále aktívne do konca obdobia"),
-    statCard("Expirované", segments.expired, "Členstvo už skončilo"),
+    statCard("Admin účty", segments.admins, "Používatelia s admin rolou", "segment"),
+    statCard("Bežní používatelia", segments.standard, "Koncové účty", "segment"),
+    statCard("Online teraz", segments.online, "Aktívni v reálnom čase", "segment"),
+    statCard("Bez členstva", segments.noMembership, "Bez plateného prístupu", "segment"),
+    statCard("Zrušené predplatné", segments.cancelAtPeriodEnd, "Stále aktívne do konca obdobia", "segment"),
+    statCard("Expirované", segments.expired, "Členstvo už skončilo", "segment"),
   ].join("");
 
   renderCrmUserQuickActions();
@@ -287,12 +292,12 @@ function renderCrmBilling() {
   const expiring = users.filter((user) => user.membership_valid_until && new Date(user.membership_valid_until).getTime() < Date.now() + 7 * 24 * 3600 * 1000).length;
   crmEls.crmBillingCards.className = "summary-grid summary-grid--admin crm-billing-grid";
   crmEls.crmBillingCards.innerHTML = [
-    statCard("Aktívne predplatné", active, "Používatelia so živým prístupom"),
-    statCard("Cancel at period end", cancelled, "Zrušené, ale stále platné"),
-    statCard("Expiruje do 7 dní", expiring, "Vyžaduje kontrolu obnovy"),
-    statCard("Price ID", crmState.meta?.billing?.price_id || "—", "Aktívny Stripe price"),
-    statCard("Právna verzia", crmState.meta?.billing?.legal_version || "—", "Verzia obchodných podmienok"),
-    statCard("Checkout consent", crmState.meta?.billing?.checkout_consent_version || "—", "Verzia súhlasu pred platbou"),
+    statCard("Aktívne predplatné", active, "Používatelia so živým prístupom", "metric"),
+    statCard("Cancel at period end", cancelled, "Zrušené, ale stále platné", "metric"),
+    statCard("Expiruje do 7 dní", expiring, "Vyžaduje kontrolu obnovy", "metric"),
+    statCard("Price ID", crmState.meta?.billing?.price_id || "—", "Aktívny Stripe price", "metric"),
+    statCard("Právna verzia", crmState.meta?.billing?.legal_version || "—", "Verzia obchodných podmienok", "metric"),
+    statCard("Checkout consent", crmState.meta?.billing?.checkout_consent_version || "—", "Verzia súhlasu pred platbou", "metric"),
   ].join("");
 
   const billingEvents = (crmState.overview?.activity || []).filter((item) => {
@@ -314,12 +319,12 @@ function renderCrmAi() {
 
   crmEls.crmAiCards.className = "summary-grid summary-grid--admin crm-ai-grid";
   crmEls.crmAiCards.innerHTML = [
-    statCard("AI správy", stats.ai_messages || 0, "Všetky správy v AI"),
-    statCard("Vlákna", stats.ai_threads || 0, "Konverzačné vlákna"),
-    statCard("Používatelia", stats.ai_active_users || 0, "Používatelia aktívni v AI"),
-    statCard("Model", crmState.meta?.ai?.model || "—", "Aktuálne používaný model"),
-    statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Nasadená prompt logika"),
-    statCard("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).length, "Domény pre overovanie"),
+    statCard("AI správy", stats.ai_messages || 0, "Všetky správy v AI", "metric"),
+    statCard("Vlákna", stats.ai_threads || 0, "Konverzačné vlákna", "metric"),
+    statCard("Používatelia", stats.ai_active_users || 0, "Používatelia aktívni v AI", "metric"),
+    statCard("Model", crmState.meta?.ai?.model || "—", "Aktuálne používaný model", "metric"),
+    statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Nasadená prompt logika", "metric"),
+    statCard("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).length, "Domény pre overovanie", "metric"),
   ].join("");
 
   crmEls.crmAiTimeline.className = aiEvents.length ? "activity-list" : "activity-list empty-state";
@@ -332,10 +337,10 @@ function renderCrmPrompts() {
   const domains = crmState.meta?.ai?.trusted_domains || [];
   crmEls.crmPromptCards.className = "summary-grid summary-grid--admin crm-prompt-grid";
   crmEls.crmPromptCards.innerHTML = [
-    statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Aktuálne nasadený prompt set"),
-    statCard("Jazyk trhu", "SK", "Primárny slovenský kontext"),
-    statCard("Web validácia", crmState.meta?.ai?.web_search_enabled ? "Aktívna" : "Neaktívna", "Použitie pri aktuálnych témach"),
-    statCard("Interný režim", "Praktický asistent", "AI vedená na financie a sprostredkovanie"),
+    statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Aktuálne nasadený prompt set", "metric"),
+    statCard("Jazyk trhu", "SK", "Primárny slovenský kontext", "metric"),
+    statCard("Web validácia", crmState.meta?.ai?.web_search_enabled ? "Aktívna" : "Neaktívna", "Použitie pri aktuálnych témach", "metric"),
+    statCard("Interný režim", "Praktický asistent", "AI vedená na financie a sprostredkovanie", "metric"),
   ].join("");
 
   crmEls.crmPromptDomains.className = domains.length ? "crm-chip-list" : "crm-chip-list empty-state";
@@ -348,12 +353,12 @@ function renderCrmMonitoring() {
   const stats = crmState.overview?.stats || {};
   crmEls.crmMonitoringCards.className = "summary-grid summary-grid--admin crm-monitoring-grid";
   crmEls.crmMonitoringCards.innerHTML = [
-    statCard("API request limit", `${crmState.meta?.limits?.max_request_body_mb || "—"} MB`, "Max. request body"),
-    statCard("Kontakt import", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Max. CSV/XLSX vstup"),
-    statCard("Kompresia", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "Max. kompresný vstup"),
-    statCard("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "Max. veľkosť prílohy"),
-    statCard("Recent logs", stats.recent_logs || 0, "Aktivity za 30 dní"),
-    statCard("Deleted accounts", stats.deleted_accounts || 0, "Vymazané účty celkovo"),
+    statCard("API request limit", `${crmState.meta?.limits?.max_request_body_mb || "—"} MB`, "Max. request body", "metric"),
+    statCard("Kontakt import", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Max. CSV/XLSX vstup", "metric"),
+    statCard("Kompresia", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "Max. kompresný vstup", "metric"),
+    statCard("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "Max. veľkosť prílohy", "metric"),
+    statCard("Recent logs", stats.recent_logs || 0, "Aktivity za 30 dní", "metric"),
+    statCard("Deleted accounts", stats.deleted_accounts || 0, "Vymazané účty celkovo", "metric"),
   ].join("");
 
   const incidentItems = (crmState.overview?.activity || []).filter((item) => {
@@ -424,6 +429,20 @@ function renderCrmSettings() {
           ${settingRow("Import kontaktov", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Maximálna veľkosť CSV/XLSX vstupu.")}
           ${settingRow("Kompresia súborov", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "Maximálna veľkosť vstupu pre kompresiu.")}
           ${settingRow("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "Maximálna veľkosť obrázka pre AI.", false)}
+        </div>
+      </section>
+      <section class="crm-settings-card">
+        <div class="crm-settings-card__head">
+          <h4>Prevádzka a kontrola</h4>
+          <span class="status-pill status-pill--neutral">Live</span>
+        </div>
+        <div class="crm-settings-rows">
+          ${settingRow("Posledná synchronizácia", formatDateTime(new Date().toISOString()), "Čas posledného načítania CRM dát.")}
+          ${settingRow("Email šablóny", String((crmState.templates || []).length), "Počet editovateľných šablón v systéme.")}
+          ${settingRow("Trusted domény", String((crmState.meta?.ai?.trusted_domains || []).length), "Zdroje pre AI webové overenie.")}
+          ${settingRow("Auto refresh", "Každých 60 sekúnd", "CRM sa obnovuje automaticky aj ručne.")}
+          ${settingRow("Admin nástroje", crmState.me?.can_manage_admin_tools ? "Rozšírené" : "Základné", "Úroveň dostupných zásahov pre aktuálny účet.")}
+          ${settingRow("Aktívna sekcia", crmSectionLabel(crmState.activeSection), "Pracovný kontext, v ktorom sa práve nachádzaš.")}
         </div>
       </section>
     </div>
@@ -506,16 +525,22 @@ function renderCrmEmailTemplates() {
   }
 
   crmEls.crmEmailTemplateList.className = "crm-template-list";
-  crmEls.crmEmailTemplateList.innerHTML = templates.map((template) => `
-    <button
-      class="crm-template-item ${crmState.selectedTemplateKey === template.template_key ? "is-active" : ""}"
-      type="button"
-      data-crm-template-key="${escapeHtml(template.template_key)}"
-    >
-      <strong>${escapeHtml(template.label || template.template_key)}</strong>
-      <span>${escapeHtml(template.subject_template || "")}</span>
-    </button>
-  `).join("");
+  crmEls.crmEmailTemplateList.innerHTML = `
+    <div class="crm-template-list__meta">
+      <strong>${escapeHtml(String(templates.length))} šablón</strong>
+      <span>Vyber si vzor a uprav predmet aj telo bez zásahu do logiky odosielania.</span>
+    </div>
+    ${templates.map((template) => `
+      <button
+        class="crm-template-item ${crmState.selectedTemplateKey === template.template_key ? "is-active" : ""}"
+        type="button"
+        data-crm-template-key="${escapeHtml(template.template_key)}"
+      >
+        <strong>${escapeHtml(template.label || template.template_key)}</strong>
+        <span>${escapeHtml(template.subject_template || "")}</span>
+      </button>
+    `).join("")}
+  `;
 
   crmEls.crmEmailTemplateList.querySelectorAll("[data-crm-template-key]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -825,6 +850,7 @@ async function refreshCrmData({ reopenUserId = 0, silent = false } = {}) {
   ]);
   crmState.overview = overview || crmState.overview;
   crmState.meta = meta || crmState.meta;
+  crmState.lastLoadedAt = Date.now();
   renderCrmAll();
   if (reopenUserId) {
     await openCrmUserDetail(reopenUserId);
@@ -914,7 +940,7 @@ function settingRow(label, value, hint = "", mono = false) {
 
 function crmActionCard(title, text, action) {
   return `
-    <button class="crm-action-card" type="button" data-crm-admin-tool="${escapeHtml(action)}">
+    <button class="crm-action-card crm-action-card--${escapeHtml(action)}" type="button" data-crm-admin-tool="${escapeHtml(action)}">
       <strong>${escapeHtml(title)}</strong>
       <span>${escapeHtml(text)}</span>
     </button>
@@ -986,9 +1012,9 @@ function activityItem(title, body, tone = "neutral", trailing = "", rawBody = fa
   `;
 }
 
-function statCard(label, value, hint) {
+function statCard(label, value, hint, variant = "default") {
   return `
-    <article class="summary-card">
+    <article class="summary-card summary-card--${escapeHtml(variant)}">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(String(value))}</strong>
       <small class="summary-card__hint">${escapeHtml(hint)}</small>
@@ -998,7 +1024,7 @@ function statCard(label, value, hint) {
 
 function healthCard(label, value, tone) {
   return `
-    <article class="summary-card">
+    <article class="summary-card summary-card--health summary-card--${escapeHtml(tone || "neutral")}">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(String(value))}</strong>
       <small class="summary-card__hint">${statusPill(tone === "active" ? "OK" : tone === "warning" ? "Pozor" : tone === "inactive" ? "Chýba" : "Info", tone)}</small>
@@ -1071,6 +1097,7 @@ function inferActivityTone(eventType) {
 async function crmFetch(url, options = {}) {
   const response = await fetch(url, {
     credentials: "include",
+    cache: "no-store",
     ...options,
     headers: {
       Accept: "application/json",
@@ -1161,6 +1188,20 @@ function normalizeCrmError(message) {
     return "CRM narazilo na chybu v dátach. Skús obnoviť stránku.";
   }
   return text;
+}
+
+function crmSectionLabel(section) {
+  const labels = {
+    dashboard: "Dashboard",
+    users: "Používatelia",
+    billing: "Billing a Stripe",
+    ai: "AI a používanie",
+    prompts: "Prompty",
+    monitoring: "Monitoring",
+    audit: "Audit a história",
+    settings: "Nastavenia systému",
+  };
+  return labels[section] || "Dashboard";
 }
 
 function escapeHtml(value) {
