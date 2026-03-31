@@ -42,7 +42,9 @@ function bindCrmElements() {
     "crmMonitoringTimeline",
     "crmAuditTimeline",
     "crmRemovedTimeline",
+    "crmAdminActions",
     "crmSettingsGrid",
+    "crmSettingsSyncMeta",
     "crmEmailTemplateList",
     "crmEmailTemplateEditor",
     "crmUserModal",
@@ -330,16 +332,98 @@ function renderCrmAudit() {
 }
 
 function renderCrmSettings() {
-  crmEls.crmSettingsGrid.className = "summary-grid summary-grid--admin crm-settings-grid";
-  crmEls.crmSettingsGrid.innerHTML = [
-    statCard("Support e-mail", crmState.meta?.crm?.support_email || "—", "Primárny support kontakt"),
-    statCard("App base URL", crmState.meta?.crm?.app_base_url || "—", "Verejná adresa aplikácie"),
-    statCard("Stripe", crmState.meta?.billing?.stripe_enabled ? "Aktívny" : "Chýba", "Billing provider"),
-    statCard("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).join(", ") || "—", "Domény pre overovanie AI"),
-    statCard("CRM verzia", crmState.meta?.crm?.version || "—", "Interná verzia riadiacej vrstvy"),
-    statCard("Cena / price id", crmState.meta?.billing?.price_id || "—", "Napojené na Stripe"),
-  ].join("");
+  renderCrmAdminActions();
+  if (crmEls.crmSettingsSyncMeta) {
+    crmEls.crmSettingsSyncMeta.textContent = `Naposledy načítané ${formatDateTime(new Date().toISOString())}`;
+  }
+  crmEls.crmSettingsGrid.className = "crm-settings-list";
+  crmEls.crmSettingsGrid.innerHTML = `
+    <div class="crm-settings-columns">
+      <section class="crm-settings-card">
+        <div class="crm-settings-card__head">
+          <h4>Jadro aplikácie</h4>
+          <span class="status-pill status-pill--neutral">Produkcia</span>
+        </div>
+        <div class="crm-settings-rows">
+          ${settingRow("Support e-mail", crmState.meta?.crm?.support_email || "—", "Primárny kontakt pre podporu.")}
+          ${settingRow("App base URL", crmState.meta?.crm?.app_base_url || "—", "Verejná adresa aplikácie.", true)}
+          ${settingRow("CRM verzia", crmState.meta?.crm?.version || "—", "Aktuálne nasadená riadiaca vrstva.")}
+          ${settingRow("Stripe", crmState.meta?.billing?.stripe_enabled ? "Aktívny" : "Chýba", crmState.meta?.billing?.stripe_enabled ? "Billing provider je napojený." : "Skontroluj produkčný Stripe secret key.")}
+          ${settingRow("Price ID", crmState.meta?.billing?.price_id || "—", "Aktívny produkt pre členstvo.", true)}
+          ${settingRow("Právna verzia", crmState.meta?.billing?.legal_version || "—", "Verzia obchodných podmienok.")}
+          ${settingRow("Checkout verzia", crmState.meta?.billing?.checkout_consent_version || "—", "Verzia povinného checkout súhlasu.")}
+        </div>
+      </section>
+      <section class="crm-settings-card">
+        <div class="crm-settings-card__head">
+          <h4>AI a limity</h4>
+          <span class="status-pill ${crmState.meta?.ai?.web_search_enabled ? "status-pill--active" : "status-pill--warning"}">${crmState.meta?.ai?.web_search_enabled ? "Web overenie aktívne" : "Web overenie vypnuté"}</span>
+        </div>
+        <div class="crm-settings-rows">
+          ${settingRow("AI model", crmState.meta?.ai?.model || "—", "Produkčný model pre AI asistenta.")}
+          ${settingRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Aktívny prompt set.")}
+          ${settingRow("Max. request", `${crmState.meta?.limits?.max_request_body_mb || "—"} MB`, "Limit pre request body.")}
+          ${settingRow("Import kontaktov", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Maximálna veľkosť CSV/XLSX vstupu.")}
+          ${settingRow("Kompresia súborov", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "Maximálna veľkosť vstupu pre kompresiu.")}
+          ${settingRow("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "Maximálna veľkosť obrázka pre AI.", false)}
+        </div>
+      </section>
+    </div>
+    <section class="crm-settings-card crm-settings-card--domains">
+      <div class="crm-settings-card__head">
+        <h4>Dôveryhodné domény pre AI</h4>
+        <span class="status-pill status-pill--neutral">${(crmState.meta?.ai?.trusted_domains || []).length} domén</span>
+      </div>
+      <div class="crm-chip-list">
+        ${(crmState.meta?.ai?.trusted_domains || []).length
+          ? crmState.meta.ai.trusted_domains.map((domain) => `<span class="crm-chip">${escapeHtml(domain)}</span>`).join("")
+          : `<div class="crm-empty">Zatiaľ nie sú nastavené žiadne dôveryhodné domény.</div>`}
+      </div>
+    </section>
+  `;
   renderCrmEmailTemplates();
+}
+
+function renderCrmAdminActions() {
+  if (!crmEls.crmAdminActions) {
+    return;
+  }
+  crmEls.crmAdminActions.className = "crm-action-grid";
+  crmEls.crmAdminActions.innerHTML = [
+    crmActionCard("Obnoviť CRM dáta", "Stiahne nové KPI, používateľov, billing aj monitoring bez reloadu.", "refresh"),
+    crmActionCard("Používatelia", "Otvorí správu účtov a členstiev s filtrami a detailom používateľa.", "users"),
+    crmActionCard("Billing a Stripe", "Prejde na predplatné, Stripe stavy a billing udalosti.", "billing"),
+    crmActionCard("AI a používanie", "Rýchly vstup do AI metrík, promptov a aktivity používateľov.", "ai"),
+    crmActionCard("Monitoring", "Otvorí systémové incidenty, health stav a prevádzkové limity.", "monitoring"),
+    crmActionCard("Audit a história", "Pozrie posledné zásahy, zmeny účtov a systémové udalosti.", "audit"),
+    crmActionCard("Export používateľov", "Stiahne CSV aktuálne filtrovaných používateľov na ďalšiu prácu.", "export"),
+    crmActionCard("Otvoriť aplikáciu", "Preskočí späť do produkčnej aplikácie v novom okne.", "open-app"),
+  ].join("");
+
+  crmEls.crmAdminActions.querySelectorAll("[data-crm-admin-tool]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const tool = button.dataset.crmAdminTool || "";
+      if (tool === "refresh") {
+        button.disabled = true;
+        try {
+          await refreshCrmData({ reopenUserId: crmState.selectedUserId || 0 });
+        } finally {
+          button.disabled = false;
+        }
+        return;
+      }
+      if (tool === "export") {
+        exportCrmUsers();
+        return;
+      }
+      if (tool === "open-app") {
+        window.open("/app.html", "_blank", "noopener");
+        return;
+      }
+      activateCrmSection(tool);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
 }
 
 function renderCrmEmailTemplates() {
@@ -719,6 +803,27 @@ function exportCrmUsers() {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function settingRow(label, value, hint = "", mono = false) {
+  return `
+    <div class="crm-setting-row">
+      <div class="crm-setting-row__meta">
+        <strong>${escapeHtml(label)}</strong>
+        ${hint ? `<span>${escapeHtml(hint)}</span>` : ""}
+      </div>
+      <div class="crm-setting-row__value ${mono ? "crm-setting-row__value--mono" : ""}">${escapeHtml(value || "—")}</div>
+    </div>
+  `;
+}
+
+function crmActionCard(title, text, action) {
+  return `
+    <button class="crm-action-card" type="button" data-crm-admin-tool="${escapeHtml(action)}">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(text)}</span>
+    </button>
+  `;
 }
 
 function renderCrmActivity(items, { showMeta = false } = {}) {
