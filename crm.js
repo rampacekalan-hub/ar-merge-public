@@ -6,6 +6,7 @@ const crmState = {
   meta: null,
   templates: [],
   selectedUserId: 0,
+  userModalOpen: false,
   selectedTemplateKey: "",
   activeSection: "dashboard",
   refreshTimer: 0,
@@ -30,6 +31,7 @@ function bindCrmElements() {
     "crmUserBadge",
     "crmErrorBanner",
     "crmDashboardStats",
+    "crmKpiLegend",
     "crmDashboardActions",
     "crmHealthCards",
     "crmAlertList",
@@ -39,6 +41,9 @@ function bindCrmElements() {
     "crmBillingCards",
     "crmBillingTimeline",
     "crmAiCards",
+    "crmAiLegend",
+    "crmAiInsights",
+    "crmAiWorkflows",
     "crmAiTimeline",
     "crmPromptCards",
     "crmPromptDomains",
@@ -131,7 +136,7 @@ function activateCrmSection(target) {
     section.classList.toggle("is-active", section.id === `crmSection-${target}`);
   });
   if (Date.now() - (crmState.lastLoadedAt || 0) > 30000) {
-    refreshCrmData({ reopenUserId: crmState.selectedUserId || 0, silent: true }).catch(() => {});
+    refreshCrmData({ reopenUserId: crmState.userModalOpen ? (crmState.selectedUserId || 0) : 0, silent: true }).catch(() => {});
   }
 }
 
@@ -148,6 +153,16 @@ function renderCrmDashboard() {
     statCard("Unikátne IP", stats.recent_unique_ips || 0, "Rôzne IP v posledných logoch", "kpi"),
     statCard("Admin zásahy", stats.recent_admin_actions || 0, "Citlivé zásahy admina", "kpi"),
   ].join("");
+
+  if (crmEls.crmKpiLegend) {
+    crmEls.crmKpiLegend.className = "crm-legend-row";
+    crmEls.crmKpiLegend.innerHTML = [
+      legendPill("Zelená", "Všetko je v poriadku alebo aktívne.", "active"),
+      legendPill("Žltá", "Treba skontrolovať alebo dobieha zmena.", "warning"),
+      legendPill("Sivá", "Informačný alebo neutrálne sledovaný údaj.", "neutral"),
+      legendPill("Červená", "Chyba, výpadok alebo chýbajúca väzba.", "inactive"),
+    ].join("");
+  }
 
   renderCrmDashboardActions();
 
@@ -281,7 +296,7 @@ function renderCrmUserQuickActions() {
     });
   });
   crmEls.crmUserQuickActions.querySelector("[data-crm-users-refresh]")?.addEventListener("click", async () => {
-    await refreshCrmData({ reopenUserId: crmState.selectedUserId || 0, silent: true });
+    await refreshCrmData({ reopenUserId: crmState.userModalOpen ? (crmState.selectedUserId || 0) : 0, silent: true });
   });
 }
 
@@ -316,6 +331,15 @@ function renderCrmAi() {
     const type = String(item.event_type || "");
     return type.includes("assistant") || type.includes("ai") || type.includes("chat");
   }).slice(0, 14);
+  const aiMessages = Number(stats.ai_messages || 0);
+  const aiThreads = Number(stats.ai_threads || 0);
+  const aiUsers = Number(stats.ai_active_users || 0);
+  const assistantReplies = aiEvents.filter((item) => String(item.event_type || "").includes("assistant")).length;
+  const webVerifiedEvents = aiEvents.filter((item) => JSON.stringify(item.meta || {}).includes("used_web_search")).length;
+  const avgMessagesPerThread = aiThreads ? (aiMessages / aiThreads).toFixed(aiMessages / aiThreads >= 10 ? 0 : 1) : "0";
+  const avgThreadsPerUser = aiUsers ? (aiThreads / aiUsers).toFixed(aiThreads / aiUsers >= 10 ? 0 : 1) : "0";
+  const webUsageShare = aiMessages ? Math.min(100, Math.round((webVerifiedEvents / aiMessages) * 100)) : 0;
+  const sourcesCount = (crmState.meta?.ai?.trusted_domains || []).length;
 
   crmEls.crmAiCards.className = "summary-grid summary-grid--admin crm-ai-grid";
   crmEls.crmAiCards.innerHTML = [
@@ -326,6 +350,59 @@ function renderCrmAi() {
     statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Nasadená prompt logika", "metric"),
     statCard("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).length, "Domény pre overovanie", "metric"),
   ].join("");
+
+  if (crmEls.crmAiLegend) {
+    crmEls.crmAiLegend.className = "crm-legend-row";
+    crmEls.crmAiLegend.innerHTML = [
+      legendPill("AI správy", "Celkový objem práce, ktorý AI spracovala.", "neutral"),
+      legendPill("Vlákna", "Samostatné konverzácie používateľov.", "neutral"),
+      legendPill("Prompt verzia", "Aktívne pravidlá a smerovanie odpovedí.", "admin"),
+      legendPill("Trusted domains", "Počet dôveryhodných zdrojov pre webové overenie.", "active"),
+    ].join("");
+  }
+
+  if (crmEls.crmAiInsights) {
+    crmEls.crmAiInsights.className = "crm-panel-stack";
+    crmEls.crmAiInsights.innerHTML = `
+      <div class="crm-insight-grid">
+        <section class="crm-insight-card crm-insight-card--primary">
+          <div class="crm-insight-card__head">
+            <h4>AI výkon v číslach</h4>
+            ${statusPill("Live insight", "admin")}
+          </div>
+          <div class="crm-user-ai-metrics">
+            ${miniMetricCard("Správy / vlákno", avgMessagesPerThread, "Priemerná dĺžka jednej konverzácie", Number(avgMessagesPerThread) >= 4 ? "active" : "neutral")}
+            ${miniMetricCard("Vlákna / používateľ", avgThreadsPerUser, "Ako často sa AI vracia do práce s klientom", Number(avgThreadsPerUser) >= 1.5 ? "active" : "neutral")}
+            ${miniMetricCard("Web overenie", `${webUsageShare} %`, "Podiel udalostí s externým overením", webUsageShare >= 35 ? "active" : webUsageShare > 0 ? "warning" : "neutral")}
+            ${miniMetricCard("Zdroje", String(sourcesCount), "Počet domén, z ktorých môže AI čerpať", sourcesCount >= 5 ? "active" : "warning")}
+          </div>
+        </section>
+        <section class="crm-insight-card">
+          <div class="crm-insight-card__head">
+            <h4>Čo AI aktuálne používa</h4>
+            ${statusPill(crmState.meta?.ai?.web_search_enabled ? "Overovanie zapnuté" : "Bez webu", crmState.meta?.ai?.web_search_enabled ? "active" : "warning")}
+          </div>
+          <div class="crm-detail-list">
+            ${detailRow("Model", crmState.meta?.ai?.model || "—")}
+            ${detailRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—")}
+            ${detailRow("Smerovanie", "Finančné sprostredkovanie, banky, poistenie, hypotéky")}
+            ${detailRow("Dôveryhodné zdroje", (crmState.meta?.ai?.trusted_domains || []).join(", ") || "—")}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  if (crmEls.crmAiWorkflows) {
+    crmEls.crmAiWorkflows.className = "crm-action-grid crm-action-grid--compact";
+    crmEls.crmAiWorkflows.innerHTML = [
+      crmActionCard("Prejdi na AI aktivitu", "Otvoriť detail AI metrík a časovej osi používania.", "ai"),
+      crmActionCard("Prejdi na prompty", "Skontrolovať prompt verziu, trusted domains a smerovanie AI.", "prompts"),
+      crmActionCard("Monitoring AI", "Overiť, či AI beží s web overením a bez incidentov.", "monitoring"),
+      crmActionCard("Obnoviť AI dáta", "Načítať nové AI štatistiky bez reloadu celej CRM sekcie.", "refresh"),
+    ].join("");
+    bindCrmAdminActionButtons(crmEls.crmAiWorkflows);
+  }
 
   crmEls.crmAiTimeline.className = aiEvents.length ? "activity-list" : "activity-list empty-state";
   crmEls.crmAiTimeline.innerHTML = aiEvents.length
@@ -491,7 +568,7 @@ function bindCrmAdminActionButtons(scope) {
       if (tool === "refresh") {
         button.disabled = true;
         try {
-          await refreshCrmData({ reopenUserId: crmState.selectedUserId || 0 });
+          await refreshCrmData({ reopenUserId: crmState.userModalOpen ? (crmState.selectedUserId || 0) : 0 });
         } finally {
           button.disabled = false;
         }
@@ -602,6 +679,7 @@ async function openCrmUserDetail(userId) {
     return;
   }
   crmState.selectedUserId = userId;
+  crmState.userModalOpen = true;
   crmEls.crmUserModal.hidden = false;
   crmEls.crmUserModalBody.className = "crm-empty";
   crmEls.crmUserModalBody.textContent = "Načítavam detail používateľa...";
@@ -618,6 +696,8 @@ function closeCrmUserModal() {
   if (crmEls.crmUserModal) {
     crmEls.crmUserModal.hidden = true;
   }
+  crmState.userModalOpen = false;
+  crmState.selectedUserId = 0;
 }
 
 function renderCrmUserModal(payload) {
@@ -634,9 +714,29 @@ function renderCrmUserModal(payload) {
   crmEls.crmUserModalBody.className = "";
   crmEls.crmUserModalBody.innerHTML = `
     <div class="crm-modal__head">
-      <div>
-        <h2 class="crm-modal__title">${escapeHtml(user.name || "Používateľ")}</h2>
-        <p class="crm-modal__subtitle">${escapeHtml(user.email || "")}</p>
+      <div class="crm-operator-hero">
+        <div class="crm-operator-hero__identity">
+          <div class="crm-operator-hero__title-wrap">
+            <h2 class="crm-modal__title">${escapeHtml(user.name || "Používateľ")}</h2>
+            <p class="crm-modal__subtitle">${escapeHtml(user.email || "")}</p>
+          </div>
+          <div class="crm-operator-hero__meta">
+            <div class="crm-operator-badge">
+              <strong>Pracovný stav</strong>
+              <span>${user.is_online ? "Používateľ je práve online a v aktívnej session." : "Používateľ je offline, detail je z poslednej známej aktivity."}</span>
+            </div>
+            <div class="crm-operator-badge">
+              <strong>Billing vrstva</strong>
+              <span>${subscription.stripe_subscription_id ? "Stripe väzba je pripojená a pripravená na kontrolu." : "Stripe väzba zatiaľ nie je pripojená alebo ešte nebola vytvorená."}</span>
+            </div>
+          </div>
+        </div>
+        <div class="crm-operator-hero__stats">
+          ${miniMetricCard("AI správy", `${Number(ai.message_count || 0)}`, "Reálny objem AI práce", Number(ai.message_count || 0) > 0 ? "active" : "neutral")}
+          ${miniMetricCard("Vlákna", `${Number(ai.thread_count || 0)}`, "Počet samostatných chatov", Number(ai.thread_count || 0) > 0 ? "active" : "neutral")}
+          ${miniMetricCard("Web overenia", `${Number(ai.web_count || 0)}`, "Koľko AI odpovedí sa oprelo o web", Number(ai.web_count || 0) > 0 ? "active" : "warning")}
+          ${miniMetricCard("Pamäť AI", `${Number(ai.relevance_percent || 0)} %`, "Odhad využiteľnosti naučeného kontextu", Number(ai.relevance_percent || 0) >= 60 ? "active" : Number(ai.relevance_percent || 0) > 0 ? "warning" : "neutral")}
+        </div>
       </div>
       <div class="status-pill-group">
         ${statusPill(user.role === "admin" ? "Admin" : "Používateľ", user.role === "admin" ? "admin" : "neutral")}
@@ -852,7 +952,7 @@ async function refreshCrmData({ reopenUserId = 0, silent = false } = {}) {
   crmState.meta = meta || crmState.meta;
   crmState.lastLoadedAt = Date.now();
   renderCrmAll();
-  if (reopenUserId) {
+  if (crmState.userModalOpen && reopenUserId) {
     await openCrmUserDetail(reopenUserId);
   } else {
     closeCrmUserModal();
@@ -947,10 +1047,19 @@ function crmActionCard(title, text, action) {
   `;
 }
 
+function legendPill(label, text, tone = "neutral") {
+  return `
+    <div class="crm-legend-pill crm-legend-pill--${escapeHtml(tone)}">
+      <strong>${escapeHtml(label)}</strong>
+      <span>${escapeHtml(text)}</span>
+    </div>
+  `;
+}
+
 function startCrmAutoRefresh() {
   stopCrmAutoRefresh();
   crmState.refreshTimer = window.setInterval(() => {
-    refreshCrmData({ reopenUserId: crmState.selectedUserId || 0, silent: true }).catch(() => {});
+    refreshCrmData({ reopenUserId: crmState.userModalOpen ? (crmState.selectedUserId || 0) : 0, silent: true }).catch(() => {});
   }, 60000);
 }
 
