@@ -383,10 +383,10 @@ function renderCrmAi() {
   if (crmEls.crmAiLegend) {
     crmEls.crmAiLegend.className = "crm-legend-row";
     crmEls.crmAiLegend.innerHTML = [
-      legendPill("AI správy", "Celkový objem práce, ktorý AI spracovala.", "neutral"),
-      legendPill("Vlákna", "Samostatné konverzácie používateľov.", "neutral"),
-      legendPill("Prompt verzia", "Aktívne pravidlá a smerovanie odpovedí.", "admin"),
-      legendPill("Trusted domains", "Počet dôveryhodných zdrojov pre webové overenie.", "active"),
+      legendPill("Objem práce", "Koľko správ a vlákien AI reálne obslúžila.", "neutral"),
+      legendPill("Kvalita overenia", "Podiel odpovedí, ktoré sa opierajú o webové zdroje.", "active"),
+      legendPill("Prompt a pravidlá", "Aká logika je dnes nasadená v AI vrstve.", "admin"),
+      legendPill("Trusted domains", "Zoznam domén, z ktorých môže AI bezpečne čerpať.", "neutral"),
     ].join("");
   }
 
@@ -397,17 +397,36 @@ function renderCrmAi() {
         <section class="crm-ai-window crm-ai-window--primary">
           <div class="crm-ai-window__head">
             <div>
-              <p class="crm-insight-card__subhead">AI jadro</p>
-              <h4>AI výkon a používanie</h4>
+              <p class="crm-insight-card__subhead">AI výkon</p>
+              <h4>Používanie a operátorské čísla</h4>
             </div>
             ${statusPill("Live insight", "admin")}
           </div>
-          <p class="crm-ai-window__copy">Tu vidíš, ako reálne AI pracuje: koľko správ spracovala, ako často sa používa, ako silno sa opiera o webové overenie a aký má dnes pracovný kontext.</p>
-          <div class="crm-user-ai-metrics">
-            ${miniMetricCard("Správy / vlákno", avgMessagesPerThread, "Priemerná dĺžka jednej konverzácie", Number(avgMessagesPerThread) >= 4 ? "active" : "neutral")}
-            ${miniMetricCard("Vlákna / používateľ", avgThreadsPerUser, "Ako často sa AI vracia do práce s klientom", Number(avgThreadsPerUser) >= 1.5 ? "active" : "neutral")}
-            ${miniMetricCard("Web overenie", `${webUsageShare} %`, "Podiel udalostí s externým overením", webUsageShare >= 35 ? "active" : webUsageShare > 0 ? "warning" : "neutral")}
-            ${miniMetricCard("Zdroje", String(sourcesCount), "Počet domén, z ktorých môže AI čerpať", sourcesCount >= 5 ? "active" : "warning")}
+          <div class="crm-user-ai-metrics crm-user-ai-metrics--wide">
+            ${miniMetricCard("Správy / vlákno", avgMessagesPerThread, "Priemerná dĺžka konverzácie", Number(avgMessagesPerThread) >= 4 ? "active" : "neutral")}
+            ${miniMetricCard("Vlákna / používateľ", avgThreadsPerUser, "Ako často sa AI vracia do práce", Number(avgThreadsPerUser) >= 1.5 ? "active" : "neutral")}
+            ${miniMetricCard("Web overenie", `${webUsageShare} %`, "Podiel externého overenia", webUsageShare >= 35 ? "active" : webUsageShare > 0 ? "warning" : "neutral")}
+            ${miniMetricCard("Zdroje", String(sourcesCount), "Počet trusted domains", sourcesCount >= 5 ? "active" : "warning")}
+          </div>
+          <div class="crm-detail-list">
+            ${detailRow("Dominantný režim", avgMessagesPerThread >= 4 ? "Dlhšie konzultácie a klientské vysvetľovanie" : "Krátke operatívne odpovede")}
+            ${detailRow("Pripravenosť AI", Number(stats.ai_messages || 0) > 0 ? "AI sa používa v reálnej prevádzke." : "Treba zvýšiť používanie medzi účtami.")}
+            ${detailRow("Odporúčaný zásah", webUsageShare >= 35 ? "Stačí udržiavať prompt a trusted domains." : "Posilniť webové overenie a trusted domains.")}
+          </div>
+        </section>
+        <section class="crm-ai-window">
+          <div class="crm-ai-window__head">
+            <div>
+              <p class="crm-insight-card__subhead">AI kontext</p>
+              <h4>Model, prompt a smerovanie</h4>
+            </div>
+            ${statusPill(crmState.meta?.ai?.web_search_enabled ? "Web overenie zapnuté" : "Bez webu", crmState.meta?.ai?.web_search_enabled ? "active" : "warning")}
+          </div>
+          <div class="crm-detail-list">
+            ${detailRow("Model", crmState.meta?.ai?.model || "—")}
+            ${detailRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—")}
+            ${detailRow("Smerovanie", "Finančné sprostredkovanie, hypotéky, banky, poistenie")}
+            ${detailRow("Trusted domains", (crmState.meta?.ai?.trusted_domains || []).join(", ") || "—")}
           </div>
         </section>
       </div>
@@ -417,33 +436,28 @@ function renderCrmAi() {
   if (crmEls.crmAiConfig) {
     crmEls.crmAiConfig.className = "crm-panel-stack";
     crmEls.crmAiConfig.innerHTML = `
-      <div class="crm-insight-grid crm-insight-grid--ai-main">
-        <section class="crm-ai-window">
-          <div class="crm-ai-window__head">
-            <div>
-              <p class="crm-insight-card__subhead">AI konfigurácia</p>
-              <h4>Konfigurácia a zdroje</h4>
-            </div>
-            ${statusPill(crmState.meta?.ai?.web_search_enabled ? "Overovanie zapnuté" : "Bez webu", crmState.meta?.ai?.web_search_enabled ? "active" : "warning")}
+      <section class="crm-ai-window crm-ai-window--sources">
+        <div class="crm-ai-window__head">
+          <div>
+            <p class="crm-insight-card__subhead">Trusted domains</p>
+            <h4>Zdroje používané pri overení</h4>
           </div>
-          <p class="crm-ai-window__copy">Toto je technická a prevádzková vrstva AI. Odtiaľ vieš rýchlo skontrolovať model, prompt smerovanie a to, z akých zdrojov môže AI bezpečne čerpať.</p>
-          <div class="crm-detail-list">
-            ${detailRow("Model", crmState.meta?.ai?.model || "—")}
-            ${detailRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—")}
-            ${detailRow("Smerovanie", "Finančné sprostredkovanie, banky, poistenie, hypotéky")}
-            ${detailRow("Web overenie", crmState.meta?.ai?.web_search_enabled ? "Zapnuté" : "Vypnuté")}
-            ${detailRow("Dôveryhodné zdroje", (crmState.meta?.ai?.trusted_domains || []).join(", ") || "—")}
-          </div>
-        </section>
+          ${statusPill(`${sourcesCount} domén`, sourcesCount >= 5 ? "active" : "warning")}
+        </div>
+        <div class="crm-chip-list">
+          ${sourcesCount
+            ? crmState.meta.ai.trusted_domains.map((domain) => `<span class="crm-chip">${escapeHtml(domain)}</span>`).join("")
+            : `<div class="crm-empty">Zatiaľ nie sú nastavené žiadne dôveryhodné domény.</div>`}
+        </div>
         ${crmState.meta?.ai?.web_search_enabled ? "" : `<div class="crm-ai-warning">AI beží bez webového overenia. Aktuálne dátové otázky budú slabšie.</div>`}
-      </div>
+      </section>
     `;
   }
 
   if (crmEls.crmAiTracking) {
     crmEls.crmAiTracking.className = "crm-panel-stack";
     crmEls.crmAiTracking.innerHTML = `
-      <div class="crm-insight-grid crm-insight-grid--ai-main">
+      <div class="crm-insight-grid crm-insight-grid--ai-track">
         <section class="crm-ai-window crm-ai-window--tracking">
           <div class="crm-ai-window__head">
             <div>
@@ -452,7 +466,6 @@ function renderCrmAi() {
             </div>
             ${statusPill(Number(stats.ai_active_users || 0) > 0 ? "Reálny prevádzkový vstup" : "Málo dát", Number(stats.ai_active_users || 0) > 0 ? "active" : "warning")}
           </div>
-          <p class="crm-ai-window__copy">Tento blok je čisto o AI správaní. Vidíš dominantné témy, typ práce, odporúčaný zásah a to, či AI rastie na reálnych dátach alebo stagnuje.</p>
           <div class="crm-detail-list">
             ${detailRow("Dominantné témy", aiEvents.length ? (crmState.overview?.users || []).flatMap((user) => ((user.ai_topics || []) || [])).slice(0, 6).join(", ") || "Financie, hypotéky, klientské odpovede" : "Zatiaľ bez stabilných tém")}
             ${detailRow("Štýl práce", avgMessagesPerThread >= 4 ? "Dlhšie konzultácie a vysvetľovanie klientom" : "Krátke operatívne odpovede a follow-upy")}
@@ -674,7 +687,19 @@ function renderCrmSettings() {
         </div>
       </div>
     </section>
+    <section class="crm-settings-card crm-panel--embedded">
+      <div class="crm-settings-card__head">
+        <h4>Email šablóny</h4>
+        <span class="status-pill status-pill--neutral">${String((crmState.templates || []).length)} šablón</span>
+      </div>
+      <div class="crm-template-layout">
+        <div id="crmEmailTemplateList"></div>
+        <div id="crmEmailTemplateEditor"></div>
+      </div>
+    </section>
   `;
+  crmEls.crmEmailTemplateList = crmEls.crmSettingsGrid.querySelector("#crmEmailTemplateList");
+  crmEls.crmEmailTemplateEditor = crmEls.crmSettingsGrid.querySelector("#crmEmailTemplateEditor");
   const workflowRoot = crmEls.crmSettingsGrid.querySelector(".crm-settings-workflows");
   if (workflowRoot) {
     bindCrmAdminActionButtons(workflowRoot);

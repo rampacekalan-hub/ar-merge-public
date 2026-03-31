@@ -45,16 +45,17 @@ PDF_RENDER_PRESETS = [
     (0.46, 30, True),
 ]
 LARGE_PDF_RENDER_PRESETS = [
-    (0.78, 56, False),
-    (0.66, 46, False),
-    (0.56, 38, False),
-    (0.48, 32, True),
-    (0.40, 26, True),
+    (0.70, 48, False),
+    (0.56, 36, True),
+    (0.44, 24, True),
+    (0.34, 18, True),
 ]
 MAX_PDF_RASTER_PAGES = 30
 FAST_PDF_BYTES_THRESHOLD = 5 * 1024 * 1024
 LARGE_PDF_BYTES_THRESHOLD = 6 * 1024 * 1024
 MAX_PDF_RENDER_PIXELS = 1_600_000
+LARGE_PDF_RENDER_PIXELS = 650_000
+HUGE_PDF_RENDER_PIXELS = 180_000
 
 
 @dataclass
@@ -159,7 +160,16 @@ def compress_pdf_fast(download_name, file_bytes, original_bytes, target_bytes):
         if document.page_count == 0:
             raise ValueError("PDF je prázdne.")
 
-        optimized_bytes = document.tobytes(garbage=4, deflate=True, clean=True)
+        optimized_bytes = document.tobytes(
+            garbage=4,
+            clean=True,
+            deflate=True,
+            deflate_images=True,
+            deflate_fonts=True,
+            use_objstms=1,
+            compression_effort=100,
+            preserve_metadata=False,
+        )
         optimized_size = len(optimized_bytes)
 
         if optimized_size >= original_bytes:
@@ -194,23 +204,41 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
     smallest_candidate = None
     presets = render_presets or PDF_RENDER_PRESETS
     start_time = time.monotonic()
-    time_budget = 12 if original_bytes >= 8 * 1024 * 1024 else 18
+    time_budget = 10 if original_bytes >= 12 * 1024 * 1024 else 12 if original_bytes >= 8 * 1024 * 1024 else 18
 
     document = fitz.open(stream=file_bytes, filetype="pdf")
     try:
         if document.page_count == 0:
             raise ValueError("PDF je prázdne.")
 
-        if document.page_count > 80:
-            presets = presets[-1:]
+        huge_pdf = original_bytes >= 12 * 1024 * 1024 or document.page_count >= 45
+        large_pdf = original_bytes >= 8 * 1024 * 1024 or document.page_count >= 25
+
+        if huge_pdf:
+            # For very large PDFs we prefer a fast, aggressive pass over a slow
+            # attempt that risks timing out on the live instance.
+            presets = [
+                (0.08, 10, True),
+                (0.05, 7, True),
+                (0.035, 5, True),
+            ]
+        elif document.page_count > 80:
+            presets = [(0.16, 14, True), (0.10, 8, True)]
         elif document.page_count > 50:
-            presets = presets[-2:]
+            presets = [(0.20, 16, True), (0.14, 10, True)]
         elif document.page_count > 30:
-            presets = presets[-3:]
-        stop_on_first = original_bytes >= 10 * 1024 * 1024 or document.page_count > 30
+            presets = [(0.28, 20, True), (0.18, 12, True)]
+        stop_on_first = large_pdf
 
         for scale, quality, grayscale in presets:
-            candidate_data = render_pdf_candidate(document, scale, quality, grayscale=grayscale)
+            candidate_data = render_pdf_candidate(
+                document,
+                scale,
+                quality,
+                grayscale=grayscale,
+                pixel_budget=HUGE_PDF_RENDER_PIXELS if huge_pdf else LARGE_PDF_RENDER_PIXELS if large_pdf else MAX_PDF_RENDER_PIXELS,
+                fast_mode=large_pdf or huge_pdf,
+            )
             candidate = {
                 "data": candidate_data,
                 "size": len(candidate_data),
@@ -261,7 +289,7 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
     )
 
 
-def render_pdf_candidate(document, scale, quality, grayscale=False):
+def render_pdf_candidate(document, scale, quality, grayscale=False, pixel_budget=MAX_PDF_RENDER_PIXELS, fast_mode=False):
     output = fitz.open()
     try:
         for page_index in range(document.page_count):
@@ -269,11 +297,11 @@ def render_pdf_candidate(document, scale, quality, grayscale=False):
             page_rect = page.rect
             effective_scale = scale
             page_area = max(1.0, page_rect.width * page_rect.height)
-            max_scale = (MAX_PDF_RENDER_PIXELS / page_area) ** 0.5
+            max_scale = (pixel_budget / page_area) ** 0.5
             if effective_scale > max_scale:
                 effective_scale = max_scale
             pixmap = page.get_pixmap(matrix=fitz.Matrix(effective_scale, effective_scale), alpha=False)
-            image_bytes = save_pixmap_as_jpeg(pixmap, quality, grayscale=grayscale)
+            image_bytes = save_pixmap_as_jpeg(pixmap, quality, grayscale=grayscale, fast_mode=fast_mode)
             target_width = max(1, page_rect.width * effective_scale)
             target_height = max(1, page_rect.height * effective_scale)
             new_page = output.new_page(width=target_width, height=target_height)
@@ -283,18 +311,20 @@ def render_pdf_candidate(document, scale, quality, grayscale=False):
         output.close()
 
 
-def save_pixmap_as_jpeg(pixmap, quality, grayscale=False):
+def save_pixmap_as_jpeg(pixmap, quality, grayscale=False, fast_mode=False):
     with Image.open(io.BytesIO(pixmap.tobytes("png"))) as image:
         image.load()
         buffer = io.BytesIO()
         working = image.convert("L" if grayscale else "RGB")
-        working.save(
-            buffer,
-            format="JPEG",
-            quality=quality,
-            optimize=True,
-            progressive=True,
-        )
+        save_kwargs = {
+            "format": "JPEG",
+            "quality": quality,
+            "optimize": not fast_mode,
+            "progressive": not fast_mode,
+        }
+        if fast_mode and not grayscale:
+            save_kwargs["subsampling"] = "4:2:0"
+        working.save(buffer, **save_kwargs)
         return buffer.getvalue()
 
 
@@ -524,7 +554,7 @@ def image_has_alpha(image):
 
 def build_result(file_name, content_type, data, original_bytes, target_bytes, status):
     compressed_bytes = len(data)
-    negligible_gain_threshold = int(original_bytes * 0.995)
+    negligible_gain_threshold = int(original_bytes * 0.985)
     if status not in {"already-small-enough", "already-optimized"} and compressed_bytes >= negligible_gain_threshold:
         status = "already-optimized"
         compressed_bytes = len(data)

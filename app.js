@@ -3692,7 +3692,11 @@ function normalizeCompressionTarget() {
 
 function formatMegabytes(bytes) {
   const safeValue = Number(bytes) || 0;
-  return `${(safeValue / (1024 * 1024)).toFixed(2)} MB`;
+  const mbValue = safeValue / (1024 * 1024);
+  if (mbValue < 0.1) {
+    return `${Math.max(1, Math.round(safeValue / 1024))} KB`;
+  }
+  return `${mbValue.toFixed(2)} MB`;
 }
 
 function formatDuration(totalSeconds) {

@@ -3031,7 +3031,7 @@ h3 {
 .crm-insight-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .crm-insight-grid--triple {
@@ -3039,12 +3039,17 @@ h3 {
 }
 
 .crm-insight-grid--ai-main {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: 1fr;
   align-items: stretch;
 }
 
+.crm-insight-grid--ai-config,
 .crm-insight-grid--ai-track {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.crm-insight-grid--ai-track {
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
 }
 
 .crm-insight-card {
@@ -3205,6 +3210,10 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.crm-ai-window .crm-user-ai-metrics--wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .crm-ai-window .crm-mini-metric {
   min-height: 132px;
 }
@@ -3227,6 +3236,7 @@ h3 {
 .crm-ai-side-notes {
   display: grid;
   gap: 16px;
+  grid-template-columns: 1fr;
 }
 
 .crm-insight-card__hint {
@@ -3323,14 +3333,14 @@ h3 {
 
 .crm-settings-overview {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
 }
 
 .crm-settings-overview-card {
   display: grid;
   gap: 8px;
-  min-height: 140px;
+  min-height: 128px;
   padding: 18px;
   border-radius: 22px;
   border: 1px solid rgba(18, 39, 67, 0.08);
@@ -3348,7 +3358,7 @@ h3 {
 
 .crm-settings-overview-card strong {
   color: var(--surface-dark);
-  font-size: clamp(1.1rem, 1.5vw, 1.55rem);
+  font-size: clamp(1rem, 1.3vw, 1.35rem);
   line-height: 1.12;
   letter-spacing: -0.04em;
   overflow-wrap: anywhere;
@@ -3374,14 +3384,14 @@ h3 {
 
 .crm-settings-workflows {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
 }
 
 .crm-settings-columns {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 18px;
 }
 
 .crm-settings-column {
@@ -3424,7 +3434,7 @@ h3 {
 
 .crm-setting-row {
   display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(180px, 0.52fr) minmax(0, 1.48fr);
   gap: 16px;
   align-items: start;
   padding: 12px 0;
@@ -3467,9 +3477,28 @@ h3 {
 
 .crm-template-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 0.84fr) minmax(0, 1.56fr);
-  gap: 18px;
+  grid-template-columns: 1fr;
+  gap: 20px;
   align-items: start;
+}
+
+.crm-settings-overview,
+.crm-settings-workflows {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.crm-template-list {
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.crm-template-editor {
+  min-height: 520px;
+}
+
+.crm-panel--embedded {
+  grid-column: 1 / -1;
 }
 
 .crm-operator-status-board {
@@ -3593,8 +3622,7 @@ h3 {
   box-shadow: 0 12px 28px rgba(18, 39, 67, 0.05);
   padding: 18px;
   min-width: 0;
-  position: sticky;
-  top: 24px;
+  position: static;
 }
 
 .crm-ai-readout {
@@ -3753,6 +3781,7 @@ h3 {
   .crm-user-summary,
   .crm-user-ai-metrics,
   .crm-insight-grid,
+  .crm-ai-side-notes,
   .crm-settings-overview,
   .crm-settings-workflows {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3761,6 +3790,10 @@ h3 {
   .crm-insight-grid--ai-main,
   .crm-insight-grid--ai-track {
     grid-template-columns: 1fr;
+  }
+
+  .crm-ai-window .crm-user-ai-metrics--wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .crm-kpi-grid .summary-card,
@@ -3842,12 +3875,17 @@ h3 {
   .crm-user-summary,
   .crm-user-ai-metrics,
   .crm-insight-grid,
+  .crm-ai-side-notes,
   .crm-settings-overview,
   .crm-settings-workflows {
     grid-template-columns: 1fr;
   }
 
   .crm-ai-window .crm-user-ai-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-ai-window .crm-user-ai-metrics--wide {
     grid-template-columns: 1fr;
   }
 
