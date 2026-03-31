@@ -119,7 +119,7 @@ function activateCrmSection(target) {
 
 function renderCrmDashboard() {
   const stats = crmState.overview?.stats || {};
-  crmEls.crmDashboardStats.className = "summary-grid summary-grid--admin";
+  crmEls.crmDashboardStats.className = "summary-grid summary-grid--admin crm-kpi-grid";
   crmEls.crmDashboardStats.innerHTML = [
     statCard("Používatelia", stats.total_users || 0, "Celkovo účtov v systéme"),
     statCard("Aktívne členstvá", stats.active_memberships || 0, "Prístup s plateným členstvom"),
@@ -131,7 +131,7 @@ function renderCrmDashboard() {
     statCard("Admin zásahy", stats.recent_admin_actions || 0, "Citlivé zásahy admina"),
   ].join("");
 
-  crmEls.crmHealthCards.className = "summary-grid summary-grid--admin";
+  crmEls.crmHealthCards.className = "summary-grid summary-grid--admin crm-health-grid";
   crmEls.crmHealthCards.innerHTML = [
     healthCard("CRM API", "V poriadku", "active"),
     healthCard("Stripe", crmState.meta?.billing?.stripe_enabled ? "Pripojené" : "Chýba konfigurácia", crmState.meta?.billing?.stripe_enabled ? "active" : "inactive"),
@@ -160,7 +160,7 @@ function renderCrmDashboard() {
 function renderCrmUsers() {
   const users = getFilteredCrmUsers();
   const segments = getCrmUserSegments(crmState.overview?.users || []);
-  crmEls.crmUserSegments.className = "summary-grid summary-grid--admin";
+  crmEls.crmUserSegments.className = "summary-grid summary-grid--admin crm-segment-grid";
   crmEls.crmUserSegments.innerHTML = [
     statCard("Admin účty", segments.admins, "Používatelia s admin rolou"),
     statCard("Bežní používatelia", segments.standard, "Koncové účty"),
@@ -225,7 +225,7 @@ function renderCrmBilling() {
   const active = users.filter((user) => user.membership_status === "active").length;
   const cancelled = users.filter((user) => user.membership_status === "cancelled").length;
   const expiring = users.filter((user) => user.membership_valid_until && new Date(user.membership_valid_until).getTime() < Date.now() + 7 * 24 * 3600 * 1000).length;
-  crmEls.crmBillingCards.className = "summary-grid summary-grid--admin";
+  crmEls.crmBillingCards.className = "summary-grid summary-grid--admin crm-billing-grid";
   crmEls.crmBillingCards.innerHTML = [
     statCard("Aktívne predplatné", active, "Používatelia so živým prístupom"),
     statCard("Cancel at period end", cancelled, "Zrušené, ale stále platné"),
@@ -252,7 +252,7 @@ function renderCrmAi() {
     return type.includes("assistant") || type.includes("ai") || type.includes("chat");
   }).slice(0, 14);
 
-  crmEls.crmAiCards.className = "summary-grid summary-grid--admin";
+  crmEls.crmAiCards.className = "summary-grid summary-grid--admin crm-ai-grid";
   crmEls.crmAiCards.innerHTML = [
     statCard("AI správy", stats.ai_messages || 0, "Všetky správy v AI"),
     statCard("Vlákna", stats.ai_threads || 0, "Konverzačné vlákna"),
@@ -270,7 +270,7 @@ function renderCrmAi() {
 
 function renderCrmPrompts() {
   const domains = crmState.meta?.ai?.trusted_domains || [];
-  crmEls.crmPromptCards.className = "summary-grid summary-grid--admin";
+  crmEls.crmPromptCards.className = "summary-grid summary-grid--admin crm-prompt-grid";
   crmEls.crmPromptCards.innerHTML = [
     statCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Aktuálne nasadený prompt set"),
     statCard("Jazyk trhu", "SK", "Primárny slovenský kontext"),
@@ -286,7 +286,7 @@ function renderCrmPrompts() {
 
 function renderCrmMonitoring() {
   const stats = crmState.overview?.stats || {};
-  crmEls.crmMonitoringCards.className = "summary-grid summary-grid--admin";
+  crmEls.crmMonitoringCards.className = "summary-grid summary-grid--admin crm-monitoring-grid";
   crmEls.crmMonitoringCards.innerHTML = [
     statCard("API request limit", `${crmState.meta?.limits?.max_request_body_mb || "—"} MB`, "Max. request body"),
     statCard("Kontakt import", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Max. CSV/XLSX vstup"),
@@ -330,7 +330,7 @@ function renderCrmAudit() {
 }
 
 function renderCrmSettings() {
-  crmEls.crmSettingsGrid.className = "summary-grid summary-grid--admin";
+  crmEls.crmSettingsGrid.className = "summary-grid summary-grid--admin crm-settings-grid";
   crmEls.crmSettingsGrid.innerHTML = [
     statCard("Support e-mail", crmState.meta?.crm?.support_email || "—", "Primárny support kontakt"),
     statCard("App base URL", crmState.meta?.crm?.app_base_url || "—", "Verejná adresa aplikácie"),
