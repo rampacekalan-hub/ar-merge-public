@@ -11,6 +11,7 @@ import secrets
 import sqlite3
 import smtplib
 import socket
+import time
 from datetime import date, datetime, timedelta, timezone
 from email import policy
 from email.message import EmailMessage
@@ -86,6 +87,8 @@ TRUSTED_SOURCE_DOMAINS = {
     "alanrampacek.sk",
     "prosight.sk",
 }
+TRUSTED_DOMAINS_CACHE = {"domains": None, "loaded_at": None}
+TRUSTED_DOMAINS_CACHE_TTL = 120
 
 MAX_REQUEST_BODY_BYTES = max(1, int(MAX_REQUEST_BODY_MB * 1024 * 1024))
 MAX_CONTACT_FILE_BYTES = max(1, int(MAX_CONTACT_FILE_MB * 1024 * 1024))
@@ -158,6 +161,71 @@ def get_db():
     connection.row_factory = sqlite3.Row
     return connection
 
+
+def get_system_setting(connection, key, default_value=""):
+    row = connection.execute("SELECT value FROM system_settings WHERE key = ?", (key,)).fetchone()
+    if row and row["value"]:
+        return row["value"]
+    return default_value
+
+
+def set_system_setting(connection, key, value, updated_by=None):
+    now = now_iso()
+    connection.execute(
+        """
+        INSERT INTO system_settings (key, value, updated_at, updated_by)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by
+        """,
+        (key, value, now, updated_by),
+    )
+
+
+def normalize_domain_list(raw_value):
+    if not raw_value:
+        return []
+    if isinstance(raw_value, (list, tuple, set)):
+        values = raw_value
+    else:
+        value = str(raw_value)
+        try:
+            parsed = json.loads(value)
+            values = parsed if isinstance(parsed, list) else [value]
+        except json.JSONDecodeError:
+            values = re.split(r"[,\n;]+", value)
+    cleaned = []
+    for item in values:
+        domain = str(item or "").strip().lower()
+        domain = domain.replace("https://", "").replace("http://", "")
+        domain = domain.strip().strip("/")
+        if not domain:
+            continue
+        if domain.startswith("www."):
+            domain = domain[4:]
+        cleaned.append(domain)
+    return sorted(set(cleaned))
+
+
+def get_trusted_domains(connection=None, force_refresh=False):
+    now_ts = time.time()
+    cache = TRUSTED_DOMAINS_CACHE
+    if not force_refresh and cache["domains"] is not None and cache["loaded_at"] and now_ts - cache["loaded_at"] < TRUSTED_DOMAINS_CACHE_TTL:
+        return cache["domains"]
+    close_connection = False
+    if connection is None:
+        connection = get_db()
+        close_connection = True
+    try:
+        raw = get_system_setting(connection, "trusted_domains", "")
+        domains = normalize_domain_list(raw)
+        if not domains:
+            domains = sorted(TRUSTED_SOURCE_DOMAINS)
+        cache["domains"] = domains
+        cache["loaded_at"] = now_ts
+        return domains
+    finally:
+        if close_connection:
+            connection.close()
 
 def init_db():
     db_dir = os.path.dirname(DB_PATH)
@@ -387,6 +455,14 @@ def init_db():
                 meta_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                updated_by INTEGER,
+                FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
             );
             """
         )
@@ -3023,6 +3099,7 @@ def extract_response_source_urls(payload):
 
 
 def estimate_web_confidence(source_urls):
+    trusted_domains = get_trusted_domains()
     unique_domains = []
     domain_seen = set()
     trusted_count = 0
@@ -3037,7 +3114,7 @@ def estimate_web_confidence(source_urls):
         if host not in domain_seen:
             domain_seen.add(host)
             unique_domains.append(host)
-        if any(host == trusted or host.endswith(f".{trusted}") for trusted in TRUSTED_SOURCE_DOMAINS):
+        if any(host == trusted or host.endswith(f".{trusted}") for trusted in trusted_domains):
             trusted_count += 1
 
     source_count = len(unique_domains)
@@ -3377,6 +3454,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/crm/email-template":
             self.handle_crm_email_template_update()
+            return
+        if self.path == "/api/crm/trusted-domains":
+            self.handle_crm_trusted_domains_update()
             return
         if self.path == "/api/ping":
             self.handle_ping()
@@ -3911,7 +3991,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "prompt_version": PROMPT_VERSION,
                         "web_search_enabled": bool(OPENAI_WEB_SEARCH_ENABLED and not OPENAI_WEB_SEARCH_RUNTIME_DISABLED),
                         "web_search_runtime_disabled": bool(OPENAI_WEB_SEARCH_RUNTIME_DISABLED),
-                        "trusted_domains": sorted(TRUSTED_SOURCE_DOMAINS),
+                        "trusted_domains": get_trusted_domains(connection),
                     },
                     "billing": {
                         "stripe_enabled": bool(STRIPE_SECRET_KEY),
@@ -3993,6 +4073,37 @@ class AppHandler(SimpleHTTPRequestHandler):
             )
             connection.commit()
             self.write_json({"ok": True, "templates": list_email_templates(connection)})
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            connection.close()
+
+    def handle_crm_trusted_domains_update(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do CRM."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            domains = normalize_domain_list(payload.get("domains") or payload.get("value") or "")
+            set_system_setting(connection, "trusted_domains", json.dumps(domains, ensure_ascii=False), admin_user["id"])
+            TRUSTED_DOMAINS_CACHE["domains"] = domains
+            TRUSTED_DOMAINS_CACHE["loaded_at"] = time.time()
+            log_activity(
+                connection,
+                "crm_trusted_domains_updated",
+                "Admin upravil dôveryhodné AI domény.",
+                admin_user["id"],
+                domains=len(domains),
+            )
+            connection.commit()
+            self.write_json({"trusted_domains": domains})
         except ValueError as exc:
             self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
         finally:

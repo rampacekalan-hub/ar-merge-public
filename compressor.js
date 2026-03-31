@@ -363,6 +363,11 @@ async function handleCompressSubmit(event) {
       body: formData,
     });
 
+    const contentType = response.headers.get("Content-Type") || "";
+    if (contentType.includes("text/html")) {
+      throw new Error("Kompresia zlyhala (server vrátil HTML). Skús to prosím ešte raz.");
+    }
+
     if (!response.ok) {
       const cloned = response.clone();
       let message = "Kompresia zlyhala.";

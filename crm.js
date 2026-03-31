@@ -43,7 +43,9 @@ function bindCrmElements() {
     "crmBillingTimeline",
     "crmAiCards",
     "crmAiLegend",
-    "crmAiInsights",
+    "crmAiPerformance",
+    "crmAiConfig",
+    "crmAiTracking",
     "crmAiWorkflows",
     "crmAiTimeline",
     "crmPromptCards",
@@ -75,6 +77,7 @@ function bindCrmEvents() {
   crmEls.navLinks.forEach((button) => {
     button.addEventListener("click", () => activateCrmSection(button.dataset.crmTarget || "dashboard"));
   });
+  bindCrmAiTabs();
   crmEls.crmUserSearch?.addEventListener("input", () => renderCrmUsers());
   crmEls.crmUserFilter?.addEventListener("change", () => renderCrmUsers());
   crmEls.crmExportUsers?.addEventListener("click", exportCrmUsers);
@@ -91,6 +94,22 @@ function bindCrmEvents() {
     } else {
       startCrmAutoRefresh();
     }
+  });
+}
+
+function bindCrmAiTabs() {
+  const tabs = Array.from(document.querySelectorAll("[data-ai-tab]"));
+  if (!tabs.length) {
+    return;
+  }
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.aiTab;
+      tabs.forEach((btn) => btn.classList.toggle("is-active", btn === tab));
+      document.querySelectorAll(".crm-ai-panel").forEach((panel) => {
+        panel.classList.toggle("is-active", panel.id === `crmAiPanel-${target}`);
+      });
+    });
   });
 }
 
@@ -149,10 +168,10 @@ function renderCrmDashboard() {
     statCard("Aktívne členstvá", stats.active_memberships || 0, "Prístup s plateným členstvom", "kpi"),
     statCard("Online teraz", stats.online_users || 0, "Používatelia aktívni za 5 min.", "kpi"),
     statCard("Registrácie za 30 dní", stats.recent_registrations || 0, "Nové účty za posledný mesiac", "kpi"),
-    statCard("AI správy", stats.ai_messages || 0, "Všetky AI odpovede a vstupy", "kpi"),
-    statCard("AI aktívni používatelia", stats.ai_active_users || 0, "Používatelia s AI aktivitou", "kpi"),
     statCard("Unikátne IP", stats.recent_unique_ips || 0, "Rôzne IP v posledných logoch", "kpi"),
     statCard("Admin zásahy", stats.recent_admin_actions || 0, "Citlivé zásahy admina", "kpi"),
+    statCard("Aktivity 30 dní", stats.recent_logs || 0, "Súhrn systémovej aktivity", "kpi"),
+    statCard("Vymazané účty", stats.deleted_accounts || 0, "Celkový počet vymazaných účtov", "kpi"),
   ].join("");
 
   if (crmEls.crmKpiLegend) {
@@ -171,18 +190,14 @@ function renderCrmDashboard() {
   crmEls.crmHealthCards.innerHTML = [
     healthCard("CRM API", "V poriadku", "active"),
     healthCard("Stripe", crmState.meta?.billing?.stripe_enabled ? "Pripojené" : "Chýba konfigurácia", crmState.meta?.billing?.stripe_enabled ? "active" : "inactive"),
-    healthCard("AI model", crmState.meta?.ai?.model || "—", "neutral"),
-    healthCard("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "neutral"),
-    healthCard("Web overenie", crmState.meta?.ai?.web_search_enabled ? "Zapnuté" : "Vypnuté", crmState.meta?.ai?.web_search_enabled ? "active" : "warning"),
     healthCard("Max. kompresia súboru", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "neutral"),
+    healthCard("Import kontaktov", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "neutral"),
+    healthCard("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "neutral"),
   ].join("");
 
   const alerts = [];
   if (crmState.meta?.billing?.price_validation_error) {
     alerts.push(activityItem("Billing konfigurácia potrebuje pozornosť.", crmState.meta.billing.price_validation_error, "billing"));
-  }
-  if (!crmState.meta?.ai?.web_search_enabled) {
-    alerts.push(activityItem("AI ide bez webového overenia.", "Pre aktuálne dátové otázky nebude mať live kontext.", "ai"));
   }
   const lastActivity = (crmState.overview?.activity || []).slice(0, 6);
   crmEls.crmAlertList.className = alerts.length || lastActivity.length ? "activity-list" : "activity-list empty-state";
@@ -375,9 +390,9 @@ function renderCrmAi() {
     ].join("");
   }
 
-  if (crmEls.crmAiInsights) {
-    crmEls.crmAiInsights.className = "crm-panel-stack";
-    crmEls.crmAiInsights.innerHTML = `
+  if (crmEls.crmAiPerformance) {
+    crmEls.crmAiPerformance.className = "crm-panel-stack";
+    crmEls.crmAiPerformance.innerHTML = `
       <div class="crm-insight-grid crm-insight-grid--ai-main">
         <section class="crm-ai-window crm-ai-window--primary">
           <div class="crm-ai-window__head">
@@ -395,6 +410,14 @@ function renderCrmAi() {
             ${miniMetricCard("Zdroje", String(sourcesCount), "Počet domén, z ktorých môže AI čerpať", sourcesCount >= 5 ? "active" : "warning")}
           </div>
         </section>
+      </div>
+    `;
+  }
+
+  if (crmEls.crmAiConfig) {
+    crmEls.crmAiConfig.className = "crm-panel-stack";
+    crmEls.crmAiConfig.innerHTML = `
+      <div class="crm-insight-grid crm-insight-grid--ai-main">
         <section class="crm-ai-window">
           <div class="crm-ai-window__head">
             <div>
@@ -408,10 +431,18 @@ function renderCrmAi() {
             ${detailRow("Model", crmState.meta?.ai?.model || "—")}
             ${detailRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—")}
             ${detailRow("Smerovanie", "Finančné sprostredkovanie, banky, poistenie, hypotéky")}
+            ${detailRow("Web overenie", crmState.meta?.ai?.web_search_enabled ? "Zapnuté" : "Vypnuté")}
             ${detailRow("Dôveryhodné zdroje", (crmState.meta?.ai?.trusted_domains || []).join(", ") || "—")}
           </div>
         </section>
+        ${crmState.meta?.ai?.web_search_enabled ? "" : `<div class="crm-ai-warning">AI beží bez webového overenia. Aktuálne dátové otázky budú slabšie.</div>`}
       </div>
+    `;
+  }
+
+  if (crmEls.crmAiTracking) {
+    crmEls.crmAiTracking.className = "crm-panel-stack";
+    crmEls.crmAiTracking.innerHTML = `
       <div class="crm-insight-grid crm-insight-grid--ai-main">
         <section class="crm-ai-window crm-ai-window--tracking">
           <div class="crm-ai-window__head">
@@ -635,13 +666,57 @@ function renderCrmSettings() {
           ? crmState.meta.ai.trusted_domains.map((domain) => `<span class="crm-chip">${escapeHtml(domain)}</span>`).join("")
           : `<div class="crm-empty">Zatiaľ nie sú nastavené žiadne dôveryhodné domény.</div>`}
       </div>
+      <div class="crm-domains-form">
+        <label for="crmTrustedDomainsInput">Uprav zoznam domén (jedna doména na riadok)</label>
+        <textarea id="crmTrustedDomainsInput" rows="4" placeholder="napr. nbs.sk"></textarea>
+        <div class="crm-domains-form__actions">
+          <button id="crmTrustedDomainsSave" class="button button--primary" type="button">Uložiť domény</button>
+        </div>
+      </div>
     </section>
   `;
   const workflowRoot = crmEls.crmSettingsGrid.querySelector(".crm-settings-workflows");
   if (workflowRoot) {
     bindCrmAdminActionButtons(workflowRoot);
   }
+  bindCrmTrustedDomainsForm();
   renderCrmEmailTemplates();
+}
+
+function bindCrmTrustedDomainsForm() {
+  if (!crmEls.crmSettingsGrid) {
+    return;
+  }
+  const input = crmEls.crmSettingsGrid.querySelector("#crmTrustedDomainsInput");
+  const saveBtn = crmEls.crmSettingsGrid.querySelector("#crmTrustedDomainsSave");
+  if (!input || !saveBtn) {
+    return;
+  }
+  input.value = (crmState.meta?.ai?.trusted_domains || []).join("\n");
+  saveBtn.addEventListener("click", async () => {
+    saveBtn.disabled = true;
+    try {
+      const payload = { domains: input.value };
+      const response = await fetch("/api/crm/trusted-domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Nepodarilo sa uložiť domény.");
+      }
+      const data = await response.json().catch(() => ({}));
+      if (data.trusted_domains) {
+        crmState.meta.ai.trusted_domains = data.trusted_domains;
+      }
+      renderCrmSettings();
+    } catch (error) {
+      window.alert(error.message || "Nepodarilo sa uložiť domény.");
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
 }
 
 function renderCrmAdminActions() {

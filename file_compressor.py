@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -192,6 +193,8 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
     best_under_target = None
     smallest_candidate = None
     presets = render_presets or PDF_RENDER_PRESETS
+    start_time = time.monotonic()
+    time_budget = 12 if original_bytes >= 8 * 1024 * 1024 else 18
 
     document = fitz.open(stream=file_bytes, filetype="pdf")
     try:
@@ -204,6 +207,7 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
             presets = presets[-2:]
         elif document.page_count > 30:
             presets = presets[-3:]
+        stop_on_first = original_bytes >= 10 * 1024 * 1024 or document.page_count > 30
 
         for scale, quality, grayscale in presets:
             candidate_data = render_pdf_candidate(document, scale, quality, grayscale=grayscale)
@@ -219,6 +223,17 @@ def compress_pdf_with_pymupdf(download_name, file_bytes, original_bytes, target_
             if candidate["size"] <= target_bytes:
                 if best_under_target is None or candidate["size"] > best_under_target["size"]:
                     best_under_target = candidate
+                if stop_on_first:
+                    return build_result(
+                        download_name,
+                        PDF_MIME_TYPE,
+                        candidate["data"],
+                        original_bytes,
+                        target_bytes,
+                        "compressed",
+                    )
+            if time.monotonic() - start_time > time_budget and smallest_candidate is not None:
+                break
     finally:
         document.close()
 
