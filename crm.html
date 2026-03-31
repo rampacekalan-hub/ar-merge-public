@@ -240,14 +240,29 @@
         </section>
 
         <section id="crmSection-settings" class="crm-section">
-          <div class="crm-panel card">
-            <div class="section-head section-head--tight">
-              <div>
-                <p class="section-kicker">Nastavenia systému</p>
-                <h2>Konfigurácia a pravidlá</h2>
+          <div class="crm-grid crm-grid--two">
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Nastavenia systému</p>
+                  <h2>Konfigurácia a pravidlá</h2>
+                </div>
+              </div>
+              <div id="crmSettingsGrid" class="summary-grid summary-grid--admin empty-state">Načítavam systémové nastavenia...</div>
+            </div>
+
+            <div class="crm-panel card">
+              <div class="section-head section-head--tight">
+                <div>
+                  <p class="section-kicker">Email šablóny</p>
+                  <h2>Vzory odosielaných emailov</h2>
+                </div>
+              </div>
+              <div class="crm-template-layout">
+                <div id="crmEmailTemplateList" class="crm-template-list empty-state">Načítavam emailové šablóny...</div>
+                <div id="crmEmailTemplateEditor" class="crm-template-editor empty-state">Vyber šablónu a môžeš upraviť predmet aj text emailu.</div>
               </div>
             </div>
-            <div id="crmSettingsGrid" class="summary-grid summary-grid--admin empty-state">Načítavam systémové nastavenia...</div>
           </div>
         </section>
       </main>

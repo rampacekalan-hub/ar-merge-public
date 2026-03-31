@@ -4,7 +4,9 @@ const crmState = {
   me: null,
   overview: null,
   meta: null,
+  templates: [],
   selectedUserId: 0,
+  selectedTemplateKey: "",
   activeSection: "dashboard",
 };
 
@@ -41,6 +43,8 @@ function bindCrmElements() {
     "crmAuditTimeline",
     "crmRemovedTimeline",
     "crmSettingsGrid",
+    "crmEmailTemplateList",
+    "crmEmailTemplateEditor",
     "crmUserModal",
     "crmUserModalBackdrop",
     "crmUserModalClose",
@@ -72,14 +76,17 @@ function bindCrmEvents() {
 }
 
 async function initializeCrm() {
-  const [me, overview, meta] = await Promise.all([
+  const [me, overview, meta, templatesPayload] = await Promise.all([
     crmFetch("/api/me"),
     crmFetch("/api/admin/overview"),
     crmFetch("/api/crm/meta"),
+    crmFetch("/api/crm/email-templates"),
   ]);
   crmState.me = me?.user || null;
   crmState.overview = overview || { users: [], activity: [], removed_accounts: [], stats: {} };
   crmState.meta = meta || {};
+  crmState.templates = templatesPayload?.templates || [];
+  crmState.selectedTemplateKey = crmState.templates[0]?.template_key || "";
   if (!crmState.me?.is_admin) {
     window.location.replace("/app.html");
     return;
@@ -332,6 +339,87 @@ function renderCrmSettings() {
     statCard("CRM verzia", crmState.meta?.crm?.version || "—", "Interná verzia riadiacej vrstvy"),
     statCard("Cena / price id", crmState.meta?.billing?.price_id || "—", "Napojené na Stripe"),
   ].join("");
+  renderCrmEmailTemplates();
+}
+
+function renderCrmEmailTemplates() {
+  const templates = crmState.templates || [];
+  if (!crmEls.crmEmailTemplateList || !crmEls.crmEmailTemplateEditor) {
+    return;
+  }
+  if (!templates.length) {
+    crmEls.crmEmailTemplateList.className = "crm-template-list empty-state";
+    crmEls.crmEmailTemplateList.textContent = "Zatiaľ nie sú dostupné žiadne emailové šablóny.";
+    crmEls.crmEmailTemplateEditor.className = "crm-template-editor empty-state";
+    crmEls.crmEmailTemplateEditor.textContent = "Vyber šablónu a môžeš upraviť predmet aj text emailu.";
+    return;
+  }
+
+  crmEls.crmEmailTemplateList.className = "crm-template-list";
+  crmEls.crmEmailTemplateList.innerHTML = templates.map((template) => `
+    <button
+      class="crm-template-item ${crmState.selectedTemplateKey === template.template_key ? "is-active" : ""}"
+      type="button"
+      data-crm-template-key="${escapeHtml(template.template_key)}"
+    >
+      <strong>${escapeHtml(template.label || template.template_key)}</strong>
+      <span>${escapeHtml(template.subject_template || "")}</span>
+    </button>
+  `).join("");
+
+  crmEls.crmEmailTemplateList.querySelectorAll("[data-crm-template-key]").forEach((button) => {
+    button.addEventListener("click", () => {
+      crmState.selectedTemplateKey = button.dataset.crmTemplateKey || "";
+      renderCrmEmailTemplates();
+    });
+  });
+
+  const selected = templates.find((item) => item.template_key === crmState.selectedTemplateKey) || templates[0];
+  crmState.selectedTemplateKey = selected.template_key;
+  crmEls.crmEmailTemplateEditor.className = "crm-template-editor";
+  crmEls.crmEmailTemplateEditor.innerHTML = `
+    <div class="crm-template-editor__head">
+      <div>
+        <h4>${escapeHtml(selected.label || selected.template_key)}</h4>
+        <p>Napojené na reálne odosielané emaily. Zmeny sa použijú pri ďalšom odoslaní.</p>
+      </div>
+      <span class="status-pill status-pill--neutral mono">${escapeHtml(selected.template_key)}</span>
+    </div>
+    <label class="crm-template-field">
+      <span>Predmet</span>
+      <input id="crmTemplateSubject" type="text" value="${escapeHtml(selected.subject_template || "")}" />
+    </label>
+    <label class="crm-template-field">
+      <span>Telo emailu</span>
+      <textarea id="crmTemplateBody" rows="12">${escapeHtml(selected.body_template || "")}</textarea>
+    </label>
+    <div class="crm-template-actions">
+      <button id="crmTemplateSave" class="button" type="button">Uložiť šablónu</button>
+      <p class="crm-kpi-note">Premenné ako <code>{name}</code>, <code>{email}</code>, <code>{support_email}</code> alebo dátumy sa doplnia automaticky.</p>
+    </div>
+  `;
+  crmEls.crmEmailTemplateEditor.querySelector("#crmTemplateSave")?.addEventListener("click", saveCrmEmailTemplate);
+}
+
+async function saveCrmEmailTemplate() {
+  const templateKey = crmState.selectedTemplateKey;
+  const subjectTemplate = crmEls.crmEmailTemplateEditor?.querySelector("#crmTemplateSubject")?.value?.trim() || "";
+  const bodyTemplate = crmEls.crmEmailTemplateEditor?.querySelector("#crmTemplateBody")?.value?.trim() || "";
+  if (!templateKey || !subjectTemplate || !bodyTemplate) {
+    window.alert("Predmet aj telo emailu musia byť vyplnené.");
+    return;
+  }
+  try {
+    const payload = await crmFetch("/api/crm/email-template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ template_key: templateKey, subject_template: subjectTemplate, body_template: bodyTemplate }),
+    });
+    crmState.templates = payload?.templates || crmState.templates;
+    renderCrmEmailTemplates();
+  } catch (error) {
+    window.alert(normalizeCrmError(error?.message || "Šablónu sa nepodarilo uložiť."));
+  }
 }
 
 async function openCrmUserDetail(userId) {
@@ -436,6 +524,26 @@ function renderCrmUserModal(payload) {
         </div>
       </section>
     </div>
+
+    <section class="crm-detail-card" style="margin-top:18px;">
+      <h4>Email log</h4>
+      <div class="activity-list">
+        ${(payload.email_logs || []).length ? (payload.email_logs || []).map((item) => `
+          <article class="activity-card">
+            <div class="activity-card__head">
+              <h4>${escapeHtml(item.subject || item.template_key || "Email")}</h4>
+              <span>${escapeHtml(formatDateTime(item.created_at))}</span>
+            </div>
+            <div class="crm-chip-list" style="margin-bottom:10px;">
+              <span class="status-pill status-pill--neutral mono">${escapeHtml(item.template_key || "manual")}</span>
+              <span class="status-pill ${String(item.send_status || "sent") === "sent" ? "status-pill--active" : "status-pill--warning"}">${escapeHtml(item.send_status || "sent")}</span>
+              <span class="status-pill status-pill--neutral mono">${escapeHtml(item.email || "—")}</span>
+            </div>
+            <p>${escapeHtml(item.body_preview || "Bez náhľadu obsahu.")}</p>
+          </article>
+        `).join("") : `<div class="crm-empty">Používateľ zatiaľ nemá evidované odoslané emaily.</div>`}
+      </div>
+    </section>
 
     ${canManage ? `
       <div class="crm-actions">

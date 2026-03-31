@@ -364,6 +364,30 @@ def init_db():
                 uploaded_at TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_key TEXT NOT NULL UNIQUE,
+                label TEXT NOT NULL,
+                subject_template TEXT NOT NULL,
+                body_template TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                updated_by INTEGER,
+                FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS email_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                email TEXT NOT NULL,
+                template_key TEXT NOT NULL DEFAULT '',
+                subject TEXT NOT NULL DEFAULT '',
+                body_preview TEXT NOT NULL DEFAULT '',
+                send_status TEXT NOT NULL DEFAULT 'sent',
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
             """
         )
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()}
@@ -424,6 +448,10 @@ def init_db():
             connection.execute("ALTER TABLE assistant_messages ADD COLUMN reviewed_by INTEGER")
         if "reviewed_at" not in assistant_message_columns:
             connection.execute("ALTER TABLE assistant_messages ADD COLUMN reviewed_at TEXT NOT NULL DEFAULT ''")
+        email_log_columns = {row["name"] for row in connection.execute("PRAGMA table_info(email_logs)").fetchall()}
+        if "template_key" in email_log_columns and "send_status" not in email_log_columns:
+            connection.execute("ALTER TABLE email_logs ADD COLUMN send_status TEXT NOT NULL DEFAULT 'sent'")
+        ensure_email_templates(connection)
 
         orphan_user_ids = [
             row["user_id"]
@@ -522,20 +550,17 @@ def build_reset_link(token):
     return f"{base}/app.html?reset_token={token}"
 
 
-def send_reset_email(to_email, name, token):
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
-        raise RuntimeError("SMTP nie je nakonfigurované pre obnovu hesla.")
+class SafeTemplateDict(dict):
+    def __missing__(self, key):
+        return ""
 
-    reset_link = build_reset_link(token)
-    message = EmailMessage()
-    message["Subject"] = "Obnova hesla - Unifyo"
-    message["From"] = SMTP_FROM_EMAIL
-    message["To"] = to_email
-    greeting = name or to_email
-    message.set_content(
-        f"""Dobrý deň {greeting},
 
-prišla nám žiadosť o obnovu hesla pre váš účet v Unifyo.
+def get_default_email_templates():
+    return {
+        "password_reset": {
+            "label": "Obnova hesla",
+            "subject_template": "Obnova hesla - Unifyo",
+            "body_template": """prišla nám žiadosť o obnovu hesla pre váš účet v Unifyo.
 
 Pre nastavenie nového hesla otvorte tento odkaz:
 {reset_link}
@@ -543,9 +568,185 @@ Pre nastavenie nového hesla otvorte tento odkaz:
 Platnosť odkazu je 30 minút.
 
 Ak ste o obnovu hesla nežiadali, tento e-mail môžete ignorovať.
-"""
-    )
+""",
+        },
+        "registration_welcome": {
+            "label": "Potvrdenie registrácie",
+            "subject_template": "UNIFYO - potvrdenie registrácie",
+            "body_template": """účet UNIFYO bol úspešne vytvorený.
 
+Meno: {name}
+E-mail: {email}
+Dátum registrácie: {registration_date}
+
+V účte môžeš okamžite:
+- aktivovať mesačné členstvo
+- používať čistenie kontaktov, kompresiu súborov a AI asistenta
+
+Podpora: {support_email}
+""",
+        },
+        "subscription_activated": {
+            "label": "Aktivácia predplatného",
+            "subject_template": "UNIFYO - potvrdenie aktivácie predplatného",
+            "body_template": """ďakujeme, predplatné UNIFYO bolo úspešne aktivované.
+
+Mesačné predplatné: {price_label}
+Automatické obnovenie: áno
+Dátum nákupu: {purchased_at}
+Ďalšie obnovenie: {next_renewal_at}
+Interné číslo objednávky: {internal_order_number}
+Interné číslo predplatného: {internal_subscription_number}
+Stripe subscription ID: {stripe_subscription_id}
+Stripe payment ID: {stripe_payment_intent_id}
+
+Predplatné môžeš kedykoľvek zrušiť priamo vo svojom účte alebo e-mailom. Po zrušení zostane prístup aktívny do konca už zaplateného obdobia a ďalšia platba sa už nestrhne.
+
+Podpora: {support_email}
+""",
+        },
+        "subscription_cancelled": {
+            "label": "Zrušenie predplatného",
+            "subject_template": "UNIFYO - potvrdenie zrušenia predplatného",
+            "body_template": """potvrdzujeme zrušenie predplatného UNIFYO.
+
+Prístup zostáva aktívny do: {access_until}
+Ďalšia platba už nebude účtovaná.
+Interné číslo objednávky: {internal_order_number}
+Interné číslo predplatného: {internal_subscription_number}
+Stripe subscription ID: {stripe_subscription_id}
+
+Ak potrebuješ pomoc, kontaktuj nás na {support_email}.
+""",
+        },
+        "account_deleted_admin": {
+            "label": "Administratívne zrušenie účtu",
+            "subject_template": "Unifyo - účet bol zrušený",
+            "body_template": """váš účet v Unifyo bol administratívne zrušený.
+
+Ak na účte prebehla platba alebo obnova členstva, prípadné vrátenie platby bude spracované do 7 dní.
+
+Ak ide o nedorozumenie, odpovedzte priamo na tento e-mail.
+""",
+        },
+        "account_deleted_self": {
+            "label": "Vlastné zrušenie účtu",
+            "subject_template": "UNIFYO - potvrdenie zrušenia účtu",
+            "body_template": """potvrdzujeme zrušenie účtu UNIFYO.
+
+Prístup zostáva aktívny do: {access_until}
+Ďalšia platba už nebude účtovaná.
+Interné číslo objednávky: {internal_order_number}
+Interné číslo predplatného: {internal_subscription_number}
+Stripe subscription ID: {stripe_subscription_id}
+
+Ak potrebuješ pomoc, kontaktuj nás na {support_email}.
+""",
+        },
+    }
+
+
+def ensure_email_templates(connection):
+    now_value = format_timestamp(utc_now())
+    defaults = get_default_email_templates()
+    for template_key, data in defaults.items():
+        existing = connection.execute(
+            "SELECT id FROM email_templates WHERE template_key = ?",
+            (template_key,),
+        ).fetchone()
+        if existing:
+            continue
+        connection.execute(
+            """
+            INSERT INTO email_templates (
+                template_key,
+                label,
+                subject_template,
+                body_template,
+                updated_at,
+                updated_by
+            )
+            VALUES (?, ?, ?, ?, ?, NULL)
+            """,
+            (
+                template_key,
+                data["label"],
+                data["subject_template"],
+                data["body_template"],
+                now_value,
+            ),
+        )
+
+
+def get_email_template(connection, template_key):
+    ensure_email_templates(connection)
+    row = connection.execute(
+        """
+        SELECT template_key, label, subject_template, body_template, updated_at, updated_by
+        FROM email_templates
+        WHERE template_key = ?
+        """,
+        (template_key,),
+    ).fetchone()
+    if row:
+        return dict(row)
+    fallback = get_default_email_templates().get(template_key, {})
+    return {
+        "template_key": template_key,
+        "label": fallback.get("label", template_key),
+        "subject_template": fallback.get("subject_template", ""),
+        "body_template": fallback.get("body_template", ""),
+        "updated_at": "",
+        "updated_by": None,
+    }
+
+
+def list_email_templates(connection):
+    ensure_email_templates(connection)
+    rows = connection.execute(
+        """
+        SELECT
+            email_templates.*,
+            users.email AS updated_by_email,
+            users.name AS updated_by_name
+        FROM email_templates
+        LEFT JOIN users ON users.id = email_templates.updated_by
+        ORDER BY email_templates.label COLLATE NOCASE ASC
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def render_email_template(template_key, context, connection=None):
+    own_connection = False
+    if connection is None:
+        connection = get_db()
+        own_connection = True
+    try:
+        template = get_email_template(connection, template_key)
+        safe_context = SafeTemplateDict(
+            {
+                "app_base_url": APP_BASE_URL or "",
+                "support_email": SUPPORT_EMAIL or "",
+                **(context or {}),
+            }
+        )
+        subject = str(template.get("subject_template") or "").format_map(safe_context).strip()
+        body_text = str(template.get("body_template") or "").format_map(safe_context).strip()
+        return {
+            "template_key": template_key,
+            "label": template.get("label") or template_key,
+            "subject": subject,
+            "body_text": body_text,
+            "updated_at": template.get("updated_at") or "",
+            "updated_by": template.get("updated_by"),
+        }
+    finally:
+        if own_connection:
+            connection.close()
+
+
+def deliver_email_message(message):
     if SMTP_PORT == 465:
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
             smtp.login(SMTP_USER, SMTP_PASSWORD)
@@ -558,6 +759,79 @@ Ak ste o obnovu hesla nežiadali, tento e-mail môžete ignorovať.
         smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASSWORD)
         smtp.send_message(message)
+
+
+def record_email_log(connection, user_id, email, template_key, subject, body_text, status="sent", meta=None):
+    preview = "\n".join((body_text or "").strip().splitlines()[:6]).strip()
+    connection.execute(
+        """
+        INSERT INTO email_logs (
+            user_id,
+            email,
+            template_key,
+            subject,
+            body_preview,
+            send_status,
+            meta_json,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            email or "",
+            template_key or "",
+            subject or "",
+            preview,
+            status or "sent",
+            json.dumps(meta or {}, ensure_ascii=False),
+            format_timestamp(utc_now()),
+        ),
+    )
+    connection.commit()
+
+
+def get_user_email_logs(connection, user_id, limit=20):
+    rows = connection.execute(
+        """
+        SELECT id, email, template_key, subject, body_preview, send_status, meta_json, created_at
+        FROM email_logs
+        WHERE user_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["meta"] = safe_json_loads(item.get("meta_json"), {})
+        item.pop("meta_json", None)
+        items.append(item)
+    return items
+
+
+def send_reset_email(to_email, name, token):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
+        raise RuntimeError("SMTP nie je nakonfigurované pre obnovu hesla.")
+
+    rendered = render_email_template(
+        "password_reset",
+        {
+            "name": name or to_email,
+            "email": to_email,
+            "reset_link": build_reset_link(token),
+            "token": token,
+        },
+    )
+    message = EmailMessage()
+    message["Subject"] = rendered["subject"]
+    message["From"] = SMTP_FROM_EMAIL
+    message["To"] = to_email
+    greeting = name or to_email
+    message.set_content(f"Dobrý deň {greeting},\n\n{rendered['body_text']}\n")
+    deliver_email_message(message)
+    return rendered
 
 
 def send_contact_email(sender_name, sender_email, subject, message_text):
@@ -604,54 +878,40 @@ def send_account_deleted_email(to_email, name):
     if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL):
         return
 
+    rendered = render_email_template(
+        "account_deleted_admin",
+        {"name": name or to_email, "email": to_email},
+    )
     message = EmailMessage()
-    message["Subject"] = "Unifyo - účet bol zrušený"
+    message["Subject"] = rendered["subject"]
     message["From"] = SMTP_FROM_EMAIL
     message["To"] = to_email
     greeting = name or to_email
-    message.set_content(
-        f"""Dobrý deň {greeting},
-
-váš účet v Unifyo bol administratívne zrušený.
-
-Ak na účte prebehla platba alebo obnova členstva, prípadné vrátenie platby bude spracované do 7 dní.
-
-Ak ide o nedorozumenie, odpovedzte priamo na tento e-mail.
-"""
-    )
-
-    if SMTP_PORT == 465:
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
-            smtp.login(SMTP_USER, SMTP_PASSWORD)
-            smtp.send_message(message)
-        return
-
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
-        smtp.login(SMTP_USER, SMTP_PASSWORD)
-        smtp.send_message(message)
+    message.set_content(f"Dobrý deň {greeting},\n\n{rendered['body_text']}\n")
+    deliver_email_message(message)
+    return rendered
 
 
 def send_account_self_deleted_email(user_row, details):
-    body = f"""potvrdzujeme zrušenie účtu UNIFYO.
-
-Prístup zostáva aktívny do: {details.get('access_until') or '—'}
-Ďalšia platba už nebude účtovaná.
-Interné číslo objednávky: {details.get('internal_order_number') or '—'}
-Interné číslo predplatného: {details.get('internal_subscription_number') or '—'}
-Stripe subscription ID: {details.get('stripe_subscription_id') or '—'}
-
-Ak potrebuješ pomoc, kontaktuj nás na {SUPPORT_EMAIL}.
-"""
+    rendered = render_email_template(
+        "account_deleted_self",
+        {
+            "name": user_row["name"] or user_row["email"],
+            "email": user_row["email"],
+            "access_until": details.get("access_until") or "—",
+            "internal_order_number": details.get("internal_order_number") or "—",
+            "internal_subscription_number": details.get("internal_subscription_number") or "—",
+            "stripe_subscription_id": details.get("stripe_subscription_id") or "—",
+        },
+    )
     send_subscription_email(
         user_row["email"],
         user_row["name"],
-        "UNIFYO - potvrdenie zrušenia účtu",
-        body,
+        rendered["subject"],
+        rendered["body_text"],
         bcc_support=True,
     )
+    return rendered
 
 
 def send_subscription_email(to_email, name, subject, body_text, bcc_support=True):
@@ -682,70 +942,69 @@ def send_subscription_email(to_email, name, subject, body_text, bcc_support=True
 
 
 def send_registration_welcome_email(user_row):
-    body = f"""účet UNIFYO bol úspešne vytvorený.
-
-Meno: {user_row.get('name') or '—'}
-E-mail: {user_row.get('email') or '—'}
-Dátum registrácie: {format_timestamp(utc_now())}
-
-V účte môžeš okamžite:
-- aktivovať mesačné členstvo
-- používať čistenie kontaktov, kompresiu súborov a AI asistenta
-
-Podpora: {SUPPORT_EMAIL}
-"""
+    rendered = render_email_template(
+        "registration_welcome",
+        {
+            "name": user_row.get("name") or "—",
+            "email": user_row.get("email") or "—",
+            "registration_date": format_timestamp(utc_now()),
+        },
+    )
     send_subscription_email(
         user_row["email"],
         user_row["name"],
-        "UNIFYO - potvrdenie registrácie",
-        body,
+        rendered["subject"],
+        rendered["body_text"],
         bcc_support=True,
     )
+    return rendered
 
 
 def send_subscription_activated_email(user_row, details):
-    body = f"""ďakujeme, predplatné UNIFYO bolo úspešne aktivované.
-
-Mesačné predplatné: {details.get('price_label') or '1,99 € / mesiac'}
-Automatické obnovenie: áno
-Dátum nákupu: {details.get('purchased_at') or ''}
-Ďalšie obnovenie: {details.get('next_renewal_at') or ''}
-Interné číslo objednávky: {details.get('internal_order_number') or '—'}
-Interné číslo predplatného: {details.get('internal_subscription_number') or '—'}
-Stripe subscription ID: {details.get('stripe_subscription_id') or '—'}
-Stripe payment ID: {details.get('stripe_payment_intent_id') or '—'}
-
-Predplatné môžeš kedykoľvek zrušiť priamo vo svojom účte alebo e-mailom. Po zrušení zostane prístup aktívny do konca už zaplateného obdobia a ďalšia platba sa už nestrhne.
-
-Podpora: {SUPPORT_EMAIL}
-"""
+    rendered = render_email_template(
+        "subscription_activated",
+        {
+            "name": user_row.get("name") or user_row["email"],
+            "email": user_row["email"],
+            "price_label": details.get("price_label") or "1,99 € / mesiac",
+            "purchased_at": details.get("purchased_at") or "",
+            "next_renewal_at": details.get("next_renewal_at") or "",
+            "internal_order_number": details.get("internal_order_number") or "—",
+            "internal_subscription_number": details.get("internal_subscription_number") or "—",
+            "stripe_subscription_id": details.get("stripe_subscription_id") or "—",
+            "stripe_payment_intent_id": details.get("stripe_payment_intent_id") or "—",
+        },
+    )
     send_subscription_email(
         user_row["email"],
         user_row["name"],
-        "UNIFYO - potvrdenie aktivácie predplatného",
-        body,
+        rendered["subject"],
+        rendered["body_text"],
         bcc_support=True,
     )
+    return rendered
 
 
 def send_subscription_cancelled_email(user_row, details):
-    body = f"""potvrdzujeme zrušenie predplatného UNIFYO.
-
-Prístup zostáva aktívny do: {details.get('access_until') or ''}
-Ďalšia platba už nebude účtovaná.
-Interné číslo objednávky: {details.get('internal_order_number') or '—'}
-Interné číslo predplatného: {details.get('internal_subscription_number') or '—'}
-Stripe subscription ID: {details.get('stripe_subscription_id') or '—'}
-
-Ak potrebuješ pomoc, kontaktuj nás na {SUPPORT_EMAIL}.
-"""
+    rendered = render_email_template(
+        "subscription_cancelled",
+        {
+            "name": user_row.get("name") or user_row["email"],
+            "email": user_row["email"],
+            "access_until": details.get("access_until") or "",
+            "internal_order_number": details.get("internal_order_number") or "—",
+            "internal_subscription_number": details.get("internal_subscription_number") or "—",
+            "stripe_subscription_id": details.get("stripe_subscription_id") or "—",
+        },
+    )
     send_subscription_email(
         user_row["email"],
         user_row["name"],
-        "UNIFYO - potvrdenie zrušenia predplatného",
-        body,
+        rendered["subject"],
+        rendered["body_text"],
         bcc_support=True,
     )
+    return rendered
 
 
 def generate_internal_order_number():
@@ -3041,6 +3300,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/crm/meta"):
             self.handle_crm_meta()
             return
+        if self.path.startswith("/api/crm/email-templates"):
+            self.handle_crm_email_templates()
+            return
         if self.path.startswith("/api/refresh-membership"):
             self.handle_refresh_membership()
             return
@@ -3112,6 +3374,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/admin/force-sync":
             self.handle_admin_force_sync()
+            return
+        if self.path == "/api/crm/email-template":
+            self.handle_crm_email_template_update()
             return
         if self.path == "/api/ping":
             self.handle_ping()
@@ -3666,6 +3931,73 @@ class AppHandler(SimpleHTTPRequestHandler):
         finally:
             connection.close()
 
+    def handle_crm_email_templates(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do CRM."}, status=HTTPStatus.FORBIDDEN)
+                return
+            self.write_json({"templates": list_email_templates(connection)})
+        finally:
+            connection.close()
+
+    def handle_crm_email_template_update(self):
+        connection = get_db()
+        try:
+            admin_user = get_session_user(connection, self.headers)
+            if not admin_user:
+                self.write_json({"error": "Najprv sa prihláste."}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            admin_user = ensure_admin_role(connection, admin_user)
+            if admin_user["role"] != "admin":
+                self.write_json({"error": "Nemáte prístup do CRM."}, status=HTTPStatus.FORBIDDEN)
+                return
+
+            payload = require_json(self)
+            template_key = str(payload.get("template_key") or "").strip()
+            subject_template = str(payload.get("subject_template") or "").strip()
+            body_template = str(payload.get("body_template") or "").strip()
+            if not template_key or not subject_template or not body_template:
+                self.write_json({"error": "Chýba kľúč alebo obsah šablóny."}, status=HTTPStatus.BAD_REQUEST)
+                return
+
+            existing = get_email_template(connection, template_key)
+            connection.execute(
+                """
+                UPDATE email_templates
+                SET subject_template = ?, body_template = ?, updated_at = ?, updated_by = ?
+                WHERE template_key = ?
+                """,
+                (
+                    subject_template,
+                    body_template,
+                    format_timestamp(utc_now()),
+                    admin_user["id"],
+                    template_key,
+                ),
+            )
+            log_activity(
+                connection,
+                "crm_email_template_updated",
+                "Admin upravil emailovú šablónu.",
+                admin_user["id"],
+                template_key=template_key,
+                template_label=existing.get("label") or template_key,
+                ip=get_request_ip(self),
+                agent=get_request_agent(self),
+            )
+            connection.commit()
+            self.write_json({"ok": True, "templates": list_email_templates(connection)})
+        except ValueError as exc:
+            self.write_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+        finally:
+            connection.close()
+
     def handle_admin_user_detail(self):
         connection = get_db()
         try:
@@ -3713,6 +4045,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "last_seen_agent": row["last_seen_agent"] or "",
                     },
                     "activity": get_recent_activity(connection, user_id=row["id"], limit=25),
+                    "email_logs": get_user_email_logs(connection, row["id"], limit=20),
                     "assistant_stats": get_assistant_usage_stats(connection, row["id"]),
                     "subscription": get_subscription_snapshot(connection, row["id"]),
                     "registration_consent": {
@@ -3826,7 +4159,16 @@ class AppHandler(SimpleHTTPRequestHandler):
             connection.commit()
             user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             try:
-                send_registration_welcome_email(user)
+                email_meta = send_registration_welcome_email(user)
+                record_email_log(
+                    connection,
+                    user["id"],
+                    user["email"],
+                    email_meta.get("template_key"),
+                    email_meta.get("subject"),
+                    email_meta.get("body_text"),
+                    meta={"channel": "registration"},
+                )
             except Exception:
                 pass
             self.write_json(
@@ -3898,7 +4240,16 @@ class AppHandler(SimpleHTTPRequestHandler):
                 (user["id"], token_hash, format_timestamp(expires_at), format_timestamp(now)),
             )
             connection.commit()
-            send_reset_email(user["email"], user["name"], raw_token)
+            email_meta = send_reset_email(user["email"], user["name"], raw_token)
+            record_email_log(
+                connection,
+                user["id"],
+                user["email"],
+                email_meta.get("template_key"),
+                email_meta.get("subject"),
+                email_meta.get("body_text"),
+                meta={"channel": "password_reset"},
+            )
             log_activity(connection, "password_reset_requested", "Používateľ si vyžiadal obnovu hesla.", user["id"])
             self.write_json({"ok": True})
         except RuntimeError as exc:
@@ -4548,7 +4899,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 },
             )
             if not updated_membership.get("last_cancel_email_at"):
-                send_subscription_cancelled_email(
+                email_meta = send_subscription_cancelled_email(
                     user,
                     {
                         "access_until": format_timestamp(updated_membership.get("current_period_end")) if updated_membership.get("current_period_end") else "",
@@ -4556,6 +4907,15 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "internal_subscription_number": updated_membership.get("internal_subscription_number") or "",
                         "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or "",
                     },
+                )
+                record_email_log(
+                    connection,
+                    user["id"],
+                    user["email"],
+                    email_meta.get("template_key"),
+                    email_meta.get("subject"),
+                    email_meta.get("body_text"),
+                    meta={"channel": "subscription_cancelled"},
                 )
                 connection.execute(
                     "UPDATE memberships SET last_cancel_email_at = ?, updated_at = ? WHERE user_id = ?",
@@ -4637,7 +4997,16 @@ class AppHandler(SimpleHTTPRequestHandler):
                 "stripe_subscription_id": stripe_subscription_id,
             }
             try:
-                send_account_self_deleted_email(user, details)
+                email_meta = send_account_self_deleted_email(user, details)
+                record_email_log(
+                    connection,
+                    user["id"],
+                    user["email"],
+                    email_meta.get("template_key"),
+                    email_meta.get("subject"),
+                    email_meta.get("body_text"),
+                    meta={"channel": "account_deleted_self"},
+                )
             except Exception:
                 pass
 
@@ -4762,7 +5131,17 @@ class AppHandler(SimpleHTTPRequestHandler):
                     agent=get_request_agent(self),
                 )
                 try:
-                    send_account_deleted_email(target_email, target_name)
+                    email_meta = send_account_deleted_email(target_email, target_name)
+                    if email_meta:
+                        record_email_log(
+                            connection,
+                            user_id,
+                            target_email,
+                            email_meta.get("template_key"),
+                            email_meta.get("subject"),
+                            email_meta.get("body_text"),
+                            meta={"channel": "account_deleted_admin"},
+                        )
                 except Exception:
                     pass
             connection.commit()
@@ -5040,7 +5419,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         last_activation_email_at = membership_row.get("last_activation_email_at") or ""
                         already_notified = bool(last_activation_email_at) and membership_row.get("last_checkout_session_id") == session_id
                         if not already_notified:
-                            send_subscription_activated_email(
+                            email_meta = send_subscription_activated_email(
                                 user_row,
                                 {
                                     "price_label": "1,99 € / mesiac",
@@ -5051,6 +5430,15 @@ class AppHandler(SimpleHTTPRequestHandler):
                                     "stripe_subscription_id": updated_membership.get("stripe_subscription_id") or subscription_id,
                                     "stripe_payment_intent_id": payment_intent_id,
                                 },
+                            )
+                            record_email_log(
+                                connection,
+                                user_id,
+                                user_row["email"],
+                                email_meta.get("template_key"),
+                                email_meta.get("subject"),
+                                email_meta.get("body_text"),
+                                meta={"channel": "subscription_activated", "stripe_session_id": session_id},
                             )
                             connection.execute(
                                 "UPDATE memberships SET last_activation_email_at = ?, updated_at = ? WHERE user_id = ?",
