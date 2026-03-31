@@ -7,6 +7,7 @@ const crmState = {
   templates: [],
   selectedUserId: 0,
   userModalOpen: false,
+  userModalRequestId: 0,
   selectedTemplateKey: "",
   activeSection: "dashboard",
   refreshTimer: 0,
@@ -199,9 +200,13 @@ function renderCrmDashboardActions() {
   crmEls.crmDashboardActions.className = "crm-action-grid crm-action-grid--compact";
   crmEls.crmDashboardActions.innerHTML = [
     crmActionCard("Obnoviť celé CRM", "Načíta čerstvé dáta bez obnovy celej stránky.", "refresh"),
-    crmActionCard("Správa používateľov", "Rýchly prechod na účty, role a členstvá.", "users"),
+    crmActionCard("Nové registrácie", "Skontroluj nových používateľov, súhlasy a onboarding.", "users-filter-recent"),
+    crmActionCard("Neaktívne účty", "Rýchly pohľad na účty bez členstva alebo bez aktivity.", "users-filter-inactive"),
+    crmActionCard("Online teraz", "Otvor len účty, ktoré sú práve v systéme.", "users-filter-online"),
     crmActionCard("Billing a Stripe", "Skontroluj platby, zrušenia a synchronizácie.", "billing"),
-    crmActionCard("AI a monitoring", "Prejdi na AI používanie a systémové stavy.", "ai"),
+    crmActionCard("AI a používanie", "Pozri čo sa AI učí, čo používa a kde potrebuje zásah.", "ai"),
+    crmActionCard("Audit a história", "Skontroluj zásahy admina a citlivé udalosti v systéme.", "audit"),
+    crmActionCard("Nastavenia systému", "Uprav email šablóny, právne verzie a globálne pravidlá.", "settings"),
   ].join("");
   bindCrmAdminActionButtons(crmEls.crmDashboardActions);
 }
@@ -279,13 +284,21 @@ function renderCrmUserQuickActions() {
   if (!crmEls.crmUserQuickActions) {
     return;
   }
-  crmEls.crmUserQuickActions.className = "crm-inline-actions";
+  crmEls.crmUserQuickActions.className = "crm-ops-board";
   crmEls.crmUserQuickActions.innerHTML = `
-    <button class="button button--ghost" type="button" data-crm-quick-filter="all">Všetci</button>
-    <button class="button button--ghost" type="button" data-crm-quick-filter="active">Aktívne členstvá</button>
-    <button class="button button--ghost" type="button" data-crm-quick-filter="online">Online teraz</button>
-    <button class="button button--ghost" type="button" data-crm-quick-filter="admin">Admin účty</button>
-    <button class="button button--ghost" type="button" data-crm-users-refresh>Obnoviť dáta</button>
+    <div class="crm-ops-board__filters">
+      <button class="button button--ghost" type="button" data-crm-quick-filter="all">Všetci</button>
+      <button class="button button--ghost" type="button" data-crm-quick-filter="active">Aktívne členstvá</button>
+      <button class="button button--ghost" type="button" data-crm-quick-filter="online">Online teraz</button>
+      <button class="button button--ghost" type="button" data-crm-quick-filter="admin">Admin účty</button>
+      <button class="button button--ghost" type="button" data-crm-users-refresh>Obnoviť dáta</button>
+    </div>
+    <div class="crm-action-grid crm-action-grid--compact crm-ops-board__actions">
+      ${crmActionCard("Nové registrácie", "Zameraj sa na nových používateľov za posledné dni a ich súhlasy.", "users-filter-recent")}
+      ${crmActionCard("Neaktívne účty", "Rýchly pohľad na účty bez členstva alebo bez aktivity.", "users-filter-inactive")}
+      ${crmActionCard("Online používatelia", "Skontroluj, kto je teraz v aplikácii a pracuje naživo.", "users-filter-online")}
+      ${crmActionCard("Admin účty", "Pracuj len s internými správcovskými účtami.", "users-filter-admin")}
+    </div>
   `;
   crmEls.crmUserQuickActions.querySelectorAll("[data-crm-quick-filter]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -298,6 +311,7 @@ function renderCrmUserQuickActions() {
   crmEls.crmUserQuickActions.querySelector("[data-crm-users-refresh]")?.addEventListener("click", async () => {
     await refreshCrmData({ reopenUserId: crmState.userModalOpen ? (crmState.selectedUserId || 0) : 0, silent: true });
   });
+  bindCrmAdminActionButtons(crmEls.crmUserQuickActions);
 }
 
 function renderCrmBilling() {
@@ -390,6 +404,70 @@ function renderCrmAi() {
           </div>
         </section>
       </div>
+      <div class="crm-insight-grid crm-insight-grid--triple">
+        ${insightNoteCard(
+          "Z čoho AI čerpá",
+          sourcesCount ? `${sourcesCount} overovacích domén` : "Zdroje treba doplniť",
+          sourcesCount
+            ? `AI má k dispozícii ${sourcesCount} dôveryhodných zdrojov pre live overenie a odpovede.`
+            : "Bez dostatočného počtu trusted domains bude AI slabšia pri aktuálnych dátových témach.",
+          sourcesCount >= 5 ? "active" : "warning"
+        )}
+        ${insightNoteCard(
+          "Ako sa učí",
+          Number(aiThreads || 0) > 0 ? "Buduje kontext z reálnych chatov" : "Zatiaľ málo reálneho tréningu",
+          Number(aiThreads || 0) > 0
+            ? `Priemerné zaťaženie je ${avgMessagesPerThread} správ na vlákno a ${avgThreadsPerUser} vlákna na používateľa.`
+            : "Treba zvýšiť reálne používanie AI medzi používateľmi, aby mala stabilnejší pracovný kontext.",
+          Number(aiThreads || 0) > 0 ? "active" : "neutral"
+        )}
+        ${insightNoteCard(
+          "Čo má admin riešiť",
+          webUsageShare >= 35 ? "AI je v zdravom režime" : "Treba posilniť kvalitu odpovedí",
+          webUsageShare >= 35
+            ? "Stačí sledovať trusted domains, prompt verziu a prípadné odchýlky v témach."
+            : "Skontroluj prompt smerovanie, onboarding používateľov a frekvenciu webového overenia.",
+          webUsageShare >= 35 ? "active" : "warning"
+        )}
+      </div>
+      <section class="crm-insight-card crm-insight-card--primary">
+        <div class="crm-insight-card__head">
+          <h4>Čo sa AI učí a kam smeruje</h4>
+          ${statusPill(Number(stats.ai_active_users || 0) > 0 ? "Reálny prevádzkový vstup" : "Málo dát", Number(stats.ai_active_users || 0) > 0 ? "active" : "warning")}
+        </div>
+        <div class="crm-detail-list">
+          ${detailRow("Dominantné témy", aiEvents.length ? (crmState.overview?.users || []).flatMap((user) => ((user.ai_topics || []) || [])).slice(0, 6).join(", ") || "Financie, hypotéky, klientské odpovede" : "Zatiaľ bez stabilných tém")}
+          ${detailRow("Štýl práce", avgMessagesPerThread >= 4 ? "Dlhšie konzultácie a vysvetľovanie klientom" : "Krátke operatívne odpovede a follow-upy")}
+          ${detailRow("Odporúčaný zásah", webUsageShare >= 35 ? "Držať prompt verziu a kontrolovať trusted domains." : "Posilniť webové overovanie a AI onboarding v appke.")}
+          ${detailRow("Operátorský výstup", Number(stats.ai_messages || 0) > 0 ? "AI je pripravená na každodennú prácu používateľov." : "Treba zvýšiť využitie AI medzi používateľmi.")}
+        </div>
+      </section>
+      <div class="crm-insight-grid crm-insight-grid--triple">
+        ${insightNoteCard(
+          "Najsilnejší signál",
+          aiMessages > 0 ? "AI sa reálne používa v produkcii." : "AI zatiaľ nemá výrazné využitie.",
+          aiMessages > 0
+            ? "Odporúčanie: sleduj kvalitu odpovedí, top témy a či sa AI používa pri reálnych klientskych workflow."
+            : "Odporúčanie: skontroluj onboarding, CTA v appke a či používatelia vôbec vedia, že AI majú k dispozícii.",
+          aiMessages > 0 ? "active" : "warning"
+        )}
+        ${insightNoteCard(
+          "Pamäť a učenie",
+          Number(stats.ai_active_users || 0) > 0 ? "Máme dosť vstupov na učenie." : "Pamäť AI je zatiaľ slabá.",
+          Number(stats.ai_active_users || 0) > 0
+            ? "Sleduj relevanciu pamäte, dominantné témy a odchýlky medzi používateľmi."
+            : "Bez aktívnych používateľov nebude AI vedieť stavať užitočný pracovný kontext.",
+          Number(stats.ai_active_users || 0) > 0 ? "active" : "neutral"
+        )}
+        ${insightNoteCard(
+          "Admin odporúčanie",
+          webUsageShare >= 35 ? "Webové overenie sa používa zdravo." : "Webové overenie je nízke alebo nulové.",
+          webUsageShare >= 35
+            ? "Stačí dohliadať na trusted domains, prompt verziu a chybovosť odpovedí."
+            : "Skontroluj prompt smerovanie, trusted domains a či AI vie pri aktuálnych témach prepnúť na verejné overenie.",
+          webUsageShare >= 35 ? "active" : "warning"
+        )}
+      </div>
     `;
   }
 
@@ -478,50 +556,86 @@ function renderCrmSettings() {
   }
   crmEls.crmSettingsGrid.className = "crm-settings-list";
   crmEls.crmSettingsGrid.innerHTML = `
+    <section class="crm-settings-overview">
+      ${settingOverviewCard("Jadro", "Produkcia", "CRM beží nad živými používateľmi, billingom a AI vrstvou.", "active")}
+      ${settingOverviewCard("Stripe", crmState.meta?.billing?.stripe_enabled ? "Aktívny" : "Chýba", crmState.meta?.billing?.stripe_enabled ? "Platby a predplatné sú napojené." : "Treba skontrolovať Stripe konfiguráciu.", crmState.meta?.billing?.stripe_enabled ? "active" : "warning")}
+      ${settingOverviewCard("AI", crmState.meta?.ai?.model || "—", "Aktívny produkčný model a prompt verzia.", "admin")}
+      ${settingOverviewCard("Právny rámec", crmState.meta?.billing?.legal_version || "—", "Verzia podmienok a checkout súhlasu, ktorá sa dnes používa.", "neutral")}
+    </section>
+    <section class="crm-settings-workflows">
+      ${crmActionCard("Obnoviť metadáta", "Načíta čerstvé systémové, billing a AI údaje bez reloadu.", "refresh")}
+      ${crmActionCard("Skontrolovať billing", "Prejdi na subscription lifecycle, Stripe stavy a renewal dátumy.", "billing")}
+      ${crmActionCard("Skontrolovať AI vrstvu", "Otvor AI používanie, trusted domains a prompt verzie.", "ai")}
+      ${crmActionCard("Audit súhlasov", "Prejdi do audit trailu a skontroluj právne záznamy.", "audit")}
+    </section>
     <div class="crm-settings-columns">
-      <section class="crm-settings-card">
-        <div class="crm-settings-card__head">
-          <h4>Jadro aplikácie</h4>
-          <span class="status-pill status-pill--neutral">Produkcia</span>
-        </div>
-        <div class="crm-settings-rows">
-          ${settingRow("Support e-mail", crmState.meta?.crm?.support_email || "—", "Primárny kontakt pre podporu.")}
-          ${settingRow("App base URL", crmState.meta?.crm?.app_base_url || "—", "Verejná adresa aplikácie.", true)}
-          ${settingRow("CRM verzia", crmState.meta?.crm?.version || "—", "Aktuálne nasadená riadiaca vrstva.")}
-          ${settingRow("Stripe", crmState.meta?.billing?.stripe_enabled ? "Aktívny" : "Chýba", crmState.meta?.billing?.stripe_enabled ? "Billing provider je napojený." : "Skontroluj produkčný Stripe secret key.")}
-          ${settingRow("Price ID", crmState.meta?.billing?.price_id || "—", "Aktívny produkt pre členstvo.", true)}
-          ${settingRow("Právna verzia", crmState.meta?.billing?.legal_version || "—", "Verzia obchodných podmienok.")}
-          ${settingRow("Checkout verzia", crmState.meta?.billing?.checkout_consent_version || "—", "Verzia povinného checkout súhlasu.")}
-        </div>
-      </section>
-      <section class="crm-settings-card">
-        <div class="crm-settings-card__head">
-          <h4>AI a limity</h4>
-          <span class="status-pill ${crmState.meta?.ai?.web_search_enabled ? "status-pill--active" : "status-pill--warning"}">${crmState.meta?.ai?.web_search_enabled ? "Web overenie aktívne" : "Web overenie vypnuté"}</span>
-        </div>
-        <div class="crm-settings-rows">
-          ${settingRow("AI model", crmState.meta?.ai?.model || "—", "Produkčný model pre AI asistenta.")}
-          ${settingRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Aktívny prompt set.")}
-          ${settingRow("Max. request", `${crmState.meta?.limits?.max_request_body_mb || "—"} MB`, "Limit pre request body.")}
-          ${settingRow("Import kontaktov", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Maximálna veľkosť CSV/XLSX vstupu.")}
-          ${settingRow("Kompresia súborov", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "Maximálna veľkosť vstupu pre kompresiu.")}
-          ${settingRow("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "Maximálna veľkosť obrázka pre AI.", false)}
-        </div>
-      </section>
-      <section class="crm-settings-card">
-        <div class="crm-settings-card__head">
-          <h4>Prevádzka a kontrola</h4>
-          <span class="status-pill status-pill--neutral">Live</span>
-        </div>
-        <div class="crm-settings-rows">
-          ${settingRow("Posledná synchronizácia", formatDateTime(new Date().toISOString()), "Čas posledného načítania CRM dát.")}
-          ${settingRow("Email šablóny", String((crmState.templates || []).length), "Počet editovateľných šablón v systéme.")}
-          ${settingRow("Trusted domény", String((crmState.meta?.ai?.trusted_domains || []).length), "Zdroje pre AI webové overenie.")}
-          ${settingRow("Auto refresh", "Každých 60 sekúnd", "CRM sa obnovuje automaticky aj ručne.")}
-          ${settingRow("Admin nástroje", crmState.me?.can_manage_admin_tools ? "Rozšírené" : "Základné", "Úroveň dostupných zásahov pre aktuálny účet.")}
-          ${settingRow("Aktívna sekcia", crmSectionLabel(crmState.activeSection), "Pracovný kontext, v ktorom sa práve nachádzaš.")}
-        </div>
-      </section>
+      <div class="crm-settings-column">
+        <section class="crm-settings-card">
+          <div class="crm-settings-card__head">
+            <h4>Jadro aplikácie</h4>
+            <span class="status-pill status-pill--neutral">Produkcia</span>
+          </div>
+          <div class="crm-settings-rows">
+            ${settingRow("Support e-mail", crmState.meta?.crm?.support_email || "—", "Primárny kontakt pre podporu.")}
+            ${settingRow("App base URL", crmState.meta?.crm?.app_base_url || "—", "Verejná adresa aplikácie.", true)}
+            ${settingRow("CRM verzia", crmState.meta?.crm?.version || "—", "Aktuálne nasadená riadiaca vrstva.")}
+          </div>
+        </section>
+        <section class="crm-settings-card">
+          <div class="crm-settings-card__head">
+            <h4>Billing a právny rámec</h4>
+            <span class="status-pill ${crmState.meta?.billing?.stripe_enabled ? "status-pill--active" : "status-pill--warning"}">${crmState.meta?.billing?.stripe_enabled ? "Stripe aktívny" : "Stripe chýba"}</span>
+          </div>
+          <div class="crm-settings-rows">
+            ${settingRow("Stripe", crmState.meta?.billing?.stripe_enabled ? "Aktívny" : "Chýba", crmState.meta?.billing?.stripe_enabled ? "Billing provider je napojený." : "Skontroluj produkčný Stripe secret key.")}
+            ${settingRow("Price ID", crmState.meta?.billing?.price_id || "—", "Aktívny produkt pre členstvo.", true)}
+            ${settingRow("Právna verzia", crmState.meta?.billing?.legal_version || "—", "Verzia obchodných podmienok.")}
+            ${settingRow("Checkout verzia", crmState.meta?.billing?.checkout_consent_version || "—", "Verzia povinného checkout súhlasu.")}
+          </div>
+        </section>
+        <section class="crm-settings-card">
+          <div class="crm-settings-card__head">
+            <h4>Čo tu vieš spraviť</h4>
+            <span class="status-pill status-pill--admin">Operátor</span>
+          </div>
+          <div class="crm-settings-rows">
+            ${settingRow("Používatelia", "Filtrovať, otvárať detail, meniť roly a synchronizovať Stripe.", "Hlavná pracovná vrstva pre support a billing.")}
+            ${settingRow("AI vrstva", "Kontrolovať využitie, trusted domains a prompt verziu.", "Prehľad kvality a prevádzky AI.")}
+            ${settingRow("Monitoring", "Sledovať limity, incidenty a prevádzkové zdravie.", "Rýchly prehľad problémov.")}
+            ${settingRow("Emaily", "Upravovať šablóny, ktoré reálne odchádzajú klientom.", "Bez zásahu do backend logiky odoslania.")}
+          </div>
+        </section>
+      </div>
+      <div class="crm-settings-column">
+        <section class="crm-settings-card">
+          <div class="crm-settings-card__head">
+            <h4>AI a limity</h4>
+            <span class="status-pill ${crmState.meta?.ai?.web_search_enabled ? "status-pill--active" : "status-pill--warning"}">${crmState.meta?.ai?.web_search_enabled ? "Web overenie aktívne" : "Web overenie vypnuté"}</span>
+          </div>
+          <div class="crm-settings-rows">
+            ${settingRow("AI model", crmState.meta?.ai?.model || "—", "Produkčný model pre AI asistenta.")}
+            ${settingRow("Prompt verzia", crmState.meta?.ai?.prompt_version || "—", "Aktívny prompt set.")}
+            ${settingRow("Max. request", `${crmState.meta?.limits?.max_request_body_mb || "—"} MB`, "Limit pre request body.")}
+            ${settingRow("Import kontaktov", `${crmState.meta?.limits?.max_contact_file_mb || "—"} MB`, "Maximálna veľkosť CSV/XLSX vstupu.")}
+            ${settingRow("Kompresia súborov", `${crmState.meta?.limits?.max_compress_file_mb || "—"} MB`, "Maximálna veľkosť vstupu pre kompresiu.")}
+            ${settingRow("AI obrázky", `${crmState.meta?.limits?.max_ai_image_mb || "—"} MB`, "Maximálna veľkosť obrázka pre AI.", false)}
+          </div>
+        </section>
+        <section class="crm-settings-card">
+          <div class="crm-settings-card__head">
+            <h4>Prevádzka a kontrola</h4>
+            <span class="status-pill status-pill--neutral">Live</span>
+          </div>
+          <div class="crm-settings-rows">
+            ${settingRow("Posledná synchronizácia", formatDateTime(new Date().toISOString()), "Čas posledného načítania CRM dát.")}
+            ${settingRow("Email šablóny", String((crmState.templates || []).length), "Počet editovateľných šablón v systéme.")}
+            ${settingRow("Trusted domény", String((crmState.meta?.ai?.trusted_domains || []).length), "Zdroje pre AI webové overenie.")}
+            ${settingRow("Auto refresh", "Každých 60 sekúnd", "CRM sa obnovuje automaticky aj ručne.")}
+            ${settingRow("Admin nástroje", crmState.me?.can_manage_admin_tools ? "Rozšírené" : "Základné", "Úroveň dostupných zásahov pre aktuálny účet.")}
+            ${settingRow("Aktívna sekcia", crmSectionLabel(crmState.activeSection), "Pracovný kontext, v ktorom sa práve nachádzaš.")}
+          </div>
+        </section>
+      </div>
     </div>
     <section class="crm-settings-card crm-settings-card--domains">
       <div class="crm-settings-card__head">
@@ -535,6 +649,10 @@ function renderCrmSettings() {
       </div>
     </section>
   `;
+  const workflowRoot = crmEls.crmSettingsGrid.querySelector(".crm-settings-workflows");
+  if (workflowRoot) {
+    bindCrmAdminActionButtons(workflowRoot);
+  }
   renderCrmEmailTemplates();
 }
 
@@ -582,6 +700,21 @@ function bindCrmAdminActionButtons(scope) {
         window.open("/app.html", "_blank", "noopener");
         return;
       }
+      if (tool.startsWith("users-filter-")) {
+        const filterMap = {
+          "users-filter-recent": "recent",
+          "users-filter-inactive": "inactive",
+          "users-filter-online": "online",
+          "users-filter-admin": "admin",
+        };
+        if (crmEls.crmUserFilter) {
+          crmEls.crmUserFilter.value = filterMap[tool] || "all";
+        }
+        activateCrmSection("users");
+        renderCrmUsers();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
       activateCrmSection(tool);
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -605,7 +738,7 @@ function renderCrmEmailTemplates() {
   crmEls.crmEmailTemplateList.innerHTML = `
     <div class="crm-template-list__meta">
       <strong>${escapeHtml(String(templates.length))} šablón</strong>
-      <span>Vyber si vzor a uprav predmet aj telo bez zásahu do logiky odosielania.</span>
+      <span>Vyber si vzor, uprav predmet a telo a hneď vidíš, čo sa odosiela klientovi.</span>
     </div>
     ${templates.map((template) => `
       <button
@@ -615,6 +748,7 @@ function renderCrmEmailTemplates() {
       >
         <strong>${escapeHtml(template.label || template.template_key)}</strong>
         <span>${escapeHtml(template.subject_template || "")}</span>
+        <small>${escapeHtml(truncateText(template.body_template || "", 120))}</small>
       </button>
     `).join("")}
   `;
@@ -636,6 +770,10 @@ function renderCrmEmailTemplates() {
         <p>Napojené na reálne odosielané emaily. Zmeny sa použijú pri ďalšom odoslaní.</p>
       </div>
       <span class="status-pill status-pill--neutral mono">${escapeHtml(selected.template_key)}</span>
+    </div>
+    <div class="crm-template-preview-strip">
+      <span class="status-pill status-pill--admin">Live šablóna</span>
+      <span class="status-pill status-pill--neutral">Predmet aj telo sa ukladajú okamžite po potvrdení</span>
     </div>
     <label class="crm-template-field">
       <span>Predmet</span>
@@ -680,13 +818,20 @@ async function openCrmUserDetail(userId) {
   }
   crmState.selectedUserId = userId;
   crmState.userModalOpen = true;
+  const requestId = ++crmState.userModalRequestId;
   crmEls.crmUserModal.hidden = false;
   crmEls.crmUserModalBody.className = "crm-empty";
   crmEls.crmUserModalBody.textContent = "Načítavam detail používateľa...";
   try {
     const payload = await crmFetch(`/api/admin/user-detail?user_id=${encodeURIComponent(String(userId))}`);
+    if (!crmState.userModalOpen || crmState.selectedUserId !== userId || crmState.userModalRequestId !== requestId) {
+      return;
+    }
     renderCrmUserModal(payload);
   } catch (error) {
+    if (!crmState.userModalOpen || crmState.selectedUserId !== userId || crmState.userModalRequestId !== requestId) {
+      return;
+    }
     crmEls.crmUserModalBody.className = "crm-empty";
     crmEls.crmUserModalBody.textContent = normalizeCrmError(error?.message || "Detail používateľa sa nepodarilo načítať.");
   }
@@ -698,6 +843,7 @@ function closeCrmUserModal() {
   }
   crmState.userModalOpen = false;
   crmState.selectedUserId = 0;
+  crmState.userModalRequestId += 1;
 }
 
 function renderCrmUserModal(payload) {
@@ -720,14 +866,65 @@ function renderCrmUserModal(payload) {
             <h2 class="crm-modal__title">${escapeHtml(user.name || "Používateľ")}</h2>
             <p class="crm-modal__subtitle">${escapeHtml(user.email || "")}</p>
           </div>
+          <div class="crm-profile-facts">
+            <span class="crm-profile-fact crm-profile-fact--soft">
+              <strong>Účet</strong>
+              <span>${escapeHtml(user.role === "admin" ? "Admin používateľ" : "Bežný používateľ")}</span>
+            </span>
+            <span class="crm-profile-fact crm-profile-fact--active">
+              <strong>Členstvo</strong>
+              <span>${escapeHtml(membershipState === "active" ? `Aktívne do ${formatDate(subscription.valid_until || user.membership_valid_until) || "bez dátumu"}` : membershipState === "cancelled" ? "Zrušené, ale ešte aktívne do konca obdobia" : "Bez aktívneho prístupu")}</span>
+            </span>
+            <span class="crm-profile-fact crm-profile-fact--warning">
+              <strong>Billing</strong>
+              <span>${escapeHtml(subscription.stripe_subscription_id ? "Stripe prepojený a dohľadateľný" : "Bez Stripe väzby alebo ešte nesynchronizované")}</span>
+            </span>
+            <span class="crm-profile-fact crm-profile-fact--admin">
+              <strong>AI využitie</strong>
+              <span>${escapeHtml(`${Number(ai.message_count || 0)} správ v ${Number(ai.thread_count || 0)} vláknach`)}</span>
+            </span>
+          </div>
+          <div class="crm-operator-status-board">
+            <article class="crm-operator-status-card crm-operator-status-card--identity">
+              <span>Pracovný profil</span>
+              <strong>${escapeHtml(user.role === "admin" ? "Interný správca systému" : "Koncový používateľ služby")}</strong>
+              <small>${escapeHtml(user.is_online ? "Aktuálne pracuje v systéme" : "Momentálne nie je online")}</small>
+            </article>
+            <article class="crm-operator-status-card crm-operator-status-card--billing">
+              <span>Billing vrstva</span>
+              <strong>${escapeHtml(subscription.stripe_subscription_id ? "Stripe prepojený" : "Bez Stripe väzby")}</strong>
+              <small>${escapeHtml(subscription.stripe_status || "Čaká na synchronizáciu alebo bez billing záznamu")}</small>
+            </article>
+            <article class="crm-operator-status-card crm-operator-status-card--ai">
+              <span>AI využitie</span>
+              <strong>${escapeHtml(Number(ai.message_count || 0) > 0 ? "AI pracuje s dátami používateľa" : "AI profil je zatiaľ slabý")}</strong>
+              <small>${escapeHtml((ai.topics || []).slice(0, 3).join(", ") || "Bez stabilných tém")}</small>
+            </article>
+          </div>
+          <div class="crm-operator-strip">
+            ${operatorStripItem("Rola", user.role === "admin" ? "Admin účet" : "Používateľský účet", user.role === "admin" ? "admin" : "neutral")}
+            ${operatorStripItem("Členstvo", membershipState === "active" ? "Aktívne" : membershipState === "cancelled" ? "Dobieha" : "Neaktívne", membershipState === "active" ? "active" : membershipState === "cancelled" ? "warning" : "inactive")}
+            ${operatorStripItem("Billing", subscription.stripe_subscription_id ? "Stripe prepojený" : "Bez Stripe väzby", subscription.stripe_subscription_id ? "active" : "warning")}
+            ${operatorStripItem("AI profil", Number(ai.message_count || 0) > 0 ? "Používa AI v praxi" : "AI bez aktivity", Number(ai.message_count || 0) > 0 ? "active" : "neutral")}
+            ${operatorStripItem("Súhlasy", registrationConsent.created_at && checkoutConsent.created_at ? "Zaevidované" : "Treba preveriť", registrationConsent.created_at && checkoutConsent.created_at ? "active" : "warning")}
+            ${operatorStripItem("Posledný pohyb", formatDateTime(user.last_seen_at || user.last_login_at), user.is_online ? "active" : "neutral")}
+          </div>
           <div class="crm-operator-hero__meta">
             <div class="crm-operator-badge">
               <strong>Pracovný stav</strong>
-              <span>${user.is_online ? "Používateľ je práve online a v aktívnej session." : "Používateľ je offline, detail je z poslednej známej aktivity."}</span>
+              <span>${user.is_online ? "Online session aktívna" : "Používateľ je momentálne offline"}</span>
             </div>
             <div class="crm-operator-badge">
               <strong>Billing vrstva</strong>
-              <span>${subscription.stripe_subscription_id ? "Stripe väzba je pripojená a pripravená na kontrolu." : "Stripe väzba zatiaľ nie je pripojená alebo ešte nebola vytvorená."}</span>
+              <span>${subscription.stripe_subscription_id ? "Stripe väzba je aktívna" : "Stripe väzba zatiaľ chýba"}</span>
+            </div>
+            <div class="crm-operator-badge">
+              <strong>AI režim</strong>
+              <span>${Number(ai.message_count || 0) > 0 ? "AI sa používa v praxi" : "AI zatiaľ bez aktivity"}</span>
+            </div>
+            <div class="crm-operator-badge">
+              <strong>Právny log</strong>
+              <span>${registrationConsent.created_at && checkoutConsent.created_at ? "Súhlasy sú kompletne zaevidované" : "Treba preveriť consent logy"}</span>
             </div>
           </div>
         </div>
@@ -746,12 +943,41 @@ function renderCrmUserModal(payload) {
     </div>
 
     <div class="crm-user-summary">
-      ${miniMetricCard("Účet", user.role === "admin" ? "Admin" : "Používateľ", user.is_online ? "Práve online" : "Momentálne offline", user.role === "admin" ? "admin" : "neutral")}
+      ${miniMetricCard("Účet", user.role === "admin" ? "Admin účet" : "Používateľ", user.is_online ? "Práve online" : "Momentálne offline", user.role === "admin" ? "admin" : "neutral")}
       ${miniMetricCard("Členstvo", membershipState === "active" ? "Aktívne" : membershipState === "cancelled" ? "Dobieha" : "Neaktívne", formatDate(subscription.valid_until || user.membership_valid_until) || "Bez dátumu", membershipState === "active" ? "active" : membershipState === "cancelled" ? "warning" : "inactive")}
       ${miniMetricCard("Billing", subscription.stripe_status || "Bez Stripe stavu", subscription.stripe_subscription_id ? "Stripe pripojený" : "Bez napojenia", subscription.stripe_subscription_id ? "active" : "warning")}
       ${miniMetricCard("AI používanie", `${Number(ai.message_count || 0)} správ`, `${Number(ai.thread_count || 0)} vlákien`, Number(ai.message_count || 0) > 0 ? "active" : "neutral")}
       ${miniMetricCard("Súhlasy", registrationConsent.created_at ? "Zaevidované" : "Chýbajú", registrationConsent.marketing_consent ? "Marketing áno" : "Marketing nie", registrationConsent.created_at ? "active" : "warning")}
       ${miniMetricCard("Posledná aktivita", formatDateTime(user.last_seen_at || user.last_login_at), user.last_seen_ip || "Bez IP", user.is_online ? "active" : "neutral")}
+    </div>
+
+    <div class="crm-insight-grid crm-insight-grid--triple crm-user-insights">
+      ${insightNoteCard(
+        "Operátorský pohľad",
+        membershipState === "active" ? "Používateľ je odomknutý a pripravený pracovať." : membershipState === "cancelled" ? "Predplatné je zrušené, ale prístup ešte dobieha." : "Používateľ nemá aktívny platený prístup.",
+        membershipState === "active"
+          ? "Môžeš kontrolovať AI využitie, billing stav a prípadné problémy s aktivitou."
+          : membershipState === "cancelled"
+            ? "Sleduj koniec obdobia a billing komunikáciu pred expirácou."
+            : "Ak má mať prístup, skontroluj checkout súhlas, Stripe väzbu a manuálnu synchronizáciu.",
+        membershipState === "active" ? "active" : membershipState === "cancelled" ? "warning" : "inactive"
+      )}
+      ${insightNoteCard(
+        "AI pracovný profil",
+        Number(ai.message_count || 0) > 0 ? "AI sa používa na reálnu prácu." : "Používateľ AI zatiaľ skoro nevyužíva.",
+        Number(ai.message_count || 0) > 0
+          ? `Najsilnejšie témy: ${((ai.topics || []).slice(0, 3)).join(", ") || "bez tém"}.`
+          : "Ak je členstvo aktívne a AI sa nevyužíva, odporúča sa onboarding alebo kontrola UX v aplikácii.",
+        Number(ai.message_count || 0) > 0 ? "active" : "neutral"
+      )}
+      ${insightNoteCard(
+        "Právny a billing stav",
+        checkoutConsent.created_at && registrationConsent.created_at ? "Súhlasy sú záznamovo pokryté." : "Chýba časť dôkaznej stopy.",
+        subscription.stripe_subscription_id
+          ? "Stripe identifikátor je prítomný a billing sa dá dohľadať."
+          : "Bez Stripe väzby sa oplatí preveriť checkout alebo manuálnu synchronizáciu.",
+        checkoutConsent.created_at && registrationConsent.created_at ? "active" : "warning"
+      )}
     </div>
 
     <div class="crm-modal-grid crm-modal-grid--two">
@@ -822,20 +1048,34 @@ function renderCrmUserModal(payload) {
           ${detailRow("Web overenia", String(ai.web_count || 0))}
           ${detailRow("Témy", (ai.topics || []).join(", ") || "—")}
         </div>
+        <div class="crm-ai-readout">
+          <div class="crm-ai-readout__item">
+            <strong>Čo sa AI učí</strong>
+            <span>${escapeHtml((ai.topics || []).length ? `Najčastejšie témy: ${(ai.topics || []).slice(0, 4).join(", ")}.` : "Zatiaľ sa nevytvorili stabilné tematické vzory.")}</span>
+          </div>
+          <div class="crm-ai-readout__item">
+            <strong>Ako AI pracuje</strong>
+            <span>${escapeHtml(Number(ai.web_count || 0) > 0 ? "Pri odpovediach využíva aj webové overenie a externé zdroje." : "Zatiaľ sa opiera hlavne o interný kontext a históriu používateľa.")}</span>
+          </div>
+          <div class="crm-ai-readout__item">
+            <strong>Admin odporúčanie</strong>
+            <span>${escapeHtml(Number(ai.relevance_percent || 0) >= 60 ? "Pamäť AI je dostatočne stabilná pre opakované workflow použitie." : "Oplatí sa podporiť konzistentnejšie používanie AI, aby sa profil používateľa stabilizoval.")}</span>
+          </div>
+        </div>
         <p class="crm-kpi-note">Fokus = dominantná pracovná oblasť používateľa. Relevancia pamäte ukazuje, nakoľko sa AI opiera o doterajší kontext používateľa.</p>
       </section>
     </div>
 
     <section class="crm-detail-card" style="margin-top:18px;">
       <h4>Email log</h4>
-      <div class="activity-list">
+      <div class="activity-list crm-email-log-list">
         ${(payload.email_logs || []).length ? (payload.email_logs || []).map((item) => `
-          <article class="activity-card">
+          <article class="activity-card crm-email-log-card">
             <div class="activity-card__head">
               <h4>${escapeHtml(item.subject || item.template_key || "Email")}</h4>
               <span>${escapeHtml(formatDateTime(item.created_at))}</span>
             </div>
-            <div class="crm-chip-list" style="margin-bottom:10px;">
+            <div class="crm-chip-list crm-email-log-card__chips">
               <span class="status-pill status-pill--neutral mono">${escapeHtml(item.template_key || "manual")}</span>
               <span class="status-pill ${String(item.send_status || "sent") === "sent" ? "status-pill--active" : "status-pill--warning"}">${escapeHtml(item.send_status || "sent")}</span>
               <span class="status-pill status-pill--neutral mono">${escapeHtml(item.email || "—")}</span>
@@ -847,13 +1087,19 @@ function renderCrmUserModal(payload) {
     </section>
 
     ${canManage ? `
-      <div class="crm-actions">
-        <button class="button button--ghost" type="button" data-crm-admin-action="deactivate" data-user-id="${user.id}">Deaktivovať účet</button>
-        <button class="button button--ghost admin-action--danger" type="button" data-crm-admin-action="delete_account" data-user-id="${user.id}">Vymazať účet</button>
-        <button class="button button--ghost" type="button" data-crm-admin-role="${user.role === "admin" ? "user" : "admin"}" data-user-id="${user.id}">${user.role === "admin" ? "Nastaviť ako používateľ" : "Nastaviť ako admin"}</button>
-        <button class="button button--ghost" type="button" data-crm-force-sync data-user-id="${user.id}">Vynútiť Stripe sync</button>
-        <button class="button button--ghost" type="button" data-crm-memory-reset data-user-id="${user.id}">Vymazať AI pamäť</button>
-      </div>
+      <section class="crm-detail-card crm-detail-card--operator-actions">
+        <div class="crm-detail-card__head">
+          <h4>Operátorské workflow</h4>
+          <span class="crm-detail-card__note">Citlivé zásahy sú auditované a spätne dohľadateľné.</span>
+        </div>
+        <div class="crm-action-grid crm-action-grid--compact crm-operator-workflows">
+          ${crmUserWorkflowCard("Deaktivovať účet", "Zablokuje prístup a ukončí členstvo používateľa.", "deactivate", user.id)}
+          ${crmUserWorkflowCard("Vymazať účet", "Finálne odstráni účet a odošle emailové upozornenie.", "delete_account", user.id, true)}
+          ${crmUserWorkflowCard(user.role === "admin" ? "Znížiť na používateľa" : "Povoliť admin rolu", "Zmena práv používateľa v rámci systému.", "role", user.id)}
+          ${crmUserWorkflowCard("Vynútiť Stripe sync", "Okamžite zosynchronizuje billing stav zo Stripe.", "sync", user.id)}
+          ${crmUserWorkflowCard("Vymazať AI pamäť", "Resetuje naučený kontext AI používateľa.", "memory", user.id)}
+        </div>
+      </section>
       <p class="crm-kpi-note">Citlivé akcie sú logované do audit trailu. Zmeny rolí, Stripe sync aj zásahy do AI pamäte ostávajú dohľadateľné.</p>
     ` : ""}
 
@@ -876,6 +1122,21 @@ function renderCrmUserModal(payload) {
   });
   crmEls.crmUserModalBody.querySelectorAll("[data-crm-memory-reset]").forEach((button) => {
     button.addEventListener("click", () => submitCrmAssistantMemoryReset(Number(button.dataset.userId || 0)));
+  });
+  crmEls.crmUserModalBody.querySelectorAll("[data-crm-user-workflow]").forEach((button) => {
+    const action = button.dataset.crmUserWorkflow || "";
+    const workflowUserId = Number(button.dataset.userId || 0);
+    button.addEventListener("click", () => {
+      if (action === "sync") {
+        submitCrmForceSync(workflowUserId);
+      } else if (action === "memory") {
+        submitCrmAssistantMemoryReset(workflowUserId);
+      } else if (action === "role") {
+        submitCrmRoleUpdate(workflowUserId, user.role === "admin" ? "user" : "admin");
+      } else {
+        submitCrmMembershipAction(workflowUserId, action);
+      }
+    });
   });
 }
 
@@ -952,9 +1213,9 @@ async function refreshCrmData({ reopenUserId = 0, silent = false } = {}) {
   crmState.meta = meta || crmState.meta;
   crmState.lastLoadedAt = Date.now();
   renderCrmAll();
-  if (crmState.userModalOpen && reopenUserId) {
+  if (crmState.userModalOpen && reopenUserId && crmState.selectedUserId === reopenUserId) {
     await openCrmUserDetail(reopenUserId);
-  } else {
+  } else if (!crmState.userModalOpen) {
     closeCrmUserModal();
   }
   if (!silent && crmEls.crmSettingsSyncMeta) {
@@ -965,10 +1226,17 @@ async function refreshCrmData({ reopenUserId = 0, silent = false } = {}) {
 function getFilteredCrmUsers() {
   const query = String(crmEls.crmUserSearch?.value || "").trim().toLowerCase();
   const filter = String(crmEls.crmUserFilter?.value || "all");
+  const recentThreshold = Date.now() - (30 * 24 * 3600 * 1000);
   return (crmState.overview?.users || []).filter((user) => {
     const haystack = `${user.name || ""} ${user.email || ""}`.toLowerCase();
     if (query && !haystack.includes(query)) {
       return false;
+    }
+    if (filter === "recent") {
+      const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0;
+      if (!createdAt || createdAt < recentThreshold) {
+        return false;
+      }
     }
     if (filter === "active" && user.membership_status !== "active") {
       return false;
@@ -1167,6 +1435,54 @@ function miniMetricCard(label, value, hint, tone = "neutral") {
       <strong>${escapeHtml(String(value || "—"))}</strong>
       <small>${escapeHtml(hint || "")}</small>
     </article>
+  `;
+}
+
+function insightNoteCard(title, value, hint, tone = "neutral") {
+  return `
+    <article class="crm-insight-card crm-insight-card--${escapeHtml(tone)}">
+      <div class="crm-insight-card__head">
+        <h4>${escapeHtml(title)}</h4>
+        ${statusPill(
+          tone === "active" ? "OK" : tone === "warning" ? "Pozor" : tone === "inactive" ? "Riziko" : tone === "admin" ? "Admin" : "Info",
+          tone === "inactive" ? "inactive" : tone
+        )}
+      </div>
+      <strong class="crm-insight-card__value">${escapeHtml(String(value || "—"))}</strong>
+      <p class="crm-insight-card__hint">${escapeHtml(hint || "")}</p>
+    </article>
+  `;
+}
+
+function settingOverviewCard(label, value, hint, tone = "neutral") {
+  return `
+    <article class="crm-settings-overview-card crm-settings-overview-card--${escapeHtml(tone)}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value || "—"))}</strong>
+      <small>${escapeHtml(hint || "")}</small>
+    </article>
+  `;
+}
+
+function operatorStripItem(label, value, tone = "neutral") {
+  return `
+    <div class="crm-operator-strip__item crm-operator-strip__item--${escapeHtml(tone)}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value || "—"))}</strong>
+      ${statusPill(
+        tone === "active" ? "OK" : tone === "warning" ? "Pozor" : tone === "inactive" ? "Riziko" : tone === "admin" ? "Admin" : "Info",
+        tone === "inactive" ? "inactive" : tone
+      )}
+    </div>
+  `;
+}
+
+function crmUserWorkflowCard(title, text, action, userId, danger = false) {
+  return `
+    <button class="crm-action-card ${danger ? "crm-action-card--danger" : ""}" type="button" data-crm-user-workflow="${escapeHtml(action)}" data-user-id="${escapeHtml(String(userId))}">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(text)}</span>
+    </button>
   `;
 }
 
