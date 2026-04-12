@@ -43,8 +43,12 @@ SESSION_TTL_SECONDS = 60 * 60
 PASSWORD_ITERATIONS = 200_000
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
-STRIPE_PRICE_ID = os.environ.get("STRIPE_PRICE_ID", "").strip()
-DEFAULT_STRIPE_PRICE_ID = os.environ.get("DEFAULT_STRIPE_PRICE_ID", "price_1TG0m1JJsHlQYfgdgMnHLJ8r").strip()
+STRIPE_PRICE_ID = (
+    os.environ.get("STRIPE_PRICE_ID", "").strip()
+    or os.environ.get("STRIPE_PRICE_ID_BASIC", "").strip()
+)
+# Voliteľný posledný fallback, ak STRIPE_PRICE_ID chýba alebo nie je platný tvar price_...
+DEFAULT_STRIPE_PRICE_ID = os.environ.get("DEFAULT_STRIPE_PRICE_ID", "").strip()
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://unifyo.online").strip()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini").strip() or "gpt-5-mini"

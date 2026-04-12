@@ -1427,16 +1427,44 @@ function renderMessageContent(message, index) {
   `;
 }
 
+function safeUrlForHref(raw) {
+  const value = String(raw || "").trim();
+  if (!value) {
+    return "";
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}
+
 function formatInlineText(value) {
   let formatted = escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   formatted = formatted.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
   formatted = formatted.replace(
     /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-    (_match, label, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    (_match, label, url) => {
+      const safe = safeUrlForHref(url);
+      if (!safe) {
+        return `[${label}](${escapeHtml(url)})`;
+      }
+      return `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    }
   );
   formatted = formatted.replace(
     /(^|[\s>])(https?:\/\/[^\s<]+)/g,
-    (_match, prefix, url) => `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
+    (_match, prefix, url) => {
+      const safe = safeUrlForHref(url);
+      if (!safe) {
+        return _match;
+      }
+      return `${prefix}<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(safe)}</a>`;
+    }
   );
   return formatted;
 }

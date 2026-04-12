@@ -1,6 +1,25 @@
 .DS_Store
+Thumbs.db
 __pycache__/
 *.pyc
+*.bak
+server.py.save
 output/
+examples/
 kontakt-merge-web.zip
 app.db
+
+# Netlify CLI (lokálny stav)
+.netlify/state.json
+
+# Subprojekty a lokálne pomocné skripty
+financial-agent-mvp/
+financial-agent-desktop/
+iphone-tap-game-app/
+iphone-vizitka-app/
+mobile-vizitka-app/
+pdf_compressor.swift
+start.sh
+package-web.sh
+ai_chat_server.py
+ai_server.py

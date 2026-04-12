@@ -1,12 +1,12 @@
 {
-  "name": "Kontakt Merge",
-  "short_name": "Kontakty",
+  "name": "Unifyo",
+  "short_name": "Unifyo",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f4efe6",
-  "theme_color": "#113946",
+  "background_color": "#09090b",
+  "theme_color": "#8b5cf6",
   "lang": "sk",
-  "description": "Porovnanie a zlúčenie viacerých databáz kontaktov bez duplicít.",
+  "description": "AI pracovný priestor: kontakty, kompresia súborov, asistent a ďalšie nástroje.",
   "icons": [
     {
       "src": "icons/app-icon.svg",
