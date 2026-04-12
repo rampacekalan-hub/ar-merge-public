@@ -360,10 +360,8 @@ async function bootstrap() {
   disableServiceWorkers();
   state.mode = getModeFromUrl();
   renderMode();
-  await refreshCurrentUser();
-  if (window.location.pathname.endsWith("/admin.html")) {
-    openAdminPanel();
-  }
+  /* Dôležité: poslucháče musia byť zaregistrované pred await na /api/me — inak pri pomalom API
+     nefungujú tlačidlá „Účet“ / prihlásenie. */
   elements.fileInput?.addEventListener("change", handleFileSelection);
   elements.uploadBox?.addEventListener("click", handleUploadBoxClick);
   elements.uploadBox?.addEventListener("dragover", handleUploadDragOver);
@@ -375,7 +373,7 @@ async function bootstrap() {
       openAccountPanel();
       return;
     }
-    openAuthModal("login");
+    openAuthModal("register");
   });
   elements.accountMenuBtn?.addEventListener("click", () => {
     closeSidebar();
@@ -383,7 +381,7 @@ async function bootstrap() {
       openAccountPanel();
       return;
     }
-    openAuthModal("login");
+    openAuthModal("register");
   });
   elements.adminMenuBtn?.addEventListener("click", () => {
     closeSidebar();
@@ -506,6 +504,23 @@ async function bootstrap() {
       window.alert(`XLSX export zlyhal: ${error.message}`);
     }
   });
+  document.querySelectorAll("[data-open-auth]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      event.preventDefault();
+      const mode = el.getAttribute("data-open-auth") === "login" ? "login" : "register";
+      openAuthModal(mode);
+    });
+  });
+  document.querySelectorAll("[data-open-checkout]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      event.preventDefault();
+      startCheckoutFlow();
+    });
+  });
+  await refreshCurrentUser();
+  if (window.location.pathname.endsWith("/admin.html")) {
+    openAdminPanel();
+  }
   maybeOpenPromoModal();
   syncSidebarCollapse();
   renderAccessState();
@@ -614,6 +629,10 @@ function renderAccessState() {
   }
   if (elements.accountMenuBtn) {
     elements.accountMenuBtn.textContent = isLoggedIn ? tr("Účet a nastavenia", "Account and settings") : tr("Prihlásiť sa / Registrovať", "Sign in / Register");
+  }
+  const guestOnboarding = document.getElementById("guestOnboarding");
+  if (guestOnboarding) {
+    guestOnboarding.hidden = isLoggedIn;
   }
   if (elements.adminMenuBtn) {
     elements.adminMenuBtn.classList.toggle("is-hidden", !isAdmin);
@@ -1113,7 +1132,10 @@ async function refreshCurrentUser() {
   let response;
   let payload;
   try {
-    response = await appFetch("/api/me");
+    const controller = new AbortController();
+    const kill = window.setTimeout(() => controller.abort(), 15000);
+    response = await appFetch("/api/me", { signal: controller.signal });
+    window.clearTimeout(kill);
     payload = await response.json();
     state.user = payload.user;
   } catch (_error) {

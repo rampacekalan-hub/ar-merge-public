@@ -90,6 +90,21 @@
           <div class="workspace-header__summary">
             <p class="section-kicker">UNIFYO APLIKÁCIA</p>
             <p id="accountStatus" class="workspace-header__status">Vytvor si účet, aktivuj členstvo a odomkni čistenie kontaktov, kompresiu súborov aj AI asistenta.</p>
+            <div id="guestOnboarding" class="guest-onboarding" hidden>
+              <p class="guest-onboarding__title">Ako začať (3 kroky)</p>
+              <ol class="guest-onboarding__list">
+                <li>
+                  <strong>Účet:</strong> tlačidlo <em>Prihlásiť sa</em> hore vpravo, alebo vľavo v menu sekcia <em>Účet</em> → <em>Prihlásiť sa / Registrovať</em>.
+                  <button type="button" class="guest-onboarding__btn" data-open-auth="register">Otvoriť registráciu</button>
+                  <button type="button" class="guest-onboarding__btn guest-onboarding__btn--ghost" data-open-auth="login">Už mám účet</button>
+                </li>
+                <li>
+                  <strong>Členstvo:</strong> po prihlásení stlač <em>Aktivovať členstvo</em>, alebo si pozri <a href="/pricing.html">cenník</a>.
+                  <button type="button" class="guest-onboarding__btn" data-open-checkout>Aktivovať členstvo</button>
+                </li>
+                <li><strong>Používanie:</strong> vyber si nižšie Kontakty, Súbory alebo AI — plné funkcie sú po aktivácii členstva.</li>
+              </ol>
+            </div>
           </div>
         </div>
       </header>
